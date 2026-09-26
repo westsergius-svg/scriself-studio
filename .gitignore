@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Build / dist artifacts (not part of 1.1.3.3S source)
+build/
+dist/
+dist_upd/
+dist_v2/
+*.spec
+*.exe
+*.msi
+*.dll
+*.app/
+*.appImage
+
+# Cache / DB
+.cache/
+*.db
+*.sqlite3
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
+!docs/*.log
+
+# Working update manifest
+latest.json
+
+# Other branches / unrelated projects
+1.2/
+_verst/
