@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>ScriSelfStudio.Presentation</RootNamespace>
+    <IsUiProject>true</IsUiProject>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ScriSelfStudio.Core\ScriSelfStudio.Core.csproj" />
+    <ProjectReference Include="..\ScriSelfStudio.Contracts\ScriSelfStudio.Contracts.csproj" />
+  </ItemGroup>
+</Project>

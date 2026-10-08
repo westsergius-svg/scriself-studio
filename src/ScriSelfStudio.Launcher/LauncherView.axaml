@@ -1,0 +1,425 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:launcher="clr-namespace:ScriSelfStudio.Launcher"
+             x:Class="ScriSelfStudio.Launcher.LauncherView"
+             x:DataType="launcher:LauncherViewModel">
+  <UserControl.Styles>
+    <!-- Панели макета: центральный список и «Контекст проекта». -->
+    <Style Selector="Border.panel">
+      <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="14" />
+      <Setter Property="Padding" Value="22" />
+    </Style>
+
+    <!-- Левая навигация макета. -->
+    <Style Selector="TextBlock.railGlyph">
+      <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
+      <Setter Property="FontSize" Value="15" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBlock.railLabel">
+      <Setter Property="FontSize" Value="14" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Margin" Value="12,0" />
+      <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+    <Style Selector="TextBlock.railCount">
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Foreground" Value="{DynamicResource SidebarSubTextBrush}" />
+    </Style>
+    <Style Selector="Button.railItem">
+      <Setter Property="Height" Value="44" />
+      <Setter Property="Padding" Value="18,0" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="3,0,0,0" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="FontSize" Value="14" />
+    </Style>
+    <Style Selector="Button.railItem /template/ ContentPresenter">
+      <Setter Property="TextBlock.Foreground" Value="{DynamicResource SidebarTextBrush}" />
+    </Style>
+    <Style Selector="Button.railItem:pointerover /template/ ContentPresenter">
+      <Setter Property="TextBlock.Foreground" Value="{DynamicResource SidebarActiveTextBrush}" />
+      <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+    </Style>
+    <Style Selector="Button.railItem.active">
+      <Setter Property="BorderBrush" Value="{DynamicResource ActiveAccentBrush}" />
+      <Setter Property="Background" Value="{DynamicResource SurfaceSelectedBrush}" />
+    </Style>
+    <Style Selector="Button.railItem.active /template/ ContentPresenter">
+      <Setter Property="TextBlock.Foreground" Value="{DynamicResource ActiveAccentBrush}" />
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+
+    <!-- Заголовок и поиск центральной панели. -->
+    <Style Selector="TextBlock.launcherTitle">
+      <Setter Property="FontFamily" Value="Georgia" />
+      <Setter Property="FontSize" Value="30" />
+      <Setter Property="Foreground" Value="{DynamicResource HeadingBrush}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBox.search">
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Padding" Value="10,8" />
+      <Setter Property="MinWidth" Value="230" />
+      <Setter Property="Background" Value="{DynamicResource SurfaceFieldBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.hollow">
+      <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource HeadingBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Padding" Value="15,9" />
+      <Setter Property="FontSize" Value="12" />
+    </Style>
+    <Style Selector="Button.hollow:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+    </Style>
+
+    <!-- Карточка проекта в списке. -->
+    <Style Selector="ListBox.projects">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="0" />
+    </Style>
+    <Style Selector="ListBox.projects ListBoxItem">
+      <Setter Property="Background" Value="{DynamicResource SurfaceFieldBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="12" />
+      <Setter Property="Padding" Value="14" />
+      <Setter Property="Margin" Value="0,0,0,10" />
+    </Style>
+    <Style Selector="ListBox.projects ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+    </Style>
+    <Style Selector="ListBox.projects ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource SurfaceSelectedBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ShellNavActiveBrush}" />
+      <Setter Property="BorderThickness" Value="1.5" />
+    </Style>
+    <Style Selector="ListBox.projects ListBoxItem:selected">
+      <Setter Property="Background" Value="{DynamicResource SurfaceSelectedBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ShellNavActiveBrush}" />
+      <Setter Property="BorderThickness" Value="1.5" />
+    </Style>
+
+    <Style Selector="Border.cover">
+      <Setter Property="Width" Value="56" />
+      <Setter Property="Height" Value="56" />
+      <Setter Property="CornerRadius" Value="12" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBlock.coverLetter">
+      <Setter Property="FontFamily" Value="Georgia" />
+      <Setter Property="FontSize" Value="22" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.cardOpen">
+      <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource HeadingBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="9" />
+      <Setter Property="Padding" Value="15,8" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.cardOpen:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+    </Style>
+    <!-- У выбранной карточки кнопка «Открыть» становится основной (макет). -->
+    <Style Selector="ListBox.projects ListBoxItem:selected Button.cardOpen">
+      <Setter Property="Background" Value="{DynamicResource ShellNavActiveBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ShellNavActiveBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource AccentTextBrush}" />
+    </Style>
+    <Style Selector="ListBox.projects ListBoxItem:selected Button.cardOpen /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource ShellNavActiveBrush}" />
+    </Style>
+    <Style Selector="ListBox.projects ListBoxItem:selected Button.cardOpen:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource ActiveAccentBrush}" />
+    </Style>
+    <Style Selector="ListBox.projects ListBoxItem:selected Path.playIcon">
+      <Setter Property="Fill" Value="{DynamicResource AccentTextBrush}" />
+    </Style>
+    <Style Selector="Button.cardMore">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Width" Value="30" />
+      <Setter Property="Height" Value="30" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.cardMore:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+    </Style>
+    <Style Selector="Path.playIcon">
+      <Setter Property="Fill" Value="{DynamicResource HeadingBrush}" />
+      <Setter Property="Width" Value="9" />
+      <Setter Property="Height" Value="10" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- Правая панель «Контекст проекта». -->
+    <Style Selector="TextBlock.panelTitle">
+      <Setter Property="FontSize" Value="15" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource HeadingBrush}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Border.statRow">
+      <Setter Property="Padding" Value="10,8" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Background" Value="{DynamicResource SurfaceFieldBrush}" />
+    </Style>
+    <Style Selector="Button.wide">
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid ColumnDefinitions="228,*,336" Background="{DynamicResource SurfaceCanvasBrush}">
+    <!-- Левая навигация: разделы лаунчера (макет). -->
+    <Border Grid.Column="0"
+            Background="{DynamicResource SurfaceCanvasBrush}"
+            BorderBrush="{DynamicResource SurfaceBorderBrush}"
+            BorderThickness="0,0,1,0">
+      <Grid RowDefinitions="Auto,*,Auto" Margin="0,18">
+        <StackPanel Grid.Row="0" Spacing="2">
+          <Button Classes="railItem active" Command="{Binding ShowProjectsCommand}">
+            <Grid ColumnDefinitions="24,*,Auto">
+              <TextBlock Grid.Column="0" Classes="railGlyph" Text="&#xE736;" />
+              <TextBlock Grid.Column="1" Classes="railLabel" Text="Мои проекты" />
+              <TextBlock Grid.Column="2" Classes="railCount" Text="{Binding ProjectCount}" />
+            </Grid>
+          </Button>
+          <Button Classes="railItem" Command="{Binding ShowComingSoonCommand}" CommandParameter="Шаблоны">
+            <Grid ColumnDefinitions="24,*">
+              <TextBlock Grid.Column="0" Classes="railGlyph" Text="&#xE8FD;" />
+              <TextBlock Grid.Column="1" Classes="railLabel" Text="Шаблоны" />
+            </Grid>
+          </Button>
+          <Button Classes="railItem" Command="{Binding ShowComingSoonCommand}" CommandParameter="Облако">
+            <Grid ColumnDefinitions="24,*">
+              <TextBlock Grid.Column="0" Classes="railGlyph" Text="&#xE753;" />
+              <TextBlock Grid.Column="1" Classes="railLabel" Text="Облако" />
+            </Grid>
+          </Button>
+          <Button Classes="railItem" Command="{Binding ShowComingSoonCommand}" CommandParameter="Блог">
+            <Grid ColumnDefinitions="24,*">
+              <TextBlock Grid.Column="0" Classes="railGlyph" Text="&#xE8BD;" />
+              <TextBlock Grid.Column="1" Classes="railLabel" Text="Блог" />
+            </Grid>
+          </Button>
+          <Button Classes="railItem" Command="{Binding OpenSettingsCommand}">
+            <Grid ColumnDefinitions="24,*">
+              <TextBlock Grid.Column="0" Classes="railGlyph" Text="&#xE713;" />
+              <TextBlock Grid.Column="1" Classes="railLabel" Text="Настройки" />
+            </Grid>
+          </Button>
+        </StackPanel>
+
+        <StackPanel Grid.Row="2" Margin="18,0">
+          <Rectangle Height="2" Fill="{DynamicResource SurfaceBorderBrush}" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- Центр: «Мои проекты» — поиск, создание и список карточек. -->
+    <Border Grid.Column="1" Classes="panel" Margin="20,20,16,20">
+      <Grid RowDefinitions="Auto,Auto,*">
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="10">
+          <TextBlock Grid.Column="0" Classes="launcherTitle" Text="Мои проекты" />
+          <TextBox Grid.Column="1" Classes="search"
+                   Watermark="Поиск по проектам…"
+                   Text="{Binding ProjectSearchQuery}">
+            <TextBox.InnerLeftContent>
+              <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE721;" Margin="2,0,6,0"
+                         VerticalAlignment="Center" Foreground="{DynamicResource MutedBrush}" />
+            </TextBox.InnerLeftContent>
+          </TextBox>
+          <Button Grid.Column="2" Classes="hollow" Command="{Binding OpenProjectCommand}" Content="Открыть проект" />
+          <Button Grid.Column="3" Classes="hollow" Command="{Binding CloseProjectCommand}" Content="Закрыть проект"
+                  IsVisible="{Binding IsProjectOpen}" ToolTip.Tip="Сохранить и закрыть текущий проект" />
+          <Button Grid.Column="4" Classes="accentBtn" Command="{Binding CreateProjectCommand}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE710;" VerticalAlignment="Center" />
+              <TextBlock Text="Новый проект" VerticalAlignment="Center" />
+            </StackPanel>
+          </Button>
+        </Grid>
+
+        <StackPanel Grid.Row="1" Spacing="2" Margin="0,12,0,0">
+          <TextBlock Classes="error" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" TextWrapping="Wrap" />
+          <TextBlock Classes="success" Text="{Binding StatusMessage}" IsVisible="{Binding HasStatus}" TextWrapping="Wrap" />
+          <TextBlock Classes="muted" Text="{Binding FormatNotice}" IsVisible="{Binding HasFormatNotice}" TextWrapping="Wrap" />
+        </StackPanel>
+
+        <Grid Grid.Row="2" Margin="0,16,0,0">
+          <ListBox Classes="projects"
+                   ItemsSource="{Binding VisibleProjects}"
+                   SelectedItem="{Binding SelectedProject, Mode=TwoWay}"
+                   IsVisible="{Binding HasVisibleProjects}">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="launcher:RecentProjectItem">
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="14">
+                  <Border Grid.Column="0" Classes="cover" Background="{Binding CoverFill}">
+                    <TextBlock Classes="coverLetter" Text="{Binding Monogram}" Foreground="{Binding CoverInk}" />
+                  </Border>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3">
+                    <TextBlock Text="{Binding Name}" FontSize="16" FontWeight="SemiBold"
+                               Foreground="{DynamicResource HeadingBrush}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Classes="muted" Text="{Binding SummaryText}" IsVisible="{Binding HasSummary}" />
+                    <TextBlock Classes="muted" Text="{Binding LastChangedText}" />
+                  </StackPanel>
+                  <Button Grid.Column="2" Classes="cardOpen"
+                          Command="{Binding OpenCommand}" CommandParameter="{Binding}">
+                    <StackPanel Orientation="Horizontal" Spacing="7">
+                      <Path Classes="playIcon" Data="M0,0 L0,10 L9,5 Z" />
+                      <TextBlock Text="Открыть" VerticalAlignment="Center" />
+                    </StackPanel>
+                  </Button>
+                  <Button Grid.Column="3" Classes="cardMore"
+                          Command="{Binding SelectCommand}" CommandParameter="{Binding}"
+                          ToolTip.Tip="Ещё">
+                    <TextBlock Text="…" FontSize="18" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                    <Button.Flyout>
+                      <MenuFlyout>
+                        <MenuItem Header="Продолжить работу" Command="{Binding OpenCommand}" CommandParameter="{Binding}" />
+                        <MenuItem Header="Открыть папку проекта" Command="{Binding FolderCommand}" />
+                        <MenuItem Header="Убрать из списка" Command="{Binding RemoveCommand}" />
+                      </MenuFlyout>
+                    </Button.Flyout>
+                  </Button>
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+
+          <StackPanel IsVisible="{Binding !HasVisibleProjects}" Spacing="12" Margin="0,24" HorizontalAlignment="Center">
+            <TextBlock Classes="muted" HorizontalAlignment="Center"
+                       Text="Проектов пока нет или ничего не найдено по запросу." />
+            <Button Classes="accentBtn" HorizontalAlignment="Center"
+                    Command="{Binding CreateProjectCommand}" Content="Создать проект" />
+          </StackPanel>
+        </Grid>
+      </Grid>
+    </Border>
+
+    <!-- Справа: «Контекст проекта» выбранной карточки (макет). -->
+    <Border Grid.Column="2" Classes="panel" Margin="0,20,20,20">
+      <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="16">
+          <StackPanel Orientation="Horizontal" Spacing="9">
+            <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="15" Text="&#xE736;"
+                       Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+            <TextBlock Classes="panelTitle" Text="Контекст проекта" />
+          </StackPanel>
+
+          <StackPanel Spacing="14" IsVisible="{Binding HasSelectedProject}">
+            <Border Classes="cardField" Padding="14">
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                <Border Grid.Column="0" Classes="cover" Width="52" Height="52"
+                        Background="{Binding SelectedProject.CoverFill}">
+                  <TextBlock Classes="coverLetter" FontSize="20"
+                             Text="{Binding SelectedProject.Monogram}"
+                             Foreground="{Binding SelectedProject.CoverInk}" />
+                </Border>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3">
+                  <TextBlock Text="{Binding SelectedProject.Name}" FontSize="15" FontWeight="SemiBold"
+                             Foreground="{DynamicResource HeadingBrush}" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Classes="muted" Text="{Binding SelectedProject.SummaryText}" />
+                </StackPanel>
+              </Grid>
+            </Border>
+
+            <TextBlock Text="{Binding SelectedProject.DescriptionText}" TextWrapping="Wrap"
+                       Foreground="{DynamicResource SidebarTextBrush}" />
+
+            <Rectangle Height="1" Fill="{DynamicResource SurfaceBorderBrush}" />
+
+            <StackPanel Spacing="6">
+              <Border Classes="statRow">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                  <TextBlock Grid.Column="0" FontFamily="Segoe MDL2 Assets" Text="&#xE8A5;"
+                             Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Text="Главы" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="2" Text="{Binding SelectedProject.ChapterCount}"
+                             FontWeight="SemiBold" VerticalAlignment="Center" />
+                </Grid>
+              </Border>
+              <Border Classes="statRow">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                  <TextBlock Grid.Column="0" FontFamily="Segoe MDL2 Assets" Text="&#xE7C3;"
+                             Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Text="Сцены" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="2" Text="{Binding SelectedProject.SceneCount}"
+                             FontWeight="SemiBold" VerticalAlignment="Center" />
+                </Grid>
+              </Border>
+              <Border Classes="statRow">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                  <TextBlock Grid.Column="0" FontFamily="Segoe MDL2 Assets" Text="&#xE902;"
+                             Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Text="Персонажи" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="2" Text="{Binding SelectedProject.CharacterCount}"
+                             FontWeight="SemiBold" VerticalAlignment="Center" />
+                </Grid>
+              </Border>
+              <Border Classes="statRow">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                  <TextBlock Grid.Column="0" FontFamily="Segoe MDL2 Assets" Text="&#xE8EC;"
+                             Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Text="Сюжетные линии" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="2" Text="{Binding SelectedProject.PlotLineCount}"
+                             FontWeight="SemiBold" VerticalAlignment="Center" />
+                </Grid>
+              </Border>
+            </StackPanel>
+
+            <Rectangle Height="1" Fill="{DynamicResource SurfaceBorderBrush}" />
+
+            <StackPanel Spacing="9">
+              <Button Classes="accentBtn wide" Command="{Binding OpenSelectedProjectCommand}">
+                <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                  <Path Classes="playIcon" Data="M0,0 L0,10 L9,5 Z" />
+                  <TextBlock Text="Продолжить работу" VerticalAlignment="Center" />
+                </StackPanel>
+              </Button>
+              <Button Classes="hollow wide" Command="{Binding OpenSelectedFolderCommand}" Content="Открыть папку проекта" />
+              <Button Classes="hollow wide" Command="{Binding ShowComingSoonCommand}" CommandParameter="Экспорт" Content="Экспорт" />
+              <Button Classes="hollow wide" Command="{Binding RemoveSelectedProjectCommand}" Content="Убрать из списка" />
+            </StackPanel>
+
+            <Rectangle Height="1" Fill="{DynamicResource SurfaceBorderBrush}" />
+
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+              <TextBlock Grid.Column="0" FontFamily="Georgia" FontSize="34" Margin="0,-8,0,0"
+                         Text="&#x201C;" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Top" />
+              <TextBlock Grid.Column="1" Classes="cardQuote" VerticalAlignment="Center"
+                         Text="Хорошая история начинается с идеи, а с первого слова." />
+            </Grid>
+          </StackPanel>
+
+          <TextBlock Classes="muted" TextWrapping="Wrap"
+                     IsVisible="{Binding !HasSelectedProject}"
+                     Text="Выберите проект в списке, чтобы увидеть его контекст." />
+        </StackPanel>
+      </ScrollViewer>
+    </Border>
+  </Grid>
+</UserControl>

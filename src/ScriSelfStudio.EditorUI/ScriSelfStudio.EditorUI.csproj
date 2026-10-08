@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>ScriSelfStudio.EditorUI</RootNamespace>
+    <IsUiProject>true</IsUiProject>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ScriSelfStudio.Core\ScriSelfStudio.Core.csproj" />
+    <ProjectReference Include="..\ScriSelfStudio.Contracts\ScriSelfStudio.Contracts.csproj" />
+    <ProjectReference Include="..\ScriSelfStudio.Presentation\ScriSelfStudio.Presentation.csproj" />
+  </ItemGroup>
+</Project>

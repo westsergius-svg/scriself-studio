@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>ScriSelfStudio.Persistence.Tests</RootNamespace>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ScriSelfStudio.Core\ScriSelfStudio.Core.csproj" />
+    <ProjectReference Include="..\..\src\ScriSelfStudio.Contracts\ScriSelfStudio.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\ScriSelfStudio.Persistence\ScriSelfStudio.Persistence.csproj" />
+    <ProjectReference Include="..\ScriSelfStudio.TestSupport\ScriSelfStudio.TestSupport.csproj" />
+  </ItemGroup>
+</Project>

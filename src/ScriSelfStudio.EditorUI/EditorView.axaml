@@ -1,0 +1,180 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:editor="clr-namespace:ScriSelfStudio.EditorUI"
+             x:Class="ScriSelfStudio.EditorUI.EditorView"
+             x:DataType="editor:EditorViewModel">
+  <UserControl.KeyBindings>
+    <!-- Остальные сочетания (Ctrl+Z, Ctrl+A, Ctrl+C/V, …) обрабатывает само
+         текстовое поле, как в любой программе Windows. -->
+    <KeyBinding Gesture="Ctrl+S" Command="{Binding SaveCommand}" />
+  </UserControl.KeyBindings>
+  <UserControl.Styles>
+    <!-- Лента главы — единый лист: между сценами нет зазоров, только тонкая
+         линия-разделитель; активная сцена помечается акцентом слева. -->
+    <Style Selector="Border.sceneBlock">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}" />
+      <Setter Property="BorderThickness" Value="0,0,0,1" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="Padding" Value="0,16" />
+      <Setter Property="Margin" Value="0" />
+    </Style>
+    <Style Selector="Border.sceneBlock.active">
+      <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
+    </Style>
+    <Style Selector="Rectangle.sceneAccent">
+      <Setter Property="Fill" Value="Transparent" />
+    </Style>
+    <Style Selector="Rectangle.sceneAccent.active">
+      <Setter Property="Fill" Value="{DynamicResource AccentBrush}" />
+    </Style>
+    <Style Selector="TextBlock.sceneNumber">
+      <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Foreground" Value="{DynamicResource PaperMutedBrush}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBlock.sceneCaption">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource PaperMutedBrush}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBlock.sceneTitle">
+      <Setter Property="FontSize" Value="15" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource PaperTextBrush}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+    <Style Selector="TextBlock.sceneText">
+      <Setter Property="TextWrapping" Value="Wrap" />
+      <Setter Property="Foreground" Value="{DynamicResource PaperTextBrush}" />
+      <Setter Property="LineHeight" Value="24" />
+      <Setter Property="MinHeight" Value="80" />
+      <Setter Property="Margin" Value="0,8,0,0" />
+      <Setter Property="Opacity" Value="0.72" />
+    </Style>
+    <Style Selector="TextBox.sceneText">
+      <Setter Property="AcceptsReturn" Value="True" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="MinHeight" Value="80" />
+      <Setter Property="Margin" Value="0,8,0,0" />
+      <Setter Property="Foreground" Value="{DynamicResource PaperTextBrush}" />
+    </Style>
+    <Style Selector="Button.editorAction">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="8,4" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+    </Style>
+    <Style Selector="Button.editorAction:pointerover">
+      <Setter Property="Background" Value="{DynamicResource ToolHoverBrush}" />
+    </Style>
+    <Style Selector="Button.editorAction:disabled">
+      <Setter Property="Opacity" Value="0.35" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="{Binding CanvasOuterMargin}">
+    <!-- Шапка главы: заголовок и хлебные крошки открытой сцены. -->
+    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,10" IsVisible="{Binding HasChapter}">
+      <StackPanel Grid.Column="0" Spacing="2">
+        <TextBlock Text="{Binding ChapterTitle}" FontSize="20" FontWeight="Bold"
+                   Foreground="{DynamicResource HeadingBrush}" TextTrimming="CharacterEllipsis" />
+        <TextBlock Text="{Binding BreadcrumbText}" FontSize="12"
+                   Foreground="{DynamicResource MutedBrush}" TextTrimming="CharacterEllipsis" />
+      </StackPanel>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+        <Border Padding="10,6" CornerRadius="8"
+                Background="{DynamicResource SurfaceSelectedBrush}"
+                BorderBrush="{DynamicResource SurfaceSelectedBorderBrush}" BorderThickness="1">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <Ellipse Width="7" Height="7" VerticalAlignment="Center" Fill="{DynamicResource SavedDotBrush}" />
+            <TextBlock Text="{Binding StatusMessage}" FontSize="12"
+                       Foreground="{DynamicResource SidebarTextBrush}" VerticalAlignment="Center" />
+          </StackPanel>
+        </Border>
+        <Button Classes="editorAction" Command="{Binding CloseSceneCommand}" ToolTip.Tip="Закрыть главу">
+          <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE711;" FontSize="12" />
+        </Button>
+      </StackPanel>
+    </Grid>
+
+    <!-- Ошибка правки: показывается над лентой. -->
+    <Border Grid.Row="1" Margin="0,0,0,10" Padding="12,8" CornerRadius="8" IsVisible="{Binding HasError}"
+            Background="{DynamicResource DangerFillBrush}" BorderBrush="{DynamicResource DangerBorderBrush}" BorderThickness="1">
+      <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap"
+                 Foreground="{DynamicResource DangerTextBrush}" FontSize="12" />
+    </Border>
+
+    <!-- Лента главы: сплошной скролл, каждая сцена — блок с текстом. -->
+    <Border Grid.Row="2" Background="{DynamicResource PaperBrush}"
+            BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="1"
+            CornerRadius="12" Padding="{Binding CanvasPaperMargin}">
+      <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <ItemsControl ItemsSource="{Binding Blocks}"
+                      FontFamily="{Binding EditorFontFamily}"
+                      FontSize="{Binding EditorFontSize}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="editor:SceneBlockViewModel">
+              <Border Classes="sceneBlock" Classes.active="{Binding IsActive}">
+                <Grid ColumnDefinitions="3,*">
+                  <Rectangle Grid.Column="0" Classes="sceneAccent" Classes.active="{Binding IsActive}"
+                             VerticalAlignment="Stretch" />
+                  <StackPanel Grid.Column="1" Margin="14,0,20,0">
+                  <!-- Шапка сцены: номер, название, статус и объём. -->
+                  <Grid ColumnDefinitions="Auto,*,Auto">
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                      <TextBlock Classes="sceneNumber" Text="{Binding NumberLabel}" />
+                      <TextBlock Classes="sceneCaption" Text="СЦЕНА" />
+                      <TextBlock Classes="sceneTitle" Text="{Binding Title}" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10">
+                      <TextBlock Classes="sceneCaption" Text="{Binding Words, StringFormat='{}{0} сл.'}" />
+                      <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <Ellipse Width="7" Height="7" VerticalAlignment="Center" Fill="{Binding StatusBrush}" />
+                        <TextBlock Classes="sceneCaption" Text="{Binding StatusLabel}" />
+                      </StackPanel>
+                    </StackPanel>
+                  </Grid>
+
+                  <!-- Неактивная сцена — снимок текста; активная — редактируемое поле. -->
+                  <TextBlock Classes="sceneText" Text="{Binding Text}" IsVisible="{Binding !IsActive}" />
+                  <TextBox Classes="sceneText" Text="{Binding Text, Mode=TwoWay}" IsVisible="{Binding IsActive}"
+                           Watermark="Пишите текст сцены…" />
+                  </StackPanel>
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+    </Border>
+
+    <!-- Статус-бар: статистика сцены, навигация и полный холст. -->
+    <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto" Margin="8,10,8,0" IsVisible="{Binding IsSceneOpen}">
+      <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+        <TextBlock Text="{Binding WordsLabel}" FontSize="11" Foreground="{DynamicResource MutedBrush}" />
+        <TextBlock Text="{Binding CharactersLabel}" FontSize="11" Foreground="{DynamicResource MutedBrush}" />
+        <TextBlock Text="{Binding ReadingTimeLabel}" FontSize="11" Foreground="{DynamicResource MutedBrush}" />
+      </StackPanel>
+      <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+        <Button Classes="editorAction" Command="{Binding PreviousSceneCommand}" IsEnabled="{Binding CanPreviousScene}"
+                Content="‹" FontSize="15" ToolTip.Tip="Предыдущая сцена" />
+        <Button Classes="editorAction" Command="{Binding NextSceneCommand}" IsEnabled="{Binding CanNextScene}"
+                Content="›" FontSize="15" ToolTip.Tip="Следующая сцена" />
+        <TextBlock Text="{Binding SceneMarkerText}" FontSize="11" VerticalAlignment="Center" Margin="10,0,6,0"
+                   Foreground="{DynamicResource MutedBrush}" />
+        <Button Classes="editorAction" Command="{Binding ToggleFullCanvasCommand}" ToolTip.Tip="Во весь экран">
+          <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE740;" FontSize="12" />
+        </Button>
+      </StackPanel>
+    </Grid>
+  </Grid>
+</UserControl>

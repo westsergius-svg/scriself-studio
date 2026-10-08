@@ -1,0 +1,130 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <ResourceDictionary.ThemeDictionaries>
+    <ResourceDictionary x:Key="Light">
+      <SolidColorBrush x:Key="ErrorBrush" Color="#C0392B" />
+      <SolidColorBrush x:Key="SuccessBrush" Color="#1E7B4D" />
+      <SolidColorBrush x:Key="MutedBrush" Color="#5A5A5A" />
+      <SolidColorBrush x:Key="MapCanvasBrush" Color="#FAFAFA" />
+      <SolidColorBrush x:Key="MapCardBrush" Color="#FFFFFF" />
+      <SolidColorBrush x:Key="MapCardActiveBrush" Color="#FFF3D6" />
+      <SolidColorBrush x:Key="MapBorderBrush" Color="#E3E3E3" />
+      <SolidColorBrush x:Key="MapBorderActiveBrush" Color="#B8860B" />
+      <SolidColorBrush x:Key="ChromeBrush" Color="#F4F4F6" />
+      <SolidColorBrush x:Key="ChromeBorderBrush" Color="#DCDCE2" />
+      <SolidColorBrush x:Key="PanelBrush" Color="#FAFAFC" />
+      <SolidColorBrush x:Key="PanelBorderBrush" Color="#E2E2E8" />
+      <SolidColorBrush x:Key="ToolHoverBrush" Color="#14000000" />
+      <SolidColorBrush x:Key="PaperBrush" Color="#FAF4E6" />
+      <SolidColorBrush x:Key="PaperBorderBrush" Color="#E8DEC4" />
+      <SolidColorBrush x:Key="PaperTextBrush" Color="#33302A" />
+      <SolidColorBrush x:Key="PaperMutedBrush" Color="#8A8073" />
+      <SolidColorBrush x:Key="PaperRuleBrush" Color="#D8CCB2" />
+      <SolidColorBrush x:Key="StatusIdeaBrush" Color="#9AA0A6" />
+      <SolidColorBrush x:Key="StatusDraftBrush" Color="#E8963E" />
+      <SolidColorBrush x:Key="StatusRevisedBrush" Color="#4A7DFF" />
+      <SolidColorBrush x:Key="StatusFinalBrush" Color="#3FBF7F" />
+      <SolidColorBrush x:Key="PendingBrush" Color="#C07A1E" />
+      <SolidColorBrush x:Key="AccentBrush" Color="#AD6246" />
+      <SolidColorBrush x:Key="AccentTextBrush" Color="#FFFFFF" />
+      <SolidColorBrush x:Key="ContextBrush" Color="#ECEAE6" />
+      <SolidColorBrush x:Key="ContextFieldBrush" Color="#F5F3EF" />
+      <SolidColorBrush x:Key="HeadingBrush" Color="#25292C" />
+      <SolidColorBrush x:Key="PanelHeadingBrush" Color="#25292C" />
+      <SolidColorBrush x:Key="SidebarTextBrush" Color="#3A3F42" />
+      <SolidColorBrush x:Key="SidebarSubTextBrush" Color="#6F767A" />
+      <SolidColorBrush x:Key="SidebarActiveBrush" Color="#E1DCD3" />
+      <SolidColorBrush x:Key="SidebarActiveTextBrush" Color="#1E2124" />
+      <!-- Акцентная полоса и маркер активной главы (макет: .chapter.selected:before). -->
+      <SolidColorBrush x:Key="ActiveAccentBrush" Color="#C56C45" />
+      <!-- Точка состояния сохранения в шапке редактора (макет: .save-state span). -->
+      <SolidColorBrush x:Key="SavedDotBrush" Color="#36B97B" />
+      <!-- Поверхности экрана по макету «Сюжетные линии» (значения сняты пипеткой). -->
+      <SolidColorBrush x:Key="SurfaceChromeBrush" Color="#F4EEE5" />
+      <SolidColorBrush x:Key="SurfaceCanvasBrush" Color="#F7F3EC" />
+      <SolidColorBrush x:Key="SurfaceCardBrush" Color="#FDFBF6" />
+      <SolidColorBrush x:Key="SurfaceFieldBrush" Color="#F9F5EF" />
+      <SolidColorBrush x:Key="SurfaceBorderBrush" Color="#E6DED1" />
+      <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#F1EBE0" />
+      <SolidColorBrush x:Key="SurfaceSelectedBrush" Color="#F3E3DB" />
+      <SolidColorBrush x:Key="SurfaceSelectedBorderBrush" Color="#DFC0B4" />
+      <!-- Статус линии «В работе»: точка, подпись и подложка пилюли. -->
+      <SolidColorBrush x:Key="StatusActiveDotBrush" Color="#5F9A46" />
+      <SolidColorBrush x:Key="StatusActiveTextBrush" Color="#5F8A4A" />
+      <SolidColorBrush x:Key="StatusActiveFillBrush" Color="#EDF0E2" />
+      <!-- Опасное действие: «Удалить линию». -->
+      <SolidColorBrush x:Key="DangerTextBrush" Color="#A83A32" />
+      <SolidColorBrush x:Key="DangerBorderBrush" Color="#E2B2A9" />
+      <SolidColorBrush x:Key="DangerFillBrush" Color="#FDF7F4" />
+      <!-- Аватар персонажа в правой панели (макет: .avatar). -->
+      <SolidColorBrush x:Key="AvatarBrush" Color="#26363D" />
+      <SolidColorBrush x:Key="AvatarTextBrush" Color="#D8BCAE" />
+      <!-- Шапка макета: бренд, подпись, вкладки (значения сняты пипеткой). -->
+      <SolidColorBrush x:Key="ShellTitleBrush" Color="#2E231B" />
+      <SolidColorBrush x:Key="ShellSubtitleBrush" Color="#9C9081" />
+      <SolidColorBrush x:Key="ShellNavBrush" Color="#4D4034" />
+      <SolidColorBrush x:Key="ShellNavActiveBrush" Color="#B6524B" />
+      <SolidColorBrush x:Key="ShellNavHoverBrush" Color="#EFE3D8" />
+    </ResourceDictionary>
+    <ResourceDictionary x:Key="Dark">
+      <SolidColorBrush x:Key="ErrorBrush" Color="#FF7A6B" />
+      <SolidColorBrush x:Key="SuccessBrush" Color="#66D19E" />
+      <SolidColorBrush x:Key="MutedBrush" Color="#A8A8A8" />
+      <SolidColorBrush x:Key="MapCanvasBrush" Color="#1B1B1F" />
+      <SolidColorBrush x:Key="MapCardBrush" Color="#26262B" />
+      <SolidColorBrush x:Key="MapCardActiveBrush" Color="#3A3221" />
+      <SolidColorBrush x:Key="MapBorderBrush" Color="#3A3A40" />
+      <SolidColorBrush x:Key="MapBorderActiveBrush" Color="#D4AF37" />
+      <SolidColorBrush x:Key="ChromeBrush" Color="#17171B" />
+      <SolidColorBrush x:Key="ChromeBorderBrush" Color="#2A2A30" />
+      <SolidColorBrush x:Key="PanelBrush" Color="#1B1B20" />
+      <SolidColorBrush x:Key="PanelBorderBrush" Color="#2E2E35" />
+      <SolidColorBrush x:Key="ToolHoverBrush" Color="#14FFFFFF" />
+      <SolidColorBrush x:Key="PaperBrush" Color="#F3ECDA" />
+      <SolidColorBrush x:Key="PaperBorderBrush" Color="#4A4638" />
+      <SolidColorBrush x:Key="PaperTextBrush" Color="#33302A" />
+      <SolidColorBrush x:Key="PaperMutedBrush" Color="#8A8073" />
+      <SolidColorBrush x:Key="PaperRuleBrush" Color="#C9BDA0" />
+      <SolidColorBrush x:Key="StatusIdeaBrush" Color="#9AA0A6" />
+      <SolidColorBrush x:Key="StatusDraftBrush" Color="#E8963E" />
+      <SolidColorBrush x:Key="StatusRevisedBrush" Color="#4A7DFF" />
+      <SolidColorBrush x:Key="StatusFinalBrush" Color="#3FBF7F" />
+      <SolidColorBrush x:Key="PendingBrush" Color="#FFB454" />
+      <SolidColorBrush x:Key="AccentBrush" Color="#C56C45" />
+      <SolidColorBrush x:Key="AccentTextBrush" Color="#FFFFFF" />
+      <SolidColorBrush x:Key="ContextBrush" Color="#1B1B20" />
+      <SolidColorBrush x:Key="ContextFieldBrush" Color="#26262B" />
+      <SolidColorBrush x:Key="HeadingBrush" Color="#F1F1F4" />
+      <SolidColorBrush x:Key="PanelHeadingBrush" Color="#F1F1F4" />
+      <SolidColorBrush x:Key="SidebarTextBrush" Color="#D7D7DC" />
+      <SolidColorBrush x:Key="SidebarSubTextBrush" Color="#8E8E96" />
+      <SolidColorBrush x:Key="SidebarActiveBrush" Color="#2C2C33" />
+      <SolidColorBrush x:Key="SidebarActiveTextBrush" Color="#F5F5F7" />
+      <SolidColorBrush x:Key="ActiveAccentBrush" Color="#C56C45" />
+      <SolidColorBrush x:Key="SavedDotBrush" Color="#36B97B" />
+      <!-- Поверхности экрана по макету «Сюжетные линии» (тёмный вариант палитры). -->
+      <SolidColorBrush x:Key="SurfaceChromeBrush" Color="#1E1B17" />
+      <SolidColorBrush x:Key="SurfaceCanvasBrush" Color="#221E19" />
+      <SolidColorBrush x:Key="SurfaceCardBrush" Color="#2A251F" />
+      <SolidColorBrush x:Key="SurfaceFieldBrush" Color="#2A251F" />
+      <SolidColorBrush x:Key="SurfaceBorderBrush" Color="#3B342B" />
+      <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#2E2822" />
+      <SolidColorBrush x:Key="SurfaceSelectedBrush" Color="#3A2C26" />
+      <SolidColorBrush x:Key="SurfaceSelectedBorderBrush" Color="#5A3F36" />
+      <SolidColorBrush x:Key="StatusActiveDotBrush" Color="#6FBF56" />
+      <SolidColorBrush x:Key="StatusActiveTextBrush" Color="#8FCF77" />
+      <SolidColorBrush x:Key="StatusActiveFillBrush" Color="#22301C" />
+      <SolidColorBrush x:Key="DangerTextBrush" Color="#E08A7C" />
+      <SolidColorBrush x:Key="DangerBorderBrush" Color="#6A3A33" />
+      <SolidColorBrush x:Key="DangerFillBrush" Color="#2B211E" />
+      <SolidColorBrush x:Key="AvatarBrush" Color="#2A2A31" />
+      <SolidColorBrush x:Key="AvatarTextBrush" Color="#D8BCAE" />
+      <!-- Шапка макета: тёмный вариант палитры. -->
+      <SolidColorBrush x:Key="ShellTitleBrush" Color="#EDE7DE" />
+      <SolidColorBrush x:Key="ShellSubtitleBrush" Color="#9A9287" />
+      <SolidColorBrush x:Key="ShellNavBrush" Color="#C9C2B8" />
+      <SolidColorBrush x:Key="ShellNavActiveBrush" Color="#E08A7C" />
+      <SolidColorBrush x:Key="ShellNavHoverBrush" Color="#262220" />
+    </ResourceDictionary>
+  </ResourceDictionary.ThemeDictionaries>
+</ResourceDictionary>

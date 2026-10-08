@@ -1,0 +1,354 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:ScriSelfStudio.App.Shell"
+        xmlns:model="clr-namespace:ScriSelfStudio.Core.Model;assembly=ScriSelfStudio.Core"
+        xmlns:views="clr-namespace:ScriSelfStudio.App.Views"
+        x:Class="ScriSelfStudio.App.Views.MainWindow"
+        x:DataType="shell:ShellViewModel"
+        Title="ScriSelf Studio"
+        Width="1536"
+        Height="1024"
+        MinWidth="800"
+        MinHeight="480"
+        Background="{DynamicResource SurfaceChromeBrush}"
+        WindowStartupLocation="CenterScreen">
+  <Window.KeyBindings>
+    <!-- Ctrl+S работает на любом экране, не только в редакторе (ТЗ п. 11). -->
+    <KeyBinding Gesture="Ctrl+S" Command="{Binding SaveCommand}" />
+  </Window.KeyBindings>
+
+  <Window.Styles>
+    <!-- Разделитель панелей: тонкая линия, подсвечивается при наведении и перетаскивании. -->
+    <Style Selector="Thumb.paneSplitter">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{TemplateBinding Background}" />
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="Thumb.paneSplitter:pointerover">
+      <Setter Property="Background" Value="{DynamicResource SurfaceBorderBrush}" />
+    </Style>
+    <Style Selector="Thumb.paneSplitter:pressed">
+      <Setter Property="Background" Value="{DynamicResource ShellNavActiveBrush}" />
+    </Style>
+    <Style Selector="Thumb.paneSplitter:dragging">
+      <Setter Property="Background" Value="{DynamicResource ShellNavActiveBrush}" />
+    </Style>
+    <Style Selector="ListBox.chapterList">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="6,4,6,8" />
+    </Style>
+    <Style Selector="ListBox.chapterList > ListBoxItem">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Margin" Value="0" />
+    </Style>
+    <!-- Выбранная глава: мягкий кремовый фон вместо акцентной заливки Fluent. -->
+    <Style Selector="ListBox.chapterList > ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource SurfaceSelectedBrush}" />
+      <Setter Property="CornerRadius" Value="8" />
+    </Style>
+    <Style Selector="ListBox.chapterList > ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+    </Style>
+    <!-- Шеврон раскрытия/сворачивания главы. -->
+    <Style Selector="Button.chapterToggle">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Width" Value="20" />
+      <Setter Property="Height" Value="20" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.chapterToggle:pointerover">
+      <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+    </Style>
+    <Style Selector="Button.chapterToggle TextBlock">
+      <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
+      <Setter Property="FontSize" Value="10" />
+      <Setter Property="Foreground" Value="{DynamicResource SidebarSubTextBrush}" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.sceneRow">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="8,6" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Margin" Value="2,1" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="Button.sceneRow:pointerover">
+      <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+    </Style>
+    <Style Selector="Button.treeFooter">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Padding" Value="14,10" />
+      <Setter Property="HorizontalAlignment" Value="Left" />
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+      <Setter Property="Foreground" Value="{DynamicResource SidebarSubTextBrush}" />
+    </Style>
+    <Style Selector="Button.treeFooter:pointerover">
+      <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+    </Style>
+
+    <!-- Шапка макета: бренд во всю первую строку, вкладки экранов во второй. -->
+    <Style Selector="TextBlock.shellBrand">
+      <Setter Property="FontFamily" Value="Georgia" />
+      <Setter Property="FontSize" Value="25" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Foreground" Value="{DynamicResource ShellTitleBrush}" />
+    </Style>
+    <Style Selector="TextBlock.shellBrandTag">
+      <Setter Property="FontSize" Value="14" />
+      <Setter Property="Foreground" Value="{DynamicResource ShellSubtitleBrush}" />
+    </Style>
+    <Style Selector="Button.shellTab">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="CornerRadius" Value="9" />
+      <Setter Property="Padding" Value="13,0" />
+      <Setter Property="Height" Value="38" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="FontSize" Value="14.5" />
+    </Style>
+    <Style Selector="Button.shellTab:pointerover">
+      <Setter Property="Background" Value="{DynamicResource ShellNavHoverBrush}" />
+    </Style>
+    <Style Selector="TextBlock.shellTabText">
+      <Setter Property="Foreground" Value="{DynamicResource ShellNavBrush}" />
+    </Style>
+    <Style Selector="TextBlock.shellTabIcon">
+      <Setter Property="Foreground" Value="{DynamicResource ShellNavBrush}" />
+    </Style>
+    <Style Selector="Path.shellTabIcon">
+      <Setter Property="Stroke" Value="{DynamicResource ShellNavBrush}" />
+    </Style>
+    <Style Selector="Button.shellTab.active TextBlock.shellTabText">
+      <Setter Property="Foreground" Value="{DynamicResource ShellNavActiveBrush}" />
+    </Style>
+    <Style Selector="Button.shellTab.active TextBlock.shellTabIcon">
+      <Setter Property="Foreground" Value="{DynamicResource ShellNavActiveBrush}" />
+    </Style>
+    <Style Selector="Button.shellTab.active Path.shellTabIcon">
+      <Setter Property="Stroke" Value="{DynamicResource ShellNavActiveBrush}" />
+    </Style>
+    <Style Selector="Button.shellIcon">
+      <Setter Property="Width" Value="38" />
+      <Setter Property="Height" Value="38" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Foreground" Value="{DynamicResource ShellNavBrush}" />
+    </Style>
+    <Style Selector="Button.shellIcon:pointerover">
+      <Setter Property="Background" Value="{DynamicResource ShellNavHoverBrush}" />
+    </Style>
+    <Style Selector="ToggleButton.shellIcon:checked">
+      <Setter Property="Background" Value="{DynamicResource ShellNavHoverBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource ShellNavActiveBrush}" />
+    </Style>
+    <Style Selector="ToggleButton.shellIcon:checked /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource ShellNavHoverBrush}" />
+    </Style>
+    <Style Selector="TextBlock.projectCaption">
+      <Setter Property="FontSize" Value="14" />
+      <Setter Property="Foreground" Value="{DynamicResource ShellTitleBrush}" />
+    </Style>
+    <Style Selector="Button.chipClose">
+      <Setter Property="Width" Value="20" />
+      <Setter Property="Height" Value="20" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Foreground" Value="{DynamicResource SidebarSubTextBrush}" />
+    </Style>
+    <Style Selector="Button.chipClose:pointerover">
+      <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+    </Style>
+    <Style Selector="Border.sceneChip">
+      <Setter Property="Background" Value="{DynamicResource MapCardActiveBrush}" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="7,2" />
+    </Style>
+    <Style Selector="TextBlock.sceneHeading">
+      <Setter Property="FontSize" Value="17" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource HeadingBrush}" />
+    </Style>
+    <Style Selector="TextBlock.panelLabel">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource SidebarSubTextBrush}" />
+    </Style>
+    <Style Selector="Button.panelAction">
+      <Setter Property="Background" Value="{DynamicResource SurfaceFieldBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="9" />
+      <Setter Property="Padding" Value="12,0" />
+      <Setter Property="Height" Value="36" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="Foreground" Value="{DynamicResource SidebarTextBrush}" />
+    </Style>
+    <Style Selector="Button.panelAction:pointerover">
+      <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+    </Style>
+  </Window.Styles>
+  <Panel>
+  <DockPanel>
+    <!-- Шапка макета: знак, название продукта, подпись, вкладки экранов и путь к проекту. -->
+    <Border DockPanel.Dock="Top"
+            IsVisible="{Binding ShowWorkspace}"
+            Background="{DynamicResource SurfaceChromeBrush}">
+      <StackPanel>
+        <Grid Height="58" ColumnDefinitions="Auto,*,Auto" Margin="24,0,24,0">
+          <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="13" VerticalAlignment="Center">
+            <Viewbox Width="31" Height="31">
+              <Canvas Width="32" Height="32">
+                <Path Fill="{DynamicResource ShellTitleBrush}"
+                      Data="M29.4,2.3 C22.9,2.1 16.4,4.5 11.8,9.1 C7.9,13 5.8,17.5 5.0,21.6 C4.7,23.1 6.0,24.0 7.3,23.3 C15.0,18.4 21.1,13.8 25.2,8.8 C27.8,5.7 29.2,3.3 29.7,2.5 C29.8,2.4 29.6,2.3 29.4,2.3 Z" />
+                <Path Stroke="{DynamicResource ShellTitleBrush}" StrokeThickness="1.8" StrokeLineCap="Round"
+                      Data="M6.0,22.6 L1.8,29.4" />
+                <Path Stroke="{DynamicResource SurfaceChromeBrush}" StrokeThickness="1.1" StrokeLineCap="Round"
+                      Data="M27.0,4.6 C21.0,7.4 15.0,12.0 10.4,17.6" />
+              </Canvas>
+            </Viewbox>
+            <TextBlock Classes="shellBrand" Text="ScriSelf Studio" VerticalAlignment="Center" />
+            <TextBlock Classes="shellBrandTag" Text="Всё под рукой" VerticalAlignment="Center" Margin="4,3,0,0" />
+          </StackPanel>
+        </Grid>
+
+        <Grid Height="54" ColumnDefinitions="*,Auto" Margin="16,0,24,0">
+          <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="2" VerticalAlignment="Stretch">
+            <Grid RowDefinitions="*,2">
+              <Button Grid.Row="0" Classes="shellTab" Classes.active="{Binding IsLauncherActive}"
+                      Command="{Binding OpenLauncherCommand}" ToolTip.Tip="Мои проекты">
+                <StackPanel Orientation="Horizontal" Spacing="9">
+                  <Path Classes="shellTabIcon" StrokeThickness="1.4" StrokeJoin="Round"
+                        Data="M1.6,5.2 A1.3,1.3 0 0 1 2.9,3.9 H6.6 L8.3,6.1 H15.1 A1.3,1.3 0 0 1 16.4,7.4 V14.4 A1.3,1.3 0 0 1 15.1,15.7 H2.9 A1.3,1.3 0 0 1 1.6,14.4 Z"
+                        Width="18" Height="18" VerticalAlignment="Center" />
+                  <TextBlock Classes="shellTabText" Text="Мои проекты" VerticalAlignment="Center" />
+                </StackPanel>
+              </Button>
+              <Border Grid.Row="1" Background="{DynamicResource ShellNavActiveBrush}"
+                      IsVisible="{Binding IsLauncherActive}" />
+            </Grid>
+            <Grid RowDefinitions="*,2">
+              <Button Grid.Row="0" Classes="shellTab" Classes.active="{Binding IsArchitectureActive}"
+                      Command="{Binding OpenMapCommand}" ToolTip.Tip="Архитектор: карта, персонажи, сюжетные линии">
+                <StackPanel Orientation="Horizontal" Spacing="9">
+                  <TextBlock Classes="shellTabIcon" FontFamily="Segoe MDL2 Assets" Text="&#xE736;"
+                             FontSize="16" VerticalAlignment="Center" />
+                  <TextBlock Classes="shellTabText" Text="Архитектор" VerticalAlignment="Center" />
+                </StackPanel>
+              </Button>
+              <Border Grid.Row="1" Background="{DynamicResource ShellNavActiveBrush}"
+                      IsVisible="{Binding IsArchitectureActive}" />
+            </Grid>
+            <Grid RowDefinitions="*,2">
+              <Button Grid.Row="0" Classes="shellTab" Classes.active="{Binding IsEditorActive}"
+                      Command="{Binding OpenEditorCommand}" ToolTip.Tip="Редактор">
+                <StackPanel Orientation="Horizontal" Spacing="9">
+                  <TextBlock Classes="shellTabIcon" FontFamily="Segoe MDL2 Assets" Text="&#xE8EF;"
+                             FontSize="16" VerticalAlignment="Center" />
+                  <TextBlock Classes="shellTabText" Text="Редактор" VerticalAlignment="Center" />
+                </StackPanel>
+              </Button>
+              <Border Grid.Row="1" Background="{DynamicResource ShellNavActiveBrush}"
+                      IsVisible="{Binding IsEditorActive}" />
+            </Grid>
+            <Grid RowDefinitions="*,2">
+              <Button Grid.Row="0" Classes="shellTab" Classes.active="{Binding IsExportActive}"
+                      Command="{Binding OpenExportCommand}" ToolTip.Tip="Экспорт">
+                <StackPanel Orientation="Horizontal" Spacing="9">
+                  <TextBlock Classes="shellTabIcon" FontFamily="Segoe MDL2 Assets" Text="&#xEDE1;"
+                             FontSize="16" VerticalAlignment="Center" />
+                  <TextBlock Classes="shellTabText" Text="Экспорт" VerticalAlignment="Center" />
+                </StackPanel>
+              </Button>
+              <Border Grid.Row="1" Background="{DynamicResource ShellNavActiveBrush}"
+                      IsVisible="{Binding IsExportActive}" />
+            </Grid>
+            <Grid RowDefinitions="*,2">
+              <Button Grid.Row="0" Classes="shellTab" Classes.active="{Binding IsSettingsActive}"
+                      Command="{Binding OpenSettingsCommand}" ToolTip.Tip="Настройки">
+                <StackPanel Orientation="Horizontal" Spacing="9">
+                  <TextBlock Classes="shellTabIcon" FontFamily="Segoe MDL2 Assets" Text="&#xE713;"
+                             FontSize="16" VerticalAlignment="Center" />
+                  <TextBlock Classes="shellTabText" Text="Настройки" VerticalAlignment="Center" />
+                </StackPanel>
+              </Button>
+              <Border Grid.Row="1" Background="{DynamicResource ShellNavActiveBrush}"
+                      IsVisible="{Binding IsSettingsActive}" />
+            </Grid>
+          </StackPanel>
+
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+            <TextBlock Classes="projectCaption" Text="{Binding ProjectCaption}" VerticalAlignment="Center" />
+            <TextBlock Text="&#xE70D;" FontFamily="Segoe MDL2 Assets" FontSize="10" VerticalAlignment="Center"
+                       Foreground="{DynamicResource ShellSubtitleBrush}" />
+            <ToggleButton Classes="shellIcon" Margin="8,0,0,0"
+                          IsVisible="{Binding IsFullCanvasAvailable}"
+                          IsChecked="{Binding IsFullCanvas, Mode=TwoWay}"
+                          ToolTip.Tip="Полный холст: скрыть боковые панели">
+              <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="13" Text="&#xE740;" />
+            </ToggleButton>
+            <Button Classes="shellIcon" Command="{Binding SaveCommand}" Margin="8,0,0,0"
+                    IsVisible="{Binding IsProjectOpen}"
+                    ToolTip.Tip="Сохранить (Ctrl+S)">
+              <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="13" Text="&#xE74E;" />
+            </Button>
+            <Button Classes="shellIcon" Command="{Binding OpenProjectFolderCommand}" Margin="8,0,0,0"
+                    ToolTip.Tip="Показать файл проекта в проводнике">
+              <Path Stroke="{DynamicResource ShellNavBrush}" StrokeThickness="1.4" StrokeJoin="Round"
+                    Data="M1.6,5.2 A1.3,1.3 0 0 1 2.9,3.9 H6.6 L8.3,6.1 H15.1 A1.3,1.3 0 0 1 16.4,7.4 V14.4 A1.3,1.3 0 0 1 15.1,15.7 H2.9 A1.3,1.3 0 0 1 1.6,14.4 Z"
+                    Width="19" Height="19" />
+            </Button>
+          </StackPanel>
+        </Grid>
+      </StackPanel>
+    </Border>
+
+    <!-- Подвал макета: статус-бар (рукопись / статус сохранения / быстрые действия). -->
+    <Border DockPanel.Dock="Bottom" Height="36" Background="{DynamicResource SurfaceChromeBrush}"
+            IsVisible="{Binding ShowStatusBar}">
+      <Grid ColumnDefinitions="*,Auto,*" Margin="24,0,24,0">
+        <TextBlock Grid.Column="0" Text="{Binding BreadcrumbsText}" VerticalAlignment="Center"
+                   FontSize="12.5" Foreground="{DynamicResource ShellNavBrush}" />
+
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+          <Ellipse Width="7" Height="7" Fill="{DynamicResource SavedDotBrush}" />
+          <TextBlock Text="{Binding AutosaveText}" FontSize="12" Foreground="{DynamicResource ShellSubtitleBrush}" />
+        </StackPanel>
+
+        <TextBlock Grid.Column="2" Text="{Binding StatusStatsText}" VerticalAlignment="Center"
+                   HorizontalAlignment="Right" FontSize="12.5" Foreground="{DynamicResource ShellNavBrush}" />
+      </Grid>
+    </Border>
+
+    <!-- Основное рабочее пространство. -->
+    <Grid x:Name="WorkspaceGrid" ColumnDefinitions="Auto,Auto,*,Auto,Auto">
+      <!-- Левое дерево структуры книги -->
+      <ContentControl Grid.Column="0" Content="{Binding BookTree}" IsVisible="{Binding ShowBookTree}" Width="{Binding BookTreeWidth}" />
+      <Thumb Grid.Column="1" x:Name="BookTreeSplitter" Classes="paneSplitter" Width="6" IsVisible="{Binding ShowBookTree}" Cursor="SizeWestEast" />
+
+      <!-- Основной экран -->
+      <ContentControl Grid.Column="2" Content="{Binding Current}" />
+
+      <!-- Правая панель контекста сцены -->
+      <Thumb Grid.Column="3" x:Name="SceneContextSplitter" Classes="paneSplitter" Width="6" IsVisible="{Binding ShowScenePanel}" Cursor="SizeWestEast" />
+      <ContentControl Grid.Column="4" Content="{Binding SceneContext}" IsVisible="{Binding ShowScenePanel}" Width="{Binding SceneContextWidth}" />
+    </Grid>
+  </DockPanel>
+  </Panel>
+</Window>

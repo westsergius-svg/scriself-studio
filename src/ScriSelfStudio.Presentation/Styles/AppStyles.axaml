@@ -1,0 +1,411 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Style Selector="TextBlock.page-title">
+    <Setter Property="FontSize" Value="22" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="TextBlock.section-title">
+    <Setter Property="FontSize" Value="15" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="TextBlock.muted">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+  </Style>
+  <Style Selector="TextBlock.error">
+    <Setter Property="Foreground" Value="{DynamicResource ErrorBrush}" />
+  </Style>
+  <Style Selector="TextBlock.success">
+    <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
+  </Style>
+
+  <!-- Оболочка рабочего пространства (ТЗ п. 27): иконочные кнопки тулбаров и вкладки. -->
+  <Style Selector="TextBlock.brand">
+    <Setter Property="FontSize" Value="17" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="TextBlock.crumbs">
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+  </Style>
+  <Style Selector="Button.tool">
+    <Setter Property="MinWidth" Value="30" />
+    <Setter Property="MinHeight" Value="30" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Button.tool:pointerover">
+    <Setter Property="Background" Value="{DynamicResource ToolHoverBrush}" />
+  </Style>
+  <Style Selector="Button.tool.active">
+    <Setter Property="Background" Value="{DynamicResource MapCardActiveBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource MapBorderActiveBrush}" />
+  </Style>
+  <Style Selector="ToggleButton.tool">
+    <Setter Property="MinWidth" Value="30" />
+    <Setter Property="MinHeight" Value="30" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="ToggleButton.tool:pointerover">
+    <Setter Property="Background" Value="{DynamicResource ToolHoverBrush}" />
+  </Style>
+  <Style Selector="ToggleButton.tool:checked">
+    <Setter Property="Background" Value="{DynamicResource MapCardActiveBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource MapBorderActiveBrush}" />
+  </Style>
+  <Style Selector="Button.tab">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Padding" Value="12,6" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="FontSize" Value="13" />
+  </Style>
+  <Style Selector="Button.tab:pointerover">
+    <Setter Property="Background" Value="{DynamicResource ToolHoverBrush}" />
+  </Style>
+  <Style Selector="Button.tab.active">
+    <Setter Property="Foreground" Value="{DynamicResource MapBorderActiveBrush}" />
+    <Setter Property="Background" Value="{DynamicResource ToolHoverBrush}" />
+  </Style>
+  <!-- Вкладки активных экранов: ToggleButton с синхронизированным состоянием (ТЗ п. 27). -->
+  <Style Selector="ToggleButton.tab">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Padding" Value="12,6" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+  <Style Selector="ToggleButton.tab:pointerover">
+    <Setter Property="Background" Value="{DynamicResource ToolHoverBrush}" />
+  </Style>
+  <Style Selector="ToggleButton.tab:checked">
+    <Setter Property="Foreground" Value="{DynamicResource MapBorderActiveBrush}" />
+    <Setter Property="Background" Value="{DynamicResource ToolHoverBrush}" />
+  </Style>
+  <Style Selector="Button.statusBtn">
+    <Setter Property="Padding" Value="10,5" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="BorderBrush" Value="{DynamicResource PanelBorderBrush}" />
+    <Setter Property="FontSize" Value="12" />
+  </Style>
+  <Style Selector="Button.statusBtn.active">
+    <Setter Property="BorderBrush" Value="{DynamicResource MapBorderActiveBrush}" />
+    <Setter Property="Background" Value="{DynamicResource MapCardActiveBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource MapBorderActiveBrush}" />
+  </Style>
+  <!-- «Бумажная» область текста редактора (ТЗ п. 21, 27). -->
+  <Style Selector="TextBox.paperField">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Foreground" Value="{DynamicResource PaperTextBrush}" />
+    <Setter Property="TextAlignment" Value="Center" />
+  </Style>
+
+  <!-- Верхняя строка макета: бренд, имя проекта, навигация по разделам. -->
+  <Style Selector="TextBlock.brandMark">
+    <Setter Property="FontFamily" Value="Georgia" />
+    <Setter Property="FontSize" Value="34" />
+    <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="TextBlock.brandName">
+    <Setter Property="FontFamily" Value="Georgia" />
+    <Setter Property="FontSize" Value="21" />
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Border.brandDivider">
+    <Setter Property="Width" Value="1" />
+    <Setter Property="Height" Value="26" />
+    <Setter Property="Background" Value="{DynamicResource ChromeBorderBrush}" />
+  </Style>
+  <Style Selector="TextBlock.projectName">
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="Foreground" Value="{DynamicResource SidebarSubTextBrush}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Button.navItem">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="FontSize" Value="14" />
+  </Style>
+  <Style Selector="Button.navItem /template/ ContentPresenter">
+    <Setter Property="TextBlock.Foreground" Value="{DynamicResource SidebarSubTextBrush}" />
+  </Style>
+  <Style Selector="Button.navItem:pointerover /template/ ContentPresenter">
+    <Setter Property="TextBlock.Foreground" Value="{DynamicResource SidebarActiveTextBrush}" />
+  </Style>
+  <Style Selector="Button.navItem.active /template/ ContentPresenter">
+    <Setter Property="TextBlock.Foreground" Value="{DynamicResource SidebarActiveTextBrush}" />
+  </Style>
+  <!-- Акцентная полоса под активным разделом (макет: .nav-item.active:after). -->
+  <Style Selector="Border.navUnderline">
+    <Setter Property="Height" Value="3" />
+    <Setter Property="VerticalAlignment" Value="Bottom" />
+    <Setter Property="Background" Value="{DynamicResource ActiveAccentBrush}" />
+  </Style>
+
+  <!-- Левая панель «Проект» макета. -->
+  <Style Selector="TextBlock.panelHeading">
+    <Setter Property="FontSize" Value="15" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="Button.outlinePlus">
+    <Setter Property="Width" Value="28" />
+    <Setter Property="Height" Value="28" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="FontSize" Value="18" />
+    <Setter Property="CornerRadius" Value="7" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ChromeBorderBrush}" />
+  </Style>
+  <Style Selector="Button.sideItem">
+    <Setter Property="Height" Value="38" />
+    <Setter Property="Padding" Value="12,0" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Left" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+  <Style Selector="Button.sideItem /template/ ContentPresenter">
+    <Setter Property="TextBlock.Foreground" Value="{DynamicResource SidebarTextBrush}" />
+  </Style>
+  <Style Selector="Button.sideItem:pointerover /template/ ContentPresenter">
+    <Setter Property="TextBlock.Foreground" Value="{DynamicResource SidebarActiveTextBrush}" />
+  </Style>
+  <Style Selector="Button.sideItem.active">
+    <Setter Property="Background" Value="{DynamicResource SidebarActiveBrush}" />
+  </Style>
+  <Style Selector="Button.sideItem.active /template/ ContentPresenter">
+    <Setter Property="TextBlock.Foreground" Value="{DynamicResource SidebarActiveTextBrush}" />
+  </Style>
+  <Style Selector="TextBlock.captionLabel">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="Foreground" Value="{DynamicResource SidebarSubTextBrush}" />
+  </Style>
+  <Style Selector="Button.chapterRow">
+    <Setter Property="Height" Value="36" />
+    <Setter Property="Padding" Value="8,0,13,0" />
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Left" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+  <Style Selector="Button.chapterRow /template/ ContentPresenter">
+    <Setter Property="TextBlock.Foreground" Value="{DynamicResource SidebarTextBrush}" />
+  </Style>
+  <Style Selector="Button.chapterRow:pointerover /template/ ContentPresenter">
+    <Setter Property="TextBlock.Foreground" Value="{DynamicResource SidebarActiveTextBrush}" />
+  </Style>
+  <Style Selector="Button.chapterRow.selected">
+    <Setter Property="Background" Value="{DynamicResource SidebarActiveBrush}" />
+  </Style>
+  <Style Selector="Button.chapterRow.selected /template/ ContentPresenter">
+    <Setter Property="TextBlock.Foreground" Value="{DynamicResource SidebarActiveTextBrush}" />
+  </Style>
+  <!-- Акцентная полоса слева у выбранной главы (макет: .chapter.selected:before). -->
+  <Style Selector="Border.chapterAccent">
+    <Setter Property="Width" Value="3" />
+    <Setter Property="Background" Value="{DynamicResource ActiveAccentBrush}" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+  </Style>
+  <Style Selector="TextBlock.autosaveLine">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="Foreground" Value="{DynamicResource SidebarSubTextBrush}" />
+  </Style>
+
+  <!-- Шапка редактора макета (.editor-head). -->
+  <Style Selector="Border.editorHead">
+    <Setter Property="Height" Value="52" />
+    <Setter Property="Background" Value="{DynamicResource PaperBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource PaperBorderBrush}" />
+    <Setter Property="BorderThickness" Value="0,0,0,1" />
+  </Style>
+  <Style Selector="TextBlock.editorCrumb">
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="TextBlock.editorSaveState">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Button.accentBtn">
+    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource AccentTextBrush}" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Padding" Value="14,9" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="Button.accentBtn:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource ActiveAccentBrush}" />
+  </Style>
+
+  <!-- «Бумага»: липкий тулбар, заголовок и футер статистики макета. -->
+  <Style Selector="Border.editorToolbar">
+    <Setter Property="Background" Value="{DynamicResource PaperRuleBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource PaperRuleBrush}" />
+    <Setter Property="BorderThickness" Value="0,1,0,1" />
+  </Style>
+  <Style Selector="TextBlock.editorHeading">
+    <Setter Property="FontFamily" Value="Georgia" />
+    <Setter Property="FontSize" Value="34" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource HeadingBrush}" />
+  </Style>
+  <Style Selector="TextBlock.editorFooterItem">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="Foreground" Value="{DynamicResource PaperMutedBrush}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
+  <!-- Правая панель макета: вкладки, карточка персонажа, поля и теги. -->
+  <Style Selector="Button.contextTab">
+    <Setter Property="Height" Value="53" />
+    <Setter Property="Padding" Value="17,0" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="FontSize" Value="13" />
+  </Style>
+  <Style Selector="Button.contextTab /template/ ContentPresenter">
+    <Setter Property="TextBlock.Foreground" Value="{DynamicResource SidebarSubTextBrush}" />
+  </Style>
+  <Style Selector="Button.contextTab.active /template/ ContentPresenter">
+    <Setter Property="TextBlock.Foreground" Value="{DynamicResource SidebarActiveTextBrush}" />
+  </Style>
+  <Style Selector="Border.contextTabUnderline">
+    <Setter Property="Height" Value="2" />
+    <Setter Property="Background" Value="{DynamicResource ActiveAccentBrush}" />
+    <Setter Property="VerticalAlignment" Value="Bottom" />
+  </Style>
+  <Style Selector="Border.avatar">
+    <Setter Property="Width" Value="48" />
+    <Setter Property="Height" Value="48" />
+    <Setter Property="CornerRadius" Value="24" />
+    <Setter Property="Background" Value="{DynamicResource AvatarBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource PanelBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+  <Style Selector="TextBlock.avatarLetter">
+    <Setter Property="FontFamily" Value="Georgia" />
+    <Setter Property="FontSize" Value="23" />
+    <Setter Property="Foreground" Value="{DynamicResource AvatarTextBrush}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="TextBlock.cardHeading">
+    <Setter Property="FontFamily" Value="Georgia" />
+    <Setter Property="FontSize" Value="19" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource HeadingBrush}" />
+  </Style>
+  <Style Selector="TextBlock.cardCaption">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{DynamicResource SidebarSubTextBrush}" />
+  </Style>
+  <Style Selector="TextBlock.cardLabel">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="Foreground" Value="{DynamicResource SidebarSubTextBrush}" />
+  </Style>
+  <Style Selector="TextBlock.cardQuote">
+    <Setter Property="FontFamily" Value="Georgia" />
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="FontStyle" Value="Italic" />
+    <Setter Property="Foreground" Value="{DynamicResource SidebarTextBrush}" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+  <Style Selector="Border.cardField">
+    <Setter Property="Background" Value="{DynamicResource ContextFieldBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource PanelBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Padding" Value="12,10" />
+  </Style>
+  <Style Selector="TextBlock.cardFieldText">
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Foreground" Value="{DynamicResource SidebarTextBrush}" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+  <Style Selector="TextBlock.lineRow">
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Foreground" Value="{DynamicResource SidebarTextBrush}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Border.tagChip">
+    <Setter Property="Background" Value="{DynamicResource ContextFieldBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource PanelBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="14" />
+    <Setter Property="Padding" Value="10,5" />
+  </Style>
+  <Style Selector="TextBlock.tagChipText">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="Foreground" Value="{DynamicResource SidebarTextBrush}" />
+  </Style>
+
+  <!-- Плавающий переключатель тем макета (.theme-switcher). -->
+  <Style Selector="Button.themeTrigger">
+    <Setter Property="Height" Value="36" />
+    <Setter Property="Padding" Value="13,0" />
+    <Setter Property="CornerRadius" Value="7" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ChromeBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Foreground" Value="{DynamicResource SidebarActiveTextBrush}" />
+  </Style>
+  <Style Selector="Border.themeMenu">
+    <Setter Property="Width" Value="205" />
+    <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ChromeBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="9" />
+    <Setter Property="Padding" Value="7" />
+  </Style>
+  <Style Selector="Button.themeMenuItem">
+    <Setter Property="Width" Value="191" />
+    <Setter Property="Height" Value="34" />
+    <Setter Property="Padding" Value="9,0" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="HorizontalContentAlignment" Value="Left" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+  <Style Selector="Button.themeMenuItem:pointerover">
+    <Setter Property="Background" Value="{DynamicResource SidebarActiveBrush}" />
+  </Style>
+  <Style Selector="Border.themeSwatch">
+    <Setter Property="Width" Value="15" />
+    <Setter Property="Height" Value="15" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ChromeBorderBrush}" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="TextBlock.themeMenuCaption">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="Foreground" Value="{DynamicResource SidebarSubTextBrush}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+</Styles>

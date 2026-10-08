@@ -1,0 +1,514 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:arch="clr-namespace:ScriSelfStudio.ArchitectureUI"
+             xmlns:map="clr-namespace:ScriSelfStudio.ArchitectureUI.Map"
+             x:Class="ScriSelfStudio.ArchitectureUI.ArchitectureView"
+             x:DataType="arch:ArchitectureViewModel">
+  <UserControl.Styles>
+    <Style Selector="Border.mapPanel">
+      <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="12" />
+    </Style>
+    <Style Selector="Border.mapColumn">
+      <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Padding" Value="10" />
+    </Style>
+    <Style Selector="Border.mapColumn.active">
+      <Setter Property="BorderBrush" Value="{DynamicResource ActiveAccentBrush}" />
+    </Style>
+    <Style Selector="Button.columnHead">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="Button.mapCell">
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="Padding" Value="10" />
+      <Setter Property="Margin" Value="0,0,0,6" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Background" Value="{DynamicResource SurfaceFieldBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}" />
+    </Style>
+    <Style Selector="Button.mapCell:pointerover">
+      <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+    </Style>
+    <Style Selector="Button.mapCell.selected">
+      <Setter Property="Background" Value="{DynamicResource SurfaceSelectedBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ActiveAccentBrush}" />
+    </Style>
+    <Style Selector="Button.mapCell.dimmed">
+      <Setter Property="Opacity" Value="0.4" />
+    </Style>
+    <Style Selector="Button.overviewCard">
+      <Setter Property="Background" Value="{DynamicResource SurfaceFieldBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Padding" Value="10" />
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+      <Setter Property="VerticalContentAlignment" Value="Top" />
+    </Style>
+    <Style Selector="Button.overviewCard.selected">
+      <Setter Property="Background" Value="{DynamicResource SurfaceSelectedBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ActiveAccentBrush}" />
+    </Style>
+    <Style Selector="Border.chip">
+      <Setter Property="Background" Value="{DynamicResource MapCardActiveBrush}" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="7,2" />
+    </Style>
+    <Style Selector="TextBlock.mapLabel">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource SidebarSubTextBrush}" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid RowDefinitions="Auto,Auto,*" Margin="24,20,24,16">
+    <!-- Шапка: фильтр линий и масштаб (заголовок даёт вкладка «Карта» хоста). -->
+    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+        <ComboBox ItemsSource="{Binding LineFilters}"
+                  SelectedItem="{Binding SelectedLineFilter, Mode=TwoWay}"
+                  MinWidth="160" VerticalAlignment="Center" ToolTip.Tip="Фильтр сюжетных линий">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="map:PlotLineFilterOption">
+              <StackPanel Orientation="Horizontal" Spacing="7">
+                <Border Width="9" Height="9" CornerRadius="4.5" VerticalAlignment="Center"
+                        Background="{Binding Brush}" />
+                <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+              </StackPanel>
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+
+        <Border Classes="mapPanel" Padding="2" CornerRadius="8" VerticalAlignment="Center">
+          <StackPanel Orientation="Horizontal" Spacing="2">
+            <Button Classes="tool" Command="{Binding ZoomOutCommand}" ToolTip.Tip="Уменьшить">
+              <TextBlock Text="-" FontSize="15" />
+            </Button>
+            <TextBlock Text="{Binding ZoomLabel}" Width="42" FontSize="12"
+                       TextAlignment="Center" VerticalAlignment="Center" />
+            <Button Classes="tool" Command="{Binding ZoomInCommand}" ToolTip.Tip="Увеличить">
+              <TextBlock Text="+" FontSize="15" />
+            </Button>
+          </StackPanel>
+        </Border>
+
+        <ToggleButton Classes="tool" IsChecked="{Binding IsCompact, Mode=TwoWay}"
+                      ToolTip.Tip="Полный холст: скрыть панель сцены">
+          <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="13" Text="&#xE740;" />
+        </ToggleButton>
+      </StackPanel>
+    </Grid>
+
+    <!-- Панель действий: создание, правка, вид и выбор книги — всегда на виду. -->
+    <Border Grid.Row="1" Classes="mapPanel" Padding="8" Margin="0,0,0,10">
+      <Grid ColumnDefinitions="Auto,*,Auto">
+        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+          <Button Classes="accentBtn" Content="+ Книга" Command="{Binding CreateBookCommand}"
+                  ToolTip.Tip="Создать книгу в выбранной серии" />
+          <Button Content="+ Глава" Command="{Binding CreateChapterCommand}"
+                  ToolTip.Tip="Создать главу в выбранной книге" />
+          <Button Content="+ Сцена" Command="{Binding CreateSceneCommand}"
+                  ToolTip.Tip="Создать сцену в выбранной главе" />
+          <Button Content="+ Серия" Command="{Binding CreateSeriesCommand}"
+                  ToolTip.Tip="Создать ещё одну серию" />
+
+          <Border Width="1" Margin="4,2" Background="{DynamicResource SurfaceBorderBrush}" />
+
+          <Button Content="Переименовать" Command="{Binding RenameCommand}" />
+          <Button Classes="tool" Command="{Binding MoveUpCommand}" ToolTip.Tip="Поднять выше">
+            <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="12" Text="&#xE70E;" />
+          </Button>
+          <Button Classes="tool" Command="{Binding MoveDownCommand}" ToolTip.Tip="Опустить ниже">
+            <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="12" Text="&#xE70D;" />
+          </Button>
+          <Button Content="Открыть сцену" Command="{Binding OpenSceneCommand}" />
+          <Button Content="Удалить" Command="{Binding DeleteCommand}" />
+
+          <Border Width="1" Margin="4,2" Background="{DynamicResource SurfaceBorderBrush}" />
+
+          <Button Content="Карта" Classes="tab" Classes.active="{Binding IsMapMode}"
+                  Command="{Binding ShowMapCommand}" ToolTip.Tip="Показать карту книги" />
+          <Button Content="Список" Classes="tab" Classes.active="{Binding IsListMode}"
+                  Command="{Binding ShowListCommand}" ToolTip.Tip="Показать структуру списком" />
+        </StackPanel>
+
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
+                    IsVisible="{Binding HasBooks}">
+          <TextBlock Classes="muted" Text="Книга:" VerticalAlignment="Center" />
+          <ComboBox ItemsSource="{Binding Books}"
+                    SelectedItem="{Binding SelectedBook, Mode=TwoWay}"
+                    MinWidth="180" VerticalAlignment="Center"
+                    ToolTip.Tip="Какая книга показана на карте">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="arch:ArchitectureNodeViewModel">
+                <TextBlock Text="{Binding Title}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- Карта: доска столбцов, правая панель сцены, полоса «Быстрый обзор». -->
+    <Grid Grid.Row="2" ColumnDefinitions="*,Auto" IsVisible="{Binding IsMapMode}">
+      <Grid Grid.Column="0" RowDefinitions="Auto,*,Auto">
+        <StackPanel Grid.Row="0" Spacing="4" Margin="0,0,0,8">
+          <TextBlock Classes="error" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" TextWrapping="Wrap" />
+          <TextBlock Classes="success" Text="{Binding StatusMessage}" IsVisible="{Binding HasStatus}" TextWrapping="Wrap" />
+          <TextBlock Classes="muted" Text="Проект не открыт — вернитесь на стартовый экран."
+                     IsVisible="{Binding !HasProject}" />
+          <TextBlock Classes="muted" Text="Глав много: карта прокручивается по горизонтали."
+                     IsVisible="{Binding !MapFits}" />
+        </StackPanel>
+
+        <Border Grid.Row="1" Classes="mapPanel" Padding="6" MinHeight="420">
+          <Grid>
+            <ScrollViewer x:Name="MapScroll"
+                          HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Auto">
+              <ItemsControl ItemsSource="{Binding MapColumns}"
+                            Width="{Binding MapContentWidth}"
+                            MinHeight="520">
+                <ItemsControl.Styles>
+                  <Style Selector="ItemsControl > ContentPresenter" x:DataType="map:BookMapColumnViewModel">
+                    <Setter Property="Canvas.Left" Value="{Binding X}" />
+                    <Setter Property="Canvas.Top" Value="0" />
+                    <Setter Property="Width" Value="{Binding Width}" />
+                  </Style>
+                </ItemsControl.Styles>
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <Canvas Height="520" />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="map:BookMapColumnViewModel">
+                    <Border Classes="mapColumn" Classes.active="{Binding IsActive}" Margin="0,8,0,8">
+                      <StackPanel Spacing="8">
+                        <Grid ColumnDefinitions="*,Auto">
+                          <Button Grid.Column="0" Classes="columnHead"
+                                  Command="{Binding SelectCommand}" CommandParameter="{Binding Node}">
+                            <StackPanel Spacing="2">
+                              <TextBlock Text="{Binding HeaderLabel}" FontSize="13" FontWeight="SemiBold"
+                                         TextWrapping="Wrap" />
+                              <TextBlock Classes="muted" Text="{Binding ScenesLabel}" />
+                            </StackPanel>
+                          </Button>
+                          <Button Grid.Column="1" Classes="tool" VerticalAlignment="Top"
+                                  Command="{Binding AddSceneCommand}" CommandParameter="{Binding}"
+                                  ToolTip.Tip="Новая сцена в главе">
+                            <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE710;" FontSize="12" />
+                          </Button>
+                        </Grid>
+
+                        <ItemsControl ItemsSource="{Binding Scenes}">
+                          <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="map:BookMapSceneViewModel">
+                              <Button Classes="mapCell"
+                                      Classes.selected="{Binding IsSelected}"
+                                      Classes.dimmed="{Binding IsDimmed}"
+                                      Command="{Binding SelectCommand}" CommandParameter="{Binding Node}"
+                                      ToolTip.Tip="{Binding Description}">
+                                <StackPanel Spacing="6">
+                                  <Grid ColumnDefinitions="Auto,*,Auto">
+                                    <TextBlock Text="{Binding Number}" FontSize="11" Margin="0,1,7,0"
+                                               Foreground="{DynamicResource SidebarSubTextBrush}" />
+                                    <TextBlock Grid.Column="1" Text="{Binding Title}" FontSize="13"
+                                               TextWrapping="Wrap" />
+                                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4"
+                                                Margin="6,0,0,0" VerticalAlignment="Center">
+                                      <TextBlock Text="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="11"
+                                                 Foreground="{DynamicResource SidebarSubTextBrush}"
+                                                 ToolTip.Tip="Сцена заблокирована" IsVisible="{Binding IsLocked}" />
+                                      <TextBlock Text="★" FontSize="12"
+                                                 Foreground="{DynamicResource MapBorderActiveBrush}"
+                                                 IsVisible="{Binding IsKey}" />
+                                    </StackPanel>
+                                  </Grid>
+                                  <ItemsControl ItemsSource="{Binding Lines}" IsVisible="{Binding HasLines}">
+                                    <ItemsControl.ItemsPanel>
+                                      <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal" Spacing="3" />
+                                      </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                      <DataTemplate x:DataType="map:PlotLineMarker">
+                                        <Border Width="9" Height="9" CornerRadius="4.5"
+                                                Background="{Binding Brush}"
+                                                ToolTip.Tip="{Binding Name}" />
+                                      </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                  </ItemsControl>
+                                </StackPanel>
+                              </Button>
+                            </DataTemplate>
+                          </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12"
+                        MaxWidth="380" IsVisible="{Binding ShowMapEmpty}">
+              <TextBlock Classes="muted" Text="{Binding MapHint}" TextWrapping="Wrap"
+                         TextAlignment="Center" />
+              <Button Classes="accentBtn" HorizontalAlignment="Center"
+                      Content="{Binding MapEmptyActionLabel}"
+                      Command="{Binding MapEmptyActionCommand}"
+                      ToolTip.Tip="Создать следующий элемент структуры" />
+            </StackPanel>
+          </Grid>
+        </Border>
+
+        <!-- «Быстрый обзор»: карточки глав со шкалой статусов и легенда линий. -->
+        <Border Grid.Row="2" Classes="mapPanel" Padding="12" Margin="0,12,0,0"
+                IsVisible="{Binding HasMapColumns}">
+          <Grid ColumnDefinitions="*,Auto">
+            <StackPanel Grid.Column="0" Spacing="8">
+              <Button Background="Transparent" BorderThickness="0" Padding="0" Cursor="Hand"
+                      Command="{Binding ToggleOverviewCommand}" ToolTip.Tip="Свернуть или развернуть">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="11" VerticalAlignment="Center"
+                             Text="{Binding OverviewChevron}" />
+                  <TextBlock Classes="section-title" FontSize="13" Text="Быстрый обзор" />
+                </StackPanel>
+              </Button>
+              <ScrollViewer IsVisible="{Binding IsOverviewExpanded}"
+                            HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                  <ItemsControl ItemsSource="{Binding ChapterOverview}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" Spacing="10" />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="map:ChapterOverviewViewModel">
+                        <Button Classes="overviewCard" Classes.selected="{Binding IsSelected}"
+                                Command="{Binding SelectCommand}" CommandParameter="{Binding Node}">
+                          <StackPanel Spacing="4" Width="116">
+                            <TextBlock Text="{Binding Number}" FontSize="12" FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding Title}" FontSize="12" TextWrapping="NoWrap"
+                                       TextTrimming="CharacterEllipsis" />
+                            <TextBlock Classes="muted" Text="{Binding ScenesLabel}" />
+                            <ItemsControl ItemsSource="{Binding Segments}">
+                              <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                  <StackPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                              </ItemsControl.ItemsPanel>
+                              <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="map:OverviewSegment">
+                                  <Border Height="4" Width="{Binding Width}" CornerRadius="2"
+                                          Background="{Binding Brush}" />
+                                </DataTemplate>
+                              </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                          </StackPanel>
+                        </Button>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                  <Button Classes="overviewCard" Width="60" Command="{Binding CreateChapterInBookCommand}"
+                          ToolTip.Tip="Новая глава">
+                    <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE710;" FontSize="14"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                  </Button>
+                </StackPanel>
+              </ScrollViewer>
+            </StackPanel>
+
+            <StackPanel Grid.Column="1" Spacing="5" Margin="16,0,0,0" VerticalAlignment="Center"
+                        IsVisible="{Binding ShowLegend}">
+              <ItemsControl ItemsSource="{Binding PlotLineLegend}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="map:PlotLineMarker">
+                    <StackPanel Orientation="Horizontal" Spacing="7" Margin="0,0,0,3">
+                      <Border Width="9" Height="9" CornerRadius="4.5" Background="{Binding Brush}"
+                              VerticalAlignment="Center" />
+                      <TextBlock Classes="muted" Text="{Binding Name}" VerticalAlignment="Center" />
+                      <TextBlock Text="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="10"
+                                 Foreground="{DynamicResource SidebarSubTextBrush}"
+                                 ToolTip.Tip="Линия завершена" VerticalAlignment="Center"
+                                 IsVisible="{Binding IsClosed}" />
+                    </StackPanel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Grid>
+        </Border>
+      </Grid>
+
+      <!-- Правая панель «Сцена» (ТЗ п. 27). -->
+      <Border Grid.Column="1" Classes="mapPanel" Width="330" Margin="12,0,0,0"
+              IsVisible="{Binding ShowSceneDetails}">
+        <ScrollViewer>
+          <StackPanel DataContext="{Binding SceneDetails}" x:DataType="map:SceneDetailsViewModel"
+                      Margin="16" Spacing="14">
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel Grid.Column="0" Spacing="6">
+                <Border Classes="chip" HorizontalAlignment="Left">
+                  <TextBlock Text="Сцена" FontSize="11" FontWeight="SemiBold"
+                             Foreground="{DynamicResource ActiveAccentBrush}" />
+                </Border>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <TextBlock Classes="cardHeading" Text="{Binding NumberLabel}" />
+                  <TextBlock Classes="cardHeading" Text="{Binding Title}" TextWrapping="Wrap" />
+                </StackPanel>
+              </StackPanel>
+              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2" VerticalAlignment="Top">
+                <Button Classes="tool" Classes.active="{Binding IsLocked}"
+                        Command="{Binding ToggleLockCommand}" ToolTip.Tip="Заблокировать сцену">
+                  <TextBlock Text="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="13" />
+                </Button>
+                <Button Classes="tool" Classes.active="{Binding IsKey}"
+                        Command="{Binding ToggleKeyCommand}" ToolTip.Tip="Ключевая сцена">
+                  <TextBlock Text="★" FontSize="15" />
+                </Button>
+              </StackPanel>
+            </Grid>
+
+            <TextBlock Classes="muted" Text="{Binding Breadcrumb}" />
+            <TextBlock Text="{Binding Description}" TextWrapping="Wrap"
+                       IsVisible="{Binding HasDescription}" />
+            <TextBlock Classes="muted" Text="{Binding WordsLabel}" />
+
+            <StackPanel Spacing="8">
+              <TextBlock Classes="mapLabel" Text="КЛЮЧЕВЫЕ СЮЖЕТНЫЕ ЛИНИИ" />
+              <ItemsControl ItemsSource="{Binding Lines}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="map:SceneLineEntry">
+                    <Grid ColumnDefinitions="Auto,*,Auto,Auto" Margin="0,0,0,5">
+                      <Border Width="9" Height="9" CornerRadius="4.5" Background="{Binding Brush}"
+                              VerticalAlignment="Center" />
+                      <TextBlock Grid.Column="1" Text="{Binding Name}" Margin="8,0,0,0"
+                                 VerticalAlignment="Center" TextWrapping="Wrap" />
+                      <TextBlock Grid.Column="2" Classes="muted" Text="{Binding StatusLabel}"
+                                 VerticalAlignment="Center" Margin="6,0,0,0" />
+                      <Button Grid.Column="3" Classes="tool" Margin="4,0,0,0"
+                              Command="{Binding $parent[ItemsControl].((map:SceneDetailsViewModel)DataContext).RemoveLineCommand}"
+                              CommandParameter="{Binding}" ToolTip.Tip="Снять линию со сцены">
+                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE711;" FontSize="10" />
+                      </Button>
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap"
+                         Text="Линии не заданы. Отнесите сцену к шагу линии ниже."
+                         IsVisible="{Binding !HasLines}" />
+              <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap"
+                         Text="У проекта нет линий с шагами. Создайте линию на экране «Сюжетные линии»."
+                         IsVisible="{Binding !HasLineChoices}" />
+              <StackPanel Spacing="6" IsVisible="{Binding HasLineChoices}">
+                <ComboBox HorizontalAlignment="Stretch" MinHeight="32"
+                          ItemsSource="{Binding LineChoices}"
+                          SelectedItem="{Binding SelectedLineChoice, Mode=TwoWay}"
+                          ToolTip.Tip="Сюжетная линия" />
+                <ComboBox HorizontalAlignment="Stretch" MinHeight="32"
+                          ItemsSource="{Binding StepChoices}"
+                          SelectedItem="{Binding SelectedStepChoice, Mode=TwoWay}"
+                          IsVisible="{Binding HasStepChoices}"
+                          ToolTip.Tip="Шаг линии" />
+                <Button Classes="accentBtn" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                        Command="{Binding AddLineCommand}">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE710;" FontSize="12"
+                               VerticalAlignment="Center" />
+                    <TextBlock Text="Добавить линию" VerticalAlignment="Center" />
+                  </StackPanel>
+                </Button>
+              </StackPanel>
+            </StackPanel>
+
+            <StackPanel Spacing="8" IsVisible="{Binding HasLines}">
+              <TextBlock Classes="mapLabel" Text="ПЕРСОНАЖИ" />
+              <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap"
+                         Text="Персонажи не упомянуты. Добавьте участников шага на экране «Сюжетные линии»."
+                         IsVisible="{Binding !HasCharacters}" />
+              <ItemsControl ItemsSource="{Binding Characters}" IsVisible="{Binding HasCharacters}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="map:SceneCharacterEntry">
+                    <Grid ColumnDefinitions="Auto,*" Margin="0,0,0,8">
+                      <Border Classes="avatar" Width="34" Height="34" CornerRadius="17">
+                        <TextBlock Classes="avatarLetter" FontSize="16" Text="{Binding Initial}" />
+                      </Border>
+                      <StackPanel Grid.Column="1" Spacing="3" Margin="10,0,0,0" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                          <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" />
+                          <TextBlock Classes="muted" Text="{Binding RoleLabel}" VerticalAlignment="Center" />
+                        </StackPanel>
+                        <Border Classes="chip" HorizontalAlignment="Left" IsVisible="{Binding HasStep}">
+                          <TextBlock Text="{Binding StepLabel}" FontSize="11" />
+                        </Border>
+                      </StackPanel>
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+
+            <StackPanel Spacing="8" IsVisible="{Binding HasNotes}">
+              <TextBlock Classes="mapLabel" Text="ЗАМЕТКИ" />
+              <Border Background="{DynamicResource SurfaceFieldBrush}" CornerRadius="8" Padding="10">
+                <TextBlock Text="{Binding Notes}" TextWrapping="Wrap" FontSize="12" />
+              </Border>
+            </StackPanel>
+
+            <Button Classes="accentBtn" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                    Command="{Binding OpenCommand}">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE70F;" FontSize="12"
+                           VerticalAlignment="Center" />
+                <TextBlock Text="Открыть в редакторе" VerticalAlignment="Center" />
+              </StackPanel>
+            </Button>
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
+    </Grid>
+
+    <!-- Список — второй вид экрана для быстрой правки структуры. -->
+    <Border Grid.Row="2" Classes="mapPanel" Padding="10" IsVisible="{Binding IsListMode}">
+      <DockPanel>
+        <TextBlock DockPanel.Dock="Top" Classes="muted" Margin="4,4,0,8"
+                   Text="Выберите элемент, затем создайте книгу, главу или сцену."
+                   IsVisible="{Binding HasProject}" />
+        <TreeView ItemsSource="{Binding Roots}"
+                  SelectedItem="{Binding Selected, Mode=TwoWay}"
+                  Background="Transparent">
+          <TreeView.Styles>
+            <Style Selector="TreeViewItem" x:DataType="arch:ArchitectureNodeViewModel">
+              <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+            </Style>
+          </TreeView.Styles>
+          <TreeView.ItemTemplate>
+            <TreeDataTemplate x:DataType="arch:ArchitectureNodeViewModel" ItemsSource="{Binding Children}">
+              <Grid ColumnDefinitions="Auto,Auto,*">
+                <TextBlock Classes="muted" Text="{Binding KindLabel}" Margin="0,0,10,0" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Text="{Binding Title}" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="2" Classes="muted" Text="{Binding Detail}" Margin="12,0,0,0" VerticalAlignment="Center" />
+              </Grid>
+            </TreeDataTemplate>
+          </TreeView.ItemTemplate>
+        </TreeView>
+      </DockPanel>
+    </Border>
+  </Grid>
+</UserControl>

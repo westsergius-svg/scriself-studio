@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>ScriSelfStudio.TestSupport</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ScriSelfStudio.Core\ScriSelfStudio.Core.csproj" />
+    <ProjectReference Include="..\..\src\ScriSelfStudio.Contracts\ScriSelfStudio.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\ScriSelfStudio.Persistence\ScriSelfStudio.Persistence.csproj" />
+  </ItemGroup>
+</Project>
