@@ -293,19 +293,40 @@ internal static class SqliteProjectReader
     /// <summary>Шаги линий приходят из своей таблицы и прикрепляются к линии по идентификатору.</summary>
     private static void ReadPlotLineSteps(SqliteConnection connection, Project project)
     {
-        using var command = connection.CreateCommand();
-        command.CommandText = "SELECT data_json FROM plot_line_step ORDER BY plot_line_id, order_index;";
-
-        using var reader = command.ExecuteReader();
-        while (reader.Read())
+        var tables = new[] { "plot_line_step", "plot_line_stage" }
+            .Where(table => TableExists(connection, table))
+            .ToArray();
+        if (tables.Length == 0)
         {
-            if (Deserialize(reader.GetString(0), CoreJsonContext.Default.PlotLineStep) is not { } step)
-            {
-                continue;
-            }
-
-            project.FindPlotLine(step.PlotLineId)?.Steps.Add(step);
+            throw new InvalidDataException("В файле проекта отсутствует таблица этапов сюжетных линий.");
         }
+
+        var loadedIds = new HashSet<Guid>();
+        foreach (var table in tables)
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText = $"SELECT data_json FROM {table} ORDER BY plot_line_id, order_index;";
+
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                if (Deserialize(reader.GetString(0), CoreJsonContext.Default.PlotLineStep) is not { } step ||
+                    !loadedIds.Add(step.Id))
+                {
+                    continue;
+                }
+
+                project.FindPlotLine(step.PlotLineId)?.Steps.Add(step);
+            }
+        }
+    }
+
+    private static bool TableExists(SqliteConnection connection, string tableName)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = $name;";
+        command.Parameters.AddWithValue("$name", tableName);
+        return command.ExecuteScalar() is not null;
     }
 
     /// <summary>Локации проекта хранятся JSON-полем рядом с колонками порядка и поиска.</summary>

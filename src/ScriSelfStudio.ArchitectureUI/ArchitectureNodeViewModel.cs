@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using ScriSelfStudio.Contracts.Books;
 using ScriSelfStudio.Contracts.Dtos;
 using ScriSelfStudio.Core.Model;
+using ScriSelfStudio.Presentation.Localization;
 
 /// <summary>
 /// Узел дерева книги: серия, книга, глава или сцена (ТЗ п. 27, 35).
@@ -55,31 +56,31 @@ public sealed partial class ArchitectureNodeViewModel : ObservableObject
 
     public string KindLabel => Kind switch
     {
-        EntityKind.Series => "Серия",
-        EntityKind.Book => "Книга",
-        EntityKind.Chapter => "Глава",
-        _ => "Сцена",
+        EntityKind.Series => Loc.T("Серия"),
+        EntityKind.Book => Loc.T("Книга"),
+        EntityKind.Chapter => Loc.T("Глава"),
+        _ => Loc.T("Сцена"),
     };
 
     public string Detail => Kind switch
     {
-        EntityKind.Series => $"Книг: {Children.Count}",
-        EntityKind.Book => $"Глав: {Children.Count}",
-        EntityKind.Chapter => $"Сцен: {Children.Count}",
+        EntityKind.Series => Loc.F("Книг: {0}", Children.Count),
+        EntityKind.Book => Loc.F("Глав: {0}", Children.Count),
+        EntityKind.Chapter => Loc.F("Сцен: {0}", Children.Count),
         _ => StatusLabel(),
     };
 
     /// <summary>Объём для карты: «1 234 слова» или «пусто».</summary>
     public string WordsLabel => Words > 0
-        ? $"{Words:N0} сл."
-        : "пусто";
+        ? Loc.F("{0:N0} сл.", Words)
+        : Loc.T("пусто");
 
     public string StatusText => Status switch
     {
-        SceneStatus.Draft => "черновик",
-        SceneStatus.Revised => "на правке",
-        SceneStatus.Final => "готово",
-        _ => "идея",
+        SceneStatus.Draft => Loc.T("черновик"),
+        SceneStatus.Revised => Loc.T("на правке"),
+        SceneStatus.Final => Loc.T("готово"),
+        _ => Loc.T("идея"),
     };
 
     public bool IsScene => Kind == EntityKind.Scene;

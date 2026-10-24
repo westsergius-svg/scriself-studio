@@ -16,7 +16,10 @@ public sealed record SceneLineEntry(
     string Name,
     IBrush Brush,
     string StatusLabel,
-    IBrush StatusBrush);
+    IBrush StatusBrush)
+{
+    public string StatusText => $"({StatusLabel})";
+}
 
 /// <summary>Шаг линии, доступный для привязки к сцене с карты (ADR 012).</summary>
 public sealed record SceneStepOption(Guid Id, string Title, int Number)
@@ -34,11 +37,19 @@ public sealed record SceneLineOption(Guid Id, string Name, IReadOnlyList<SceneSt
     public override string ToString() => Name;
 }
 
+/// <summary>Персонаж, которого можно добавить к шагу, уже привязанному к сцене.</summary>
+public sealed record SceneCharacterOption(Guid Id, string Name)
+{
+    public override string ToString() => Name;
+}
+
 /// <summary>Персонаж сцены в правой панели: имя, роль и шаг линии (ТЗ п. 27).</summary>
 public sealed record SceneCharacterEntry(
     string Initial,
     string Name,
     string RoleLabel,
+    string DetailText,
+    bool HasDetail,
     string StepLabel,
     IBrush StepBrush,
     bool HasStep);
@@ -50,11 +61,17 @@ public sealed record SceneCharacterEntry(
 /// </summary>
 public sealed partial class SceneDetailsViewModel : ObservableObject
 {
+    private readonly Func<string, CancellationToken, Task<bool>> _saveDescription;
+    private readonly Func<string, CancellationToken, Task<bool>> _saveNotes;
+    private string _savedDescription;
+    private string _savedNotes;
     private readonly Func<CancellationToken, Task> _openScene;
     private readonly Func<CancellationToken, Task> _toggleKey;
     private readonly Func<CancellationToken, Task> _toggleLock;
     private readonly Func<Guid, CancellationToken, Task> _addLine;
     private readonly Func<Guid, CancellationToken, Task> _removeLine;
+    private readonly Func<Guid, Guid, CancellationToken, Task> _addCharacter;
+    private readonly Guid? _characterStepId;
 
     public SceneDetailsViewModel(
         Guid sceneId,
@@ -69,25 +86,38 @@ public sealed partial class SceneDetailsViewModel : ObservableObject
         string? notes,
         IReadOnlyList<SceneLineEntry> lines,
         IReadOnlyList<SceneCharacterEntry> characters,
+        IReadOnlyList<SceneCharacterOption> characterChoices,
+        Guid? characterStepId,
         IReadOnlyList<SceneLineOption> lineChoices,
         Func<CancellationToken, Task> openScene,
         Func<CancellationToken, Task> toggleKey,
         Func<CancellationToken, Task> toggleLock,
         Func<Guid, CancellationToken, Task> addLine,
-        Func<Guid, CancellationToken, Task> removeLine)
+        Func<Guid, CancellationToken, Task> removeLine,
+        Func<Guid, Guid, CancellationToken, Task> addCharacter,
+        Func<string, CancellationToken, Task<bool>> saveDescription,
+        Func<string, CancellationToken, Task<bool>> saveNotes)
     {
         SceneId = sceneId;
         NumberLabel = numberLabel;
         Title = title;
         Breadcrumb = breadcrumb;
-        Description = description ?? string.Empty;
+        _description = description ?? string.Empty;
+        _savedDescription = _description;
         StatusLabel = statusLabel;
         WordsLabel = wordsLabel;
         IsKey = isKey;
         IsLocked = isLocked;
-        Notes = notes;
+        _notes = notes ?? string.Empty;
+        _savedNotes = _notes;
         Lines = lines;
         Characters = characters;
+        foreach (var choice in characterChoices)
+        {
+            CharacterChoices.Add(choice);
+        }
+
+        _characterStepId = characterStepId;
         foreach (var choice in lineChoices)
         {
             LineChoices.Add(choice);
@@ -99,6 +129,9 @@ public sealed partial class SceneDetailsViewModel : ObservableObject
         _toggleLock = toggleLock;
         _addLine = addLine;
         _removeLine = removeLine;
+        _addCharacter = addCharacter;
+        _saveDescription = saveDescription;
+        _saveNotes = saveNotes;
     }
 
     public Guid SceneId { get; }
@@ -109,9 +142,31 @@ public sealed partial class SceneDetailsViewModel : ObservableObject
 
     public string Breadcrumb { get; }
 
-    public string Description { get; }
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasDescription))]
+    private string _description = string.Empty;
 
     public bool HasDescription => !string.IsNullOrWhiteSpace(Description);
+
+    public bool CanSaveDescription => !string.Equals(Description, _savedDescription, StringComparison.Ordinal);
+
+    partial void OnDescriptionChanged(string value) =>
+        OnPropertyChanged(nameof(CanSaveDescription));
+
+    [RelayCommand]
+    private async Task SaveDescriptionAsync(CancellationToken cancellationToken)
+    {
+        if (!CanSaveDescription)
+        {
+            return;
+        }
+
+        if (await _saveDescription(Description, cancellationToken))
+        {
+            _savedDescription = Description;
+            OnPropertyChanged(nameof(CanSaveDescription));
+        }
+    }
 
     public string StatusLabel { get; }
 
@@ -122,9 +177,31 @@ public sealed partial class SceneDetailsViewModel : ObservableObject
     /// <summary>Сцена заблокирована от правок (ТЗ п. 27).</summary>
     public bool IsLocked { get; }
 
-    public string? Notes { get; }
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasNotes))]
+    private string _notes = string.Empty;
 
     public bool HasNotes => !string.IsNullOrWhiteSpace(Notes);
+
+    public bool CanSaveNotes => !string.Equals(Notes, _savedNotes, StringComparison.Ordinal);
+
+    partial void OnNotesChanged(string value) =>
+        OnPropertyChanged(nameof(CanSaveNotes));
+
+    [RelayCommand]
+    private async Task SaveNotesAsync(CancellationToken cancellationToken)
+    {
+        if (!CanSaveNotes)
+        {
+            return;
+        }
+
+        if (await _saveNotes(Notes, cancellationToken))
+        {
+            _savedNotes = Notes;
+            OnPropertyChanged(nameof(CanSaveNotes));
+        }
+    }
 
     public IReadOnlyList<SceneLineEntry> Lines { get; }
 
@@ -133,6 +210,21 @@ public sealed partial class SceneDetailsViewModel : ObservableObject
     public IReadOnlyList<SceneCharacterEntry> Characters { get; }
 
     public bool HasCharacters => Characters.Count > 0;
+
+    public ObservableCollection<SceneCharacterOption> CharacterChoices { get; } = [];
+
+    public bool HasCharacterChoices => CharacterChoices.Count > 0;
+
+    public bool CanAssignCharacters => _characterStepId is not null;
+
+    public bool CanAddCharacter => CanAssignCharacters && SelectedCharacterChoice is not null;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(AddCharacterCommand))]
+    private SceneCharacterOption? _selectedCharacterChoice;
+
+    [ObservableProperty]
+    private bool _isCharacterPickerOpen;
 
     /// <summary>Линии проекта, к этапам которых можно отнести эту сцену (карта, ADR 012).</summary>
     public ObservableCollection<SceneLineOption> LineChoices { get; } = [];
@@ -148,11 +240,26 @@ public sealed partial class SceneDetailsViewModel : ObservableObject
     [NotifyCanExecuteChangedFor(nameof(AddLineCommand))]
     private SceneStepOption? _selectedStepChoice;
 
+    [ObservableProperty]
+    private bool _isLinePickerOpen;
+
     public bool HasLineChoices => LineChoices.Count > 0;
 
     public bool HasStepChoices => StepChoices.Count > 0;
 
     public bool CanAddLine => SelectedLineChoice is not null && SelectedStepChoice is not null;
+
+    [RelayCommand]
+    private void ToggleLinePicker() => IsLinePickerOpen = !IsLinePickerOpen;
+
+    [RelayCommand]
+    private void ToggleCharacterPicker() => IsCharacterPickerOpen = !IsCharacterPickerOpen;
+
+    [RelayCommand(CanExecute = nameof(CanAddCharacter))]
+    private Task AddCharacterAsync(CancellationToken cancellationToken) =>
+        SelectedCharacterChoice is { } character && _characterStepId is { } stepId
+            ? _addCharacter(character.Id, stepId, cancellationToken)
+            : Task.CompletedTask;
 
     partial void OnSelectedLineChoiceChanged(SceneLineOption? value)
     {

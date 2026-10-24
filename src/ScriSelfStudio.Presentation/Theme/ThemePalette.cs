@@ -17,13 +17,14 @@ public sealed class ThemePalette
     public static ThemePalette For(AppTheme theme) => theme switch
     {
         AppTheme.Paper => Paper,
+        AppTheme.Starter => Starter,
         AppTheme.Graphite => Graphite,
         AppTheme.Ocean => Ocean,
         AppTheme.Forest => Forest,
         _ => Studio,
     };
 
-    // Ключи в порядке колонок таблицы ниже: Studio, Paper, Graphite, Ocean, Forest.
+    // Ключи в порядке колонок таблицы ниже: Studio, Paper, Starter, Graphite, Ocean, Forest.
     private static readonly string[] Keys =
     [
         "ChromeBrush", "PanelBrush", "ChromeBorderBrush",
@@ -79,6 +80,25 @@ public sealed class ThemePalette
         "#5F9A46", "#5F8A4A", "#EDF0E2",
         "#A83A32", "#E2B2A9", "#FDF7F4",
         "#2E231B", "#9C9081", "#4D4034", "#B6524B", "#EFE3D8",
+    ];
+
+    private static readonly string[] StarterValues =
+    [
+        "#EAF2F8", "#F5F8FC", "#D9E5F0",
+        "#F8FBFF", "#F3F7FB", "#D9E5F0", "#DDEAF7",
+        "#1F2B39", "#5E6F82", "#8493A5",
+        "#3B8AE5", "#FFFFFF",
+        "#EAF3FF", "#F2F7FC", "#E0EBF8",
+        "#24364A", "#24364A",
+        "#D9E7F6", "#586E82", "#7A8EA3",
+        "#E2EEF9", "#1E2E3D",
+        "#D65C52", "#3C9B7A", "#D2A14C",
+        "#3B8AE5", "#3BAA82", "#EAF2F8", "#2A6DC3",
+        "#F4F8FD", "#F9FBFF", "#FFFFFF", "#EDF4FE",
+        "#D7E3F0", "#EAF2FF", "#DCEAFB", "#B9CEE3",
+        "#3B8AE5", "#3C7DCC", "#E4F0FF",
+        "#D86052", "#DFB157", "#F2F7FF",
+        "#1F2B39", "#7A8EA3", "#4A607A", "#2F78D7", "#E8F1FB",
     ];
 
     private static readonly string[] GraphiteValues =
@@ -143,6 +163,9 @@ public sealed class ThemePalette
 
     /// <summary>Светлая бумажная тема.</summary>
     public static readonly ThemePalette Paper = Build(PaperValues);
+
+    /// <summary>Тёплая стартовая тема «Стартовая».</summary>
+    public static readonly ThemePalette Starter = Build(StarterValues);
 
     /// <summary>Тёмная нейтральная тема.</summary>
     public static readonly ThemePalette Graphite = Build(GraphiteValues);

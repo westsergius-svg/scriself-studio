@@ -6,8 +6,13 @@
     <IsUiProject>true</IsUiProject>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
-    <ApplicationIcon />
+    <!-- Значок exe: из него Windows берёт значок ярлыков, списка задач и ассоциации .scri. -->
+    <ApplicationIcon>Assets\scriself.ico</ApplicationIcon>
   </PropertyGroup>
+  <ItemGroup>
+    <!-- Значок окна: Avalonia читает PNG, ICO она не декодирует. -->
+    <AvaloniaResource Include="Assets\scriself.png" />
+  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Avalonia.Desktop" />
@@ -20,7 +25,6 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Debug" />
   </ItemGroup>
   <ItemGroup Condition="'$(Configuration)' == 'Debug'">
-    <PackageReference Include="Avalonia.Diagnostics" />
     <PackageReference Include="AvaloniaMcp.Diagnostics" />
   </ItemGroup>
   <ItemGroup>

@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="clr-namespace:ScriSelfStudio.Presentation.Localization;assembly=ScriSelfStudio.Presentation"
              xmlns:shell="clr-namespace:ScriSelfStudio.App.Shell"
              x:Class="ScriSelfStudio.App.Views.ThemeSwitcherView"
              x:DataType="shell:ShellViewModel">
@@ -8,9 +9,9 @@
     <StackPanel Orientation="Horizontal" Spacing="8">
       <Button Classes="themeTrigger"
               Command="{Binding ToggleThemeMenuCommand}"
-              ToolTip.Tip="Темы оформления">
+              ToolTip.Tip="{loc:Tr 'Темы оформления'}">
         <StackPanel Orientation="Horizontal" Spacing="5">
-          <TextBlock Text="Тема" VerticalAlignment="Center" />
+          <TextBlock Text="{loc:Tr 'Тема'}" VerticalAlignment="Center" />
           <TextBlock Text="{Binding CurrentThemeName}" VerticalAlignment="Center"
                      Foreground="{DynamicResource AccentBrush}" />
           <TextBlock Text="▾" VerticalAlignment="Center" />

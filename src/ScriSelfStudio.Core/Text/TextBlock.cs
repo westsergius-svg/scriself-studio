@@ -13,6 +13,9 @@ public sealed class TextBlock
 
     public int IndentLevel { get; set; }
 
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public ListMarkerKind ListMarker { get; set; }
+
     [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
     public List<TextSpan> Spans { get; } = [];
 

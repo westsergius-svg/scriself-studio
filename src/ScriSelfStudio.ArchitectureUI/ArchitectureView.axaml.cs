@@ -1,6 +1,8 @@
 namespace ScriSelfStudio.ArchitectureUI;
 
 using Avalonia.Controls;
+using Avalonia.Interactivity;
+using ScriSelfStudio.ArchitectureUI.Map;
 
 /// <summary>Экран структуры книги. Логика — в ArchitectureViewModel.</summary>
 public partial class ArchitectureView : UserControl
@@ -17,5 +19,23 @@ public partial class ArchitectureView : UserControl
                 viewModel.MapViewportWidth = size.NewSize.Width;
             }
         };
+    }
+
+    private async void OnSceneDescriptionLostFocus(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is ArchitectureViewModel
+            && sender is TextBox { DataContext: SceneDetailsViewModel details })
+        {
+            await details.SaveDescriptionCommand.ExecuteAsync(null);
+        }
+    }
+
+    private async void OnSceneNotesLostFocus(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is ArchitectureViewModel
+            && sender is TextBox { DataContext: SceneDetailsViewModel details })
+        {
+            await details.SaveNotesCommand.ExecuteAsync(null);
+        }
     }
 }

@@ -14,7 +14,9 @@ using ScriSelfStudio.Contracts.Navigation;
 using ScriSelfStudio.Contracts.Projects;
 using ScriSelfStudio.Core.Events;
 using ScriSelfStudio.Core.Model;
+using ScriSelfStudio.EditorUI;
 using ScriSelfStudio.Presentation;
+using ScriSelfStudio.Presentation.Localization;
 using System.Windows.Input;
 
 /// <summary>Книга в списке левого дерева: вариант для выпадающего списка.</summary>
@@ -22,6 +24,19 @@ public sealed record BookOption(Guid Id, string Title)
 {
     /// <summary>ComboBox показывает элементы через <c>ToString</c>.</summary>
     public override string ToString() => Title;
+}
+
+internal static class BookTreeLabels
+{
+    public static string NumberedTitle(string kind, int order, string title)
+    {
+        var prefix = $"{kind} {order + 1}";
+        var displayPrefix = $"{Loc.T(kind)} {order + 1}";
+        return title.StartsWith(prefix, StringComparison.CurrentCultureIgnoreCase)
+            && (title.Length == prefix.Length || title[prefix.Length] is '.' or ':' or ' ')
+            ? displayPrefix + title[prefix.Length..]
+            : $"{displayPrefix}. {title}";
+    }
 }
 
 /// <summary>Сцена в дереве книги со статус-меткой и командой открытия.</summary>
@@ -48,6 +63,8 @@ public sealed partial class SceneNode : ObservableObject
     public int Order { get; }
 
     public string Title { get; }
+
+    public string DisplayTitle => BookTreeLabels.NumberedTitle("Сцена", Order, Title);
 
     public int Words { get; }
 
@@ -94,6 +111,8 @@ public sealed partial class ChapterNode : ObservableObject
 
     public string Title { get; }
 
+    public string DisplayTitle => BookTreeLabels.NumberedTitle("Глава", Order, Title);
+
     public IReadOnlyList<SceneNode> Scenes { get; }
 
     /// <summary>Команда добавления сцены в эту главу, привязанная деревом.</summary>
@@ -103,8 +122,11 @@ public sealed partial class ChapterNode : ObservableObject
     public string Number => Order.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Chevron))]
     [NotifyPropertyChangedFor(nameof(IsCollapsed))]
     private bool _isExpanded;
+
+    public string Chevron => IsExpanded ? "\uE70D" : "\uE76C";
 
     /// <summary>Обратное состояние: шеврон показывает свёрнутую главу другим значком.</summary>
     public bool IsCollapsed => !IsExpanded;
@@ -114,8 +136,66 @@ public sealed partial class ChapterNode : ObservableObject
     private void ToggleExpanded() => IsExpanded = !IsExpanded;
 }
 
+/// <summary>Книга в иерархическом дереве редактора.</summary>
+public sealed partial class BookNode : ObservableObject
+{
+    public BookNode(Guid id, int order, string title, IReadOnlyList<ChapterNode> chapters)
+    {
+        Id = id;
+        Order = order;
+        Title = title;
+        Chapters = chapters;
+    }
+
+    public Guid Id { get; }
+
+    public string Title { get; }
+
+    public int Order { get; }
+
+    public string DisplayTitle => BookTreeLabels.NumberedTitle("Книга", Order, Title);
+
+    public IReadOnlyList<ChapterNode> Chapters { get; }
+
+    public ICommand? ToggleCommand { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Chevron))]
+    private bool _isExpanded;
+
+    public string Chevron => IsExpanded ? "\uE70D" : "\uE76C";
+}
+
+/// <summary>Серия проекта — корневой раскрываемый узел дерева.</summary>
+public sealed partial class SeriesNode : ObservableObject
+{
+    public SeriesNode(Guid id, string title, IReadOnlyList<BookNode> books)
+    {
+        Id = id;
+        Title = title;
+        Books = books;
+    }
+
+    public Guid Id { get; }
+
+    public string Title { get; }
+
+    public IReadOnlyList<BookNode> Books { get; }
+
+    public string DisplayTitle => Title;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Chevron))]
+    private bool _isExpanded;
+
+    public string Chevron => IsExpanded ? "\uE70D" : "\uE76C";
+
+    [RelayCommand]
+    private void ToggleExpanded() => IsExpanded = !IsExpanded;
+}
+
 /// <summary>
-/// Левое рабочее пространство (ТЗ п. 24, 27): список книг, дерево глав и сцен
+/// Левое рабочее пространство (ТЗ п. 24, 27): дерево серий, книг, глав и сцен
 /// со статус-метками. View содержит только разметку; логика — здесь.
 /// Открывает сцену в редакторе и управляет созданием глав и сцен.
 /// </summary>
@@ -130,12 +210,13 @@ public sealed partial class BookTreeViewModel : ViewModelBase, IDisposable
             [SceneStatus.Final] = new SolidColorBrush(Color.Parse("#3FBF7F")),
         };
 
-    /// <summary>Выделение строки открытой сцены в дереве (прозрачный акцент).</summary>
-    private static readonly IBrush RowActiveBrush = new SolidColorBrush(Color.Parse("#33D4AF37"));
+    /// <summary>Мягкая заливка выбранной сцены в дереве.</summary>
+    private static readonly IBrush RowActiveBrush = new SolidColorBrush(Color.Parse("#F3E3DB"));
 
     private readonly IProjectService _projects;
     private readonly IBookArchitectureService _architecture;
     private readonly IEditorEngine _editorEngine;
+    private readonly EditorViewModel _editor;
     private readonly INavigationService _navigation;
     private readonly IFileDialogService _dialogs;
     private readonly List<IDisposable> _subscriptions = [];
@@ -150,6 +231,9 @@ public sealed partial class BookTreeViewModel : ViewModelBase, IDisposable
     /// <summary>Книги проекта для выпадающего списка.</summary>
     public ObservableCollection<BookOption> Books { get; } = [];
 
+    /// <summary>Полное дерево серий, книг, глав и сцен для панели редактора.</summary>
+    public ObservableCollection<SeriesNode> Series { get; } = [];
+
     /// <summary>Главы выбранной книги со сценами.</summary>
     public ObservableCollection<ChapterNode> Chapters { get; } = [];
 
@@ -163,6 +247,7 @@ public sealed partial class BookTreeViewModel : ViewModelBase, IDisposable
         IProjectService projects,
         IBookArchitectureService architecture,
         IEditorEngine editorEngine,
+        EditorViewModel editor,
         INavigationService navigation,
         IFileDialogService dialogs,
         IEventBus events)
@@ -170,6 +255,7 @@ public sealed partial class BookTreeViewModel : ViewModelBase, IDisposable
         _projects = projects;
         _architecture = architecture;
         _editorEngine = editorEngine;
+        _editor = editor;
         _navigation = navigation;
         _dialogs = dialogs;
 
@@ -202,9 +288,29 @@ public sealed partial class BookTreeViewModel : ViewModelBase, IDisposable
     private void ExpandChapterForCurrentScene()
     {
         var current = FindChapterForScene(_editorEngine.SceneId);
+        if (current is null)
+        {
+            return;
+        }
+
         foreach (var chapter in Chapters)
         {
-            chapter.IsExpanded = current is not null && chapter.Id == current.Value;
+            chapter.IsExpanded = chapter.Id == current.Value;
+        }
+
+        foreach (var series in Series)
+        {
+            foreach (var book in series.Books)
+            {
+                var containsCurrent = book.Chapters.Any(chapter => chapter.Id == current);
+                book.IsExpanded = containsCurrent;
+                foreach (var chapter in book.Chapters)
+                {
+                    chapter.IsExpanded = chapter.Id == current.Value;
+                }
+            }
+
+            series.IsExpanded = series.Books.Any(book => book.IsExpanded);
         }
     }
 
@@ -231,7 +337,7 @@ public sealed partial class BookTreeViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        var title = await _dialogs.PromptAsync("Новая глава", "Название главы", "Глава", cancellationToken);
+        var title = await _dialogs.PromptAsync(Loc.T("Новая глава"), Loc.T("Название главы"), Loc.T("Глава"), cancellationToken);
         if (title is null)
         {
             return;
@@ -247,7 +353,7 @@ public sealed partial class BookTreeViewModel : ViewModelBase, IDisposable
     [RelayCommand]
     private async Task AddSceneAsync(Guid chapterId, CancellationToken cancellationToken)
     {
-        var title = await _dialogs.PromptAsync("Новая сцена", "Название сцены", "Сцена", cancellationToken);
+        var title = await _dialogs.PromptAsync(Loc.T("Новая сцена"), Loc.T("Название сцены"), Loc.T("Сцена"), cancellationToken);
         if (title is null)
         {
             return;
@@ -263,16 +369,12 @@ public sealed partial class BookTreeViewModel : ViewModelBase, IDisposable
     /// <summary>Открывает сцену в редакторе (ТЗ п. 10).</summary>
     private async Task OpenSceneAsync(SceneNode scene, CancellationToken cancellationToken)
     {
-        var opened = await _editorEngine.OpenSceneAsync(scene.Id, cancellationToken);
-        if (!opened.IsSuccess)
+        if (await _editor.OpenSceneFromBookAsync(scene.Id, cancellationToken))
         {
-            ErrorMessage = opened.Error is null
-                ? "Не удалось открыть сцену."
-                : opened.Error.UserMessage;
             return;
         }
 
-        _navigation.NavigateTo(AppScreen.Editor);
+        ErrorMessage = _editor.ErrorMessage ?? Loc.T("Не удалось открыть сцену.");
     }
 
     public void Dispose()
@@ -290,16 +392,36 @@ public sealed partial class BookTreeViewModel : ViewModelBase, IDisposable
     /// <summary>Перечитывает структуру проекта, сохраняя выбор книги и раскрытые главы.</summary>
     public void Refresh()
     {
+        var hadTree = Series.Count > 0;
         var previousBook = SelectedBook?.Id;
         var previousScene = _editorEngine.SceneId;
         var expanded = Chapters
             .Where(chapter => chapter.IsExpanded)
             .Select(chapter => chapter.Id)
             .ToHashSet();
+        var expandedSeries = Series
+            .Where(series => series.IsExpanded)
+            .Select(series => series.Id)
+            .ToHashSet();
+        var expandedBooks = Series
+            .SelectMany(series => series.Books)
+            .Where(book => book.IsExpanded)
+            .Select(book => book.Id)
+            .ToHashSet();
+        var expandedTreeChapters = Series
+            .SelectMany(series => series.Books)
+            .SelectMany(book => book.Chapters)
+            .Where(chapter => chapter.IsExpanded)
+            .Select(chapter => chapter.Id)
+            .ToHashSet();
 
         Books.Clear();
-        foreach (var book in _projects.Current?.Series
-            .SelectMany(series => series.Books) ?? [])
+        Series.Clear();
+        var project = _projects.Current;
+        var seriesList = project?.Series ?? [];
+        var firstBookId = seriesList.SelectMany(series => series.Books).FirstOrDefault()?.Id;
+        var currentChapter = FindChapterForScene(previousScene);
+        foreach (var book in seriesList.SelectMany(series => series.Books))
         {
             Books.Add(new BookOption(book.Id, book.Title));
         }
@@ -307,7 +429,38 @@ public sealed partial class BookTreeViewModel : ViewModelBase, IDisposable
         SelectedBook = Books.FirstOrDefault(candidate => candidate.Id == previousBook)
             ?? Books.FirstOrDefault();
 
-        RefreshChapters(expanded, previousScene);
+        foreach (var series in seriesList)
+        {
+            var bookNodes = new List<BookNode>();
+            foreach (var book in series.Books)
+            {
+                var chapters = CreateChapterNodes(
+                    book.Chapters,
+                    hadTree ? expandedTreeChapters : null,
+                    currentChapter,
+                    book.Id == firstBookId);
+                var bookNode = new BookNode(book.Id, book.Order, book.Title, chapters)
+                {
+                    IsExpanded = hadTree
+                        ? expandedBooks.Contains(book.Id)
+                        : book.Id == firstBookId || book.Chapters.Any(chapter => chapter.Id == currentChapter),
+                };
+                bookNode.ToggleCommand = new RelayCommand(() =>
+                {
+                    SelectedBook = Books.FirstOrDefault(option => option.Id == bookNode.Id);
+                    bookNode.IsExpanded = !bookNode.IsExpanded;
+                });
+                bookNodes.Add(bookNode);
+            }
+
+            var seriesTitle = seriesList.Count == 1 ? project?.Name ?? series.Title : series.Title;
+            Series.Add(new SeriesNode(series.Id, seriesTitle, bookNodes)
+            {
+                IsExpanded = !hadTree || expandedSeries.Contains(series.Id),
+            });
+        }
+
+        RefreshChapters(hadTree ? expanded : null, previousScene);
         ErrorMessage = null;
     }
 
@@ -327,36 +480,45 @@ public sealed partial class BookTreeViewModel : ViewModelBase, IDisposable
             .SelectMany(series => series.Books)
             .FirstOrDefault(candidate => candidate.Id == selectedBook.Id);
         var currentChapter = FindChapterForScene(previousScene);
-        foreach (var chapter in book?.Chapters ?? [])
+        foreach (var chapterNode in CreateChapterNodes(book?.Chapters ?? [], expanded, currentChapter, true))
         {
-            var scenes = chapter.Scenes
-                .Select(CreateSceneNode)
-                .ToList();
-            foreach (var scene in scenes)
-            {
-                scene.OpenCommand = new AsyncRelayCommand(
-                    () => OpenSceneAsync(scene, CancellationToken.None));
-                scene.IsCurrent = scene.Id == previousScene;
-            }
-
-            var chapterNode = new ChapterNode(chapter.Id, chapter.Order, chapter.Title, scenes)
-            {
-                // Явно заданное состояние (ручное раскрытие) важнее: иначе при
-                // перечитывании структуры дерево схлопывалось бы. По умолчанию
-                // раскрыта только глава с открытой сценой.
-                IsExpanded = expanded?.Contains(chapter.Id) ?? chapter.Id == currentChapter,
-            };
-            foreach (var scene in scenes)
-            {
-                scene.RowBackground = scene.IsCurrent ? RowActiveBrush : null;
-            }
-
-            chapterNode.AddSceneCommand = new AsyncRelayCommand(
-                () => AddSceneAsync(chapterNode.Id, CancellationToken.None));
             Chapters.Add(chapterNode);
         }
 
         AddChapterCommand.NotifyCanExecuteChanged();
+    }
+
+    private IReadOnlyList<ChapterNode> CreateChapterNodes(
+        IReadOnlyList<ChapterDto> chapters,
+        IReadOnlySet<Guid>? expanded,
+        Guid? currentChapter,
+        bool expandFirstWhenNoSelection)
+    {
+        var nodes = new List<ChapterNode>();
+        foreach (var chapter in chapters)
+        {
+            var scenes = chapter.Scenes.Select(CreateSceneNode).ToList();
+            foreach (var scene in scenes)
+            {
+                scene.OpenCommand = new AsyncRelayCommand(
+                    () => OpenSceneAsync(scene, CancellationToken.None));
+                scene.IsCurrent = scene.Id == _editorEngine.SceneId;
+                scene.RowBackground = scene.IsCurrent ? RowActiveBrush : null;
+            }
+
+            var chapterNode = new ChapterNode(chapter.Id, chapter.Order, chapter.Title, scenes)
+            {
+                IsExpanded = expanded is not null
+                    ? expanded.Contains(chapter.Id)
+                    : chapter.Id == currentChapter
+                        || (currentChapter is null && expandFirstWhenNoSelection && chapter.Order == 1),
+            };
+            chapterNode.AddSceneCommand = new AsyncRelayCommand(
+                () => AddSceneAsync(chapterNode.Id, CancellationToken.None));
+            nodes.Add(chapterNode);
+        }
+
+        return nodes;
     }
 
     private SceneNode CreateSceneNode(SceneDto scene)
@@ -374,7 +536,7 @@ public sealed partial class BookTreeViewModel : ViewModelBase, IDisposable
         if (!result.IsSuccess)
         {
             ErrorMessage = result.Error is null
-                ? "Операция не выполнена."
+                ? Loc.T("Операция не выполнена.")
                 : result.Error.UserMessage;
             return;
         }
@@ -383,4 +545,3 @@ public sealed partial class BookTreeViewModel : ViewModelBase, IDisposable
         Refresh();
     }
 }
-

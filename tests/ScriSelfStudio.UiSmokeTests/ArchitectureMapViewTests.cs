@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
@@ -38,9 +39,16 @@ public sealed class ArchitectureMapViewTests
         await architecture.CreateSceneCommand.ExecuteAsync(null);
 
         var window = provider.GetRequiredService<MainWindow>();
+        window.Width = 1440;
+        window.Height = 768;
         window.Show();
         Dispatcher.UIThread.RunJobs();
         Dispatcher.UIThread.RunJobs();
+
+        var shell = provider.GetRequiredService<ScriSelfStudio.App.Shell.ShellViewModel>();
+        Assert.False(shell.ShowBookTree);
+        Assert.False(shell.ShowScenePanel);
+        Assert.False(shell.ShowStatusBar);
 
         Assert.True(architecture.IsMapMode);
         var column = Assert.Single(architecture.MapColumns);
@@ -50,6 +58,23 @@ public sealed class ArchitectureMapViewTests
         Assert.NotNull(view);
         Assert.Single(Columns(view!));
         Assert.True(Columns(view!)[0].IsEffectivelyVisible);
+
+        var actionPanel = view!.FindControl<Border>("MapActionsPanel");
+        var mapBoard = view.FindControl<Border>("MapBoard");
+        var overview = view.FindControl<Border>("MapOverview");
+        Assert.NotNull(actionPanel);
+        Assert.NotNull(mapBoard);
+        Assert.NotNull(overview);
+        var actionOrigin = actionPanel!.TranslatePoint(default, view);
+        var boardOrigin = mapBoard!.TranslatePoint(default, view);
+        var overviewOrigin = overview!.TranslatePoint(default, view);
+        Assert.NotNull(actionOrigin);
+        Assert.NotNull(boardOrigin);
+        Assert.NotNull(overviewOrigin);
+        Assert.True(boardOrigin!.Value.Y >= actionOrigin!.Value.Y + actionPanel.Bounds.Height,
+            "Карта не должна заходить на панель действий.");
+        Assert.True(boardOrigin.Value.Y + mapBoard.Bounds.Height <= overviewOrigin!.Value.Y,
+            "Доска карты не должна перекрывать быстрый обзор.");
 
         // Список — второй вид того же экрана: карта скрывается, дерево появляется.
         architecture.ShowListCommand.Execute(null);
@@ -61,6 +86,13 @@ public sealed class ArchitectureMapViewTests
         var tree = view!.GetVisualDescendants().OfType<TreeView>().FirstOrDefault();
         Assert.NotNull(tree);
         Assert.True(tree!.IsEffectivelyVisible);
+
+        shell.OpenSettingsCommand.Execute(null);
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(shell.ShowBookTree);
+        Assert.False(shell.ShowScenePanel);
+        Assert.False(shell.ShowStatusBar);
+        Assert.False(shell.IsFullCanvasAvailable);
 
         window.Close();
     }
@@ -101,6 +133,48 @@ public sealed class ArchitectureMapViewTests
         Assert.Same(book, architecture.Selected);
     }
 
+    [AvaloniaFact]
+    public async Task Chapter_add_button_is_available_for_an_empty_book_and_creates_a_chapter()
+    {
+        using var workspace = new TempWorkspace();
+        var dialogs = new StubFileDialogService
+        {
+            CreatePath = workspace.FilePath("Карта.scri"),
+            PromptResult = "Глава",
+        };
+        using var provider = ServiceProviderFactory.Create(workspace.Root, dialogs);
+        var launcher = provider.GetRequiredService<LauncherViewModel>();
+        await launcher.InitializeAsync();
+        await launcher.CreateProjectCommand.ExecuteAsync(null);
+
+        var architecture = provider.GetRequiredService<ArchitectureViewModel>();
+        architecture.Selected = architecture.Roots[0];
+        await architecture.CreateBookCommand.ExecuteAsync(null);
+
+        var window = provider.GetRequiredService<MainWindow>();
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        Dispatcher.UIThread.RunJobs();
+
+        var view = Assert.Single(window.GetVisualDescendants().OfType<ArchitectureView>());
+        var overview = view.FindControl<Border>("MapOverview");
+        Assert.NotNull(overview);
+        Assert.True(overview!.IsEffectivelyVisible);
+
+        var chapterAdd = Assert.Single(
+            view.GetVisualDescendants().OfType<Button>(),
+            button => button.Classes.Contains("addChapterColumn"));
+        Assert.True(chapterAdd.IsEnabled);
+        Assert.Same(architecture.CreateChapterInBookCommand, chapterAdd.Command);
+
+        await architecture.CreateChapterInBookCommand.ExecuteAsync(null);
+
+        Assert.False(architecture.HasError, architecture.ErrorMessage);
+        Assert.Single(architecture.MapColumns);
+        Assert.Single(architecture.ChapterOverview);
+        window.Close();
+    }
+
     /// <summary>
     /// Пустая карта предлагает следующий недостающий элемент: сначала книгу,
     /// затем главу. После главы на карте появляется столбец.
@@ -125,9 +199,10 @@ public sealed class ArchitectureMapViewTests
 
         await architecture.MapEmptyActionCommand.ExecuteAsync(null);
         Assert.Empty(architecture.MapColumns);
-        Assert.Equal("Создать главу", architecture.MapEmptyActionLabel);
+        Assert.False(architecture.ShowMapEmpty);
+        Assert.True(architecture.CanCreateChapterInBook);
 
-        await architecture.MapEmptyActionCommand.ExecuteAsync(null);
+        await architecture.CreateChapterInBookCommand.ExecuteAsync(null);
         Assert.False(architecture.HasError, architecture.ErrorMessage);
         Assert.True(architecture.HasMapColumns);
         Assert.False(architecture.ShowMapEmpty);

@@ -33,3 +33,15 @@ logs/
 ## OS artefacts
 Thumbs.db
 desktop.ini
+
+## Local diagnostics
+/$null
+/probe_reflect.csx
+
+## Local environment
+.env
+.env.*
+!.env.example
+
+## Local Google OAuth credentials
+/src/ScriSelfStudio.Persistence/Cloud/google-oauth-client.json

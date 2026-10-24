@@ -1,9 +1,12 @@
 # ScriSelf Studio
 
+Текущая версия — **1.1.9** (Windows x64).
+
 Офлайн-редактор писательских проектов для Windows: книги → главы → сцены, текстовый
 редактор, карта структуры, сюжетные линии, автосохранение и восстановление.
 
-Стек: C# 12, .NET 8 (LTS), Avalonia 11 (MVVM), Microsoft.Data.Sqlite, System.Text.Json.
+Стек: C# 12, .NET 10, Avalonia 12 (MVVM), AvaloniaRichEditor (WYSIWYG), Microsoft.Data.Sqlite,
+System.Text.Json.
 
 Формат проекта `.scri` определяется по содержимому файла: собственный (SQLite) и старый
 контейнер (`manifest.json` + `content.json`) читаются и записываются в том же формате,
@@ -17,7 +20,7 @@
 | `ScriSelfStudio.Core` | Доменная модель проекта, каноническая модель текста, схема данных (ТЗ п. 10, 29) |
 | `ScriSelfStudio.Persistence` | SQLite-хранилище `.scri`, миграции, атомарная запись, резервные копии (ТЗ п. 13) |
 | `ScriSelfStudio.BookArchitecture` | Книги, главы, сцены, порядок, связи, валидация (ТЗ п. 16, этап 2) |
-| `ScriSelfStudio.EditorEngine` | Текстовый буфер, история, поиск, статистика (ТЗ п. 11, 21) |
+| `ScriSelfStudio.EditorEngine` | Богатый документ сцен, форматирование, поиск и статистика (ТЗ п. 11, 21) |
 | `ScriSelfStudio.Presentation` | Общие UI-сервисы, базовые ViewModel, ресурсы и темы (ТЗ п. 33) |
 | `ScriSelfStudio.Launcher` | Стартовый экран и настройки: создание, открытие, последние проекты, тема, шрифт, автосохранение (ТЗ п. 27) |
 | `ScriSelfStudio.EditorUI` | AXAML редактора сцены (ТЗ п. 27, этап 6) |
@@ -33,6 +36,25 @@ dotnet build --configuration Release
 dotnet test --configuration Release
 dotnet run --project "src/ScriSelfStudio.App"
 ```
+
+### Настройка Google Drive
+
+Параметры OAuth-клиента Google для приложения Windows хранятся в локальном файле
+`src/ScriSelfStudio.Persistence/Cloud/google-oauth-client.json`, исключённом из Git.
+Чтобы настроить Google Drive при сборке из исходников, скопируйте шаблон:
+
+```powershell
+Copy-Item src\ScriSelfStudio.Persistence\Cloud\google-oauth-client.example.json `
+  src\ScriSelfStudio.Persistence\Cloud\google-oauth-client.json
+```
+
+Заполните `installed.client_id`, `installed.client_secret` и `installed.project_id`
+параметрами своего OAuth-клиента типа Desktop app в Google Cloud. Для него нужны
+Google Drive API и разрешения `drive.file`, `openid`, `email`.
+
+При наличии локального файла сборка встраивает его; иначе встраивается шаблон,
+чтобы проект собирался и запускался после клонирования. Для входа в Google Drive
+требуется заполненный локальный файл и повторная сборка приложения.
 
 Открыть конкретный проект (в том числе из проводника Windows, если сопоставить
 расширение `.scri` с приложением):
@@ -50,16 +72,30 @@ dotnet publish src\ScriSelfStudio.App\ScriSelfStudio.App.csproj -c Release -r wi
   -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts\publish\win-x64
 ```
 
+Установщик (значок приложения и ассоциация `.scri`):
+
+```powershell
+# значки пересобираются только когда меняется исходная картинка
+pwsh -File installer\make-icon.ps1 -Source "путь\к\картинке.jpg"
+
+# публикация + сборка setup: версия берётся из Directory.Build.props
+pwsh -File installer\build-installer.ps1
+```
+
+Требуется [Inno Setup 6](https://jrsoftware.org/isdl.php). Готовый файл —
+`artifacts\installer\ScriSelfStudio-Setup-<версия>.exe`.
+
 ## Статус
 
 Готово: ядро и модель, SQLite-хранилище `.scri` с атомарной записью и восстановлением,
 архитектура книги, движок редактора сцены, карта книги, персонажи с арками и этапами
-сюжетных линий, стартовый экран, темы, настройки.
+сюжетных линий, стартовый экран, темы, настройки, экспорт DOCX/PDF/EPUB/TXT,
+облако на Яндекс.Диске и Google Drive.
 
 В работе: диалог восстановления в UI, ручная приёмка на реальных файлах.
 
 Вне текущей поставки: импорт ранних модульных SQLite-проектов (формат `entities`/`meta`),
-орфография, экспорт (ТЗ п. 31).
+орфография (ТЗ п. 31).
 
 Текущее состояние работ и передача контекста — `docs/HANDOFF.md`.
 

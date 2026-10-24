@@ -1,10 +1,12 @@
 namespace ScriSelfStudio.Launcher;
 
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using ScriSelfStudio.Contracts.Cloud;
 using ScriSelfStudio.Contracts.Dialogs;
 using ScriSelfStudio.Contracts.Dtos;
 using ScriSelfStudio.Contracts.Editor;
@@ -14,7 +16,11 @@ using ScriSelfStudio.Contracts.Navigation;
 using ScriSelfStudio.Contracts.Projects;
 using ScriSelfStudio.Contracts.Settings;
 using ScriSelfStudio.Core.Events;
+using ScriSelfStudio.Core.Model;
+using ScriSelfStudio.Core.Security;
+using ScriSelfStudio.Core.Updates;
 using ScriSelfStudio.Presentation;
+using ScriSelfStudio.Presentation.Localization;
 using ScriSelfStudio.Presentation.Theme;
 
 /// <summary>
@@ -23,13 +29,29 @@ using ScriSelfStudio.Presentation.Theme;
 /// </summary>
 public sealed partial class LauncherViewModel : ViewModelBase, IDisposable
 {
+    /// <summary>Страница благодарности автора — цель QR-квадрата в карточке проекта.</summary>
+    public const string ThanksUrl = "https://scriborium.ru/spasibo.html";
+
+    /// <summary>Блог автора: раздел «Блог» открывает сайт, экрана блога в приложении нет.</summary>
+    public const string BlogUrl = "https://scriborium.ru/blog";
+
+    /// <summary>Сообщество автора во ВКонтакте.</summary>
+    public const string VkUrl = "https://vk.com/scriborium";
+
+    /// <summary>Страница создания паролей приложений Яндекса.</summary>
+    public const string YandexAppPasswordsUrl = "https://id.yandex.ru/security/app-passwords";
+
     private readonly IProjectService _projects;
     private readonly IAppSettingsService _settings;
     private readonly IFileDialogService _dialogs;
     private readonly INavigationService _navigation;
     private readonly IThemeService _theme;
     private readonly IEditorEngine _editor;
+    private readonly IUpdateService _updates;
+    private readonly ICloudStorageCatalog _cloudCatalog;
+    private ICloudStorageService _cloud;
     private readonly List<IDisposable> _subscriptions = [];
+    private bool _suppressCloudProviderRestore;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasError))]
@@ -57,7 +79,9 @@ public sealed partial class LauncherViewModel : ViewModelBase, IDisposable
         IThemeService theme,
         INavigationService navigation,
         IEventBus events,
-        IEditorEngine editor)
+        IEditorEngine editor,
+        IUpdateService updates,
+        ICloudStorageCatalog cloudCatalog)
     {
         _projects = projects;
         _settings = settings;
@@ -65,6 +89,12 @@ public sealed partial class LauncherViewModel : ViewModelBase, IDisposable
         _navigation = navigation;
         _theme = theme;
         _editor = editor;
+        _updates = updates;
+        _cloudCatalog = cloudCatalog;
+        _cloud = cloudCatalog.Get(CloudProviderKind.YandexDisk);
+        _suppressCloudProviderRestore = true;
+        SelectedCloudProvider = CloudProviders[0];
+        _suppressCloudProviderRestore = false;
 
         // Экран сам следит за состоянием проекта: карточка открытого проекта и
         // панель «Контекст проекта» должны обновляться, даже если лаунчер
@@ -79,6 +109,78 @@ public sealed partial class LauncherViewModel : ViewModelBase, IDisposable
 
     /// <summary>Отфильтрованный список центральной панели: подстрока поиска.</summary>
     public ObservableCollection<RecentProjectItem> VisibleProjects { get; } = [];
+
+    /// <summary>Проекты в папке ScriSelfStudio/Projects на Яндекс.Диске.</summary>
+    public ObservableCollection<CloudFileItem> CloudFiles { get; } = [];
+
+    /// <summary>Открыта ли панель «Облако» поверх лаунчера.</summary>
+    [ObservableProperty]
+    private bool _isCloudOpen;
+
+    /// <summary>Логин Яндекса для подключения к Диску.</summary>
+    [ObservableProperty]
+    private string? _cloudLogin;
+
+    /// <summary>Пароль приложения Яндекса. В настройках хранится только зашифрованным.</summary>
+    [ObservableProperty]
+    private string? _cloudPassword;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowYandexConnectForm))]
+    [NotifyPropertyChangedFor(nameof(ShowGoogleConnectForm))]
+    [NotifyCanExecuteChangedFor(nameof(RefreshCloudFilesCommand))]
+    [NotifyCanExecuteChangedFor(nameof(UploadToCloudCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DownloadCloudFileCommand))]
+    private bool _isCloudConnected;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ConnectCloudCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RefreshCloudFilesCommand))]
+    [NotifyCanExecuteChangedFor(nameof(UploadToCloudCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DownloadCloudFileCommand))]
+    private bool _isCloudBusy;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasCloudStatus))]
+    private string? _cloudStatusMessage;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasCloudError))]
+    private string? _cloudErrorMessage;
+
+    public bool HasCloudStatus => !string.IsNullOrEmpty(CloudStatusMessage);
+
+    public bool HasCloudError => !string.IsNullOrEmpty(CloudErrorMessage);
+
+    public bool HasCloudFiles => CloudFiles.Count > 0;
+
+    /// <summary>Провайдеры облака, между которыми переключается панель.</summary>
+    public IReadOnlyList<CloudProviderInfo> CloudProviders => _cloudCatalog.Providers;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsYandexCloud))]
+    [NotifyPropertyChangedFor(nameof(IsGoogleCloud))]
+    [NotifyPropertyChangedFor(nameof(ShowYandexConnectForm))]
+    [NotifyPropertyChangedFor(nameof(ShowGoogleConnectForm))]
+    [NotifyPropertyChangedFor(nameof(CloudProviderTitle))]
+    [NotifyPropertyChangedFor(nameof(CloudProviderDescription))]
+    private CloudProviderInfo? _selectedCloudProvider;
+
+    public bool IsYandexCloud => SelectedCloudProvider?.Kind == CloudProviderKind.YandexDisk;
+
+    public bool IsGoogleCloud => SelectedCloudProvider?.Kind == CloudProviderKind.GoogleDrive;
+
+    public bool ShowYandexConnectForm => IsYandexCloud && !IsCloudConnected;
+
+    public bool ShowGoogleConnectForm => IsGoogleCloud && !IsCloudConnected;
+
+    public string CloudProviderTitle => IsGoogleCloud
+        ? Loc.T("Облако · Google Drive")
+        : Loc.T("Облако · Яндекс.Диск");
+
+    public string CloudProviderDescription => IsGoogleCloud
+        ? Loc.T("Резервная копия проектов в вашем Google Drive. Приложение работает только с папкой ScriSelfStudio/Projects.")
+        : Loc.T("Резервная копия проектов в вашем Диске. Приложение работает только с папкой ScriSelfStudio/Projects.");
 
     /// <summary>Выбранная карточка: на неё смотрит правая панель «Контекст проекта».</summary>
     [ObservableProperty]
@@ -132,6 +234,9 @@ public sealed partial class LauncherViewModel : ViewModelBase, IDisposable
 
     public bool CanOpenSettingsScreen => _navigation.CanNavigateTo(AppScreen.Settings);
 
+    /// <summary>Экспорт книги доступен из лаунчера, даже если проект ещё не открыт.</summary>
+    public bool CanOpenExportScreen => _navigation.CanNavigateTo(AppScreen.Export);
+
     /// <summary>Персонажи и линии относятся к проекту: без него экран пуст (ТЗ п. 27).</summary>
     public bool CanOpenCharactersScreen => IsProjectOpen && _navigation.CanNavigateTo(AppScreen.Characters);
 
@@ -152,9 +257,153 @@ public sealed partial class LauncherViewModel : ViewModelBase, IDisposable
     [RelayCommand(CanExecute = nameof(CanOpenSettingsScreen))]
     private void OpenSettings() => _navigation.NavigateTo(AppScreen.Settings);
 
+    [RelayCommand(CanExecute = nameof(CanOpenExportScreen))]
+    private void OpenExport() => _navigation.NavigateTo(AppScreen.Export);
+
     /// <summary>Раздел «Мои проекты»: обновляет список из настроек.</summary>
     [RelayCommand]
     private void ShowProjects() => RefreshRecentProjects();
+
+    /// <summary>Версия приложения в подвале лаунчера.</summary>
+    public string AppVersionText => Loc.F("Версия {0}", _updates.CurrentVersion);
+
+    /// <summary>Идёт проверка или загрузка обновления: кнопка блокируется.</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(CheckForUpdatesCommand))]
+    private bool _isCheckingForUpdates;
+
+    private bool CanCheckForUpdates() => !IsCheckingForUpdates;
+
+    /// <summary>
+    /// Проверяет обновления на официальном канале Scriborium: тот же адрес и тот
+    /// же формат, что использовал Scriborium 1.1.3.3S (<c>latest.json</c> в каталоге
+    /// <c>uploads/scrisoft/</c>). Найденный установщик кладётся во временную папку.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanCheckForUpdates))]
+    private async Task CheckForUpdatesAsync(CancellationToken cancellationToken)
+    {
+        ClearMessages();
+        IsCheckingForUpdates = true;
+        StatusMessage = Loc.T("Проверка обновлений…");
+
+        try
+        {
+            var check = await _updates.CheckAsync(cancellationToken);
+            if (check.HasError)
+            {
+                await ReportUpdateErrorAsync(Loc.F("Не удалось проверить обновления:\n{0}", check.Error));
+                return;
+            }
+
+            if (check.Latest is not { } latest)
+            {
+                StatusMessage = Loc.F("Установлена версия {0}. Сборок в канале нет.", _updates.CurrentVersion);
+                return;
+            }
+
+            if (!_updates.IsNewer(latest))
+            {
+                StatusMessage = Loc.F("Установлена версия {0}. Обновлений нет.", _updates.CurrentVersion);
+                return;
+            }
+
+            await OfferUpdateAsync(latest, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            StatusMessage = null;
+        }
+        catch (Exception exception)
+        {
+            await ReportUpdateErrorAsync(Loc.F("Не удалось обновить приложение:\n{0}", exception.Message));
+        }
+        finally
+        {
+            IsCheckingForUpdates = false;
+        }
+    }
+
+    /// <summary>
+    /// Тихая проверка при запуске: если в канале есть новая сборка, предлагаем её
+    /// скачать и установить. Ошибки сети и пустой канал не показываются, чтобы
+    /// запуск приложения не зависел от доступности сайта.
+    /// </summary>
+    public async Task CheckForUpdatesOnStartupAsync(CancellationToken cancellationToken = default)
+    {
+        if (IsCheckingForUpdates)
+        {
+            return;
+        }
+
+        IsCheckingForUpdates = true;
+        try
+        {
+            var check = await _updates.CheckAsync(cancellationToken);
+            if (check.HasError || check.Latest is not { } latest || !_updates.IsNewer(latest))
+            {
+                return;
+            }
+
+            StatusMessage = Loc.F("Доступна новая версия {0}.", latest.Display);
+            await OfferUpdateAsync(latest, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            // Окно закрывается — проверка больше не нужна.
+        }
+        catch
+        {
+            // Тихая проверка не должна мешать запуску приложения.
+        }
+        finally
+        {
+            IsCheckingForUpdates = false;
+        }
+    }
+
+    /// <summary>Предлагает скачать и установить найденную сборку.</summary>
+    private async Task OfferUpdateAsync(UpdateInfo latest, CancellationToken cancellationToken)
+    {
+        var download = await _dialogs.ConfirmAsync(
+            UpdateTitle,
+            Loc.F("Доступна новая версия {0} (установлена: {1}).\n{2}\n\nСкачать и установить?", latest.Display, _updates.CurrentVersion, latest.FileName),
+            Loc.T("Скачать"),
+            Loc.T("Отмена"),
+            cancellationToken);
+        if (!download)
+        {
+            StatusMessage = null;
+            return;
+        }
+
+        StatusMessage = Loc.F("Скачивание обновления {0}…", latest.Display);
+        var installer = await _updates.DownloadAsync(latest, null, cancellationToken);
+        StatusMessage = null;
+
+        var install = await _dialogs.ConfirmAsync(
+            UpdateTitle,
+            Loc.T("Обновление скачано.\n\nУстановить сейчас? Перед этим закройте все открытые проекты."),
+            Loc.T("Установить"),
+            Loc.T("Позже"),
+            cancellationToken);
+        if (!install)
+        {
+            StatusMessage = Loc.F("Обновление сохранено: {0}", installer);
+            return;
+        }
+
+        // Приложение закрывается: установщик должен получить файлы свободными.
+        _updates.LaunchInstaller(installer);
+    }
+
+    private static string UpdateTitle => Loc.T("Обновление ScriSelf Studio");
+
+    private async Task ReportUpdateErrorAsync(string message)
+    {
+        StatusMessage = null;
+        ErrorMessage = message;
+        await _dialogs.ShowErrorAsync(UpdateTitle, message);
+    }
 
     /// <summary>Выбор карточки проекта (щелчок по карточке в списке).</summary>
     [RelayCommand]
@@ -217,12 +466,484 @@ public sealed partial class LauncherViewModel : ViewModelBase, IDisposable
     }
 
     /// <summary>
-    /// Разделы «Шаблоны», «Облако» и «Блог» из макета пока не реализованы:
-    /// кнопка честно сообщает об этом, а не молчит.
+    /// Раздел «Облако» реализован на Яндекс.Диске через WebDAV; «Шаблоны»
+    /// пока остаются заглушкой и честно сообщают об этом.
     /// </summary>
     [RelayCommand]
     private void ShowComingSoon(string? title) =>
-        StatusMessage = $"Раздел «{title}» появится в следующих версиях.";
+        StatusMessage = Loc.F("Раздел «{0}» появится в следующих версиях.", title);
+
+    [RelayCommand]
+    private async Task OpenCloudAsync()
+    {
+        IsCloudOpen = true;
+        ClearCloudMessages();
+        var savedKind = ParseCloudProvider(_settings.Current.CloudProvider);
+        _suppressCloudProviderRestore = true;
+        SelectedCloudProvider = CloudProviders.FirstOrDefault(provider => provider.Kind == savedKind)
+            ?? CloudProviders[0];
+        _suppressCloudProviderRestore = false;
+        await ApplySavedCloudSessionAsync(CancellationToken.None);
+    }
+
+    [RelayCommand]
+    private void CloseCloud()
+    {
+        IsCloudOpen = false;
+        CloudPassword = null;
+    }
+
+    private bool CanConnectCloud() => !IsCloudBusy;
+
+    [RelayCommand(CanExecute = nameof(CanConnectCloud))]
+    private async Task ConnectCloudAsync(CancellationToken cancellationToken)
+    {
+        ClearCloudMessages();
+        if (IsGoogleCloud)
+        {
+            await ConnectGoogleAsync(cancellationToken);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(CloudLogin) || string.IsNullOrEmpty(CloudPassword))
+        {
+            CloudErrorMessage = Loc.T("Укажите логин Яндекса и пароль приложения.");
+            return;
+        }
+
+        IsCloudBusy = true;
+        CloudStatusMessage = Loc.T("Подключение к Яндекс.Диску…");
+        try
+        {
+            var connected = await _cloud.ConnectAsync(CloudLogin.Trim(), CloudPassword, cancellationToken);
+            if (!connected.IsSuccess)
+            {
+                IsCloudConnected = false;
+                CloudStatusMessage = null;
+                CloudErrorMessage = Loc.T(connected.Error!.UserMessage);
+                return;
+            }
+
+            IsCloudConnected = true;
+            CloudLogin = _cloud.AccountLogin ?? CloudLogin.Trim();
+            var saved = await _settings.UpdateAsync(preferences =>
+            {
+                preferences.YandexDiskLogin = CloudLogin.Trim();
+                preferences.YandexDiskProtectedPassword = SecretProtector.Protect(CloudPassword);
+                preferences.CloudProvider = nameof(CloudProviderKind.YandexDisk);
+            }, cancellationToken);
+            if (!saved.IsSuccess)
+            {
+                CloudErrorMessage = Loc.T("Подключение выполнено, но сохранить логин не удалось. ")
+                    + saved.Error!.UserMessage;
+            }
+
+            await RefreshCloudFilesAsync(cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            CloudStatusMessage = null;
+        }
+        catch (Exception exception) when (exception is HttpRequestException or IOException)
+        {
+            CloudStatusMessage = null;
+            CloudErrorMessage = Loc.F("Не удалось подключиться к Яндекс.Диску: {0}", exception.Message);
+        }
+        finally
+        {
+            IsCloudBusy = false;
+        }
+    }
+
+    private async Task ConnectGoogleAsync(CancellationToken cancellationToken)
+    {
+        IsCloudBusy = true;
+        CloudStatusMessage = Loc.T("Подключение к Google Drive…");
+        try
+        {
+            var connected = await _cloud.ConnectInteractiveAsync(cancellationToken);
+            if (!connected.IsSuccess)
+            {
+                IsCloudConnected = false;
+                CloudStatusMessage = null;
+                CloudErrorMessage = Loc.T(connected.Error!.UserMessage);
+                return;
+            }
+
+            IsCloudConnected = true;
+            CloudLogin = _cloud.AccountLogin;
+            var secret = _cloud.SessionSecret;
+            var saved = await _settings.UpdateAsync(preferences =>
+            {
+                preferences.CloudProvider = nameof(CloudProviderKind.GoogleDrive);
+                preferences.GoogleDriveAccountEmail = CloudLogin;
+                preferences.GoogleDriveProtectedRefreshToken =
+                    string.IsNullOrEmpty(secret) ? null : SecretProtector.Protect(secret);
+            }, cancellationToken);
+            if (!saved.IsSuccess)
+            {
+                CloudErrorMessage = Loc.T("Подключение выполнено, но сохранить доступ не удалось. ")
+                    + saved.Error!.UserMessage;
+            }
+
+            await RefreshCloudFilesAsync(cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            CloudStatusMessage = null;
+        }
+        catch (Exception exception) when (exception is HttpRequestException or IOException or Win32Exception or InvalidOperationException)
+        {
+            CloudStatusMessage = null;
+            CloudErrorMessage = Loc.F("Не удалось подключиться к Google Drive: {0}", exception.Message);
+        }
+        finally
+        {
+            IsCloudBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task DisconnectCloudAsync()
+    {
+        var wasGoogle = IsGoogleCloud;
+        _cloud.Disconnect();
+        IsCloudConnected = false;
+        CloudPassword = null;
+        CloudFiles.Clear();
+        OnPropertyChanged(nameof(HasCloudFiles));
+        ClearCloudMessages();
+        CloudStatusMessage = Loc.T(wasGoogle ? "Google Drive отключён." : "Яндекс.Диск отключён.");
+        await _settings.UpdateAsync(preferences =>
+        {
+            if (wasGoogle)
+            {
+                preferences.GoogleDriveAccountEmail = null;
+                preferences.GoogleDriveProtectedRefreshToken = null;
+            }
+            else
+            {
+                preferences.YandexDiskLogin = null;
+                preferences.YandexDiskProtectedPassword = null;
+            }
+        });
+    }
+
+    partial void OnSelectedCloudProviderChanged(CloudProviderInfo? value)
+    {
+        if (value is null)
+        {
+            return;
+        }
+
+        _cloud = _cloudCatalog.Get(value.Kind);
+        CloudFiles.Clear();
+        OnPropertyChanged(nameof(HasCloudFiles));
+        IsCloudConnected = _cloud.IsConfigured;
+        CloudLogin = value.Kind == CloudProviderKind.GoogleDrive
+            ? _settings.Current.GoogleDriveAccountEmail
+            : _settings.Current.YandexDiskLogin;
+        CloudPassword = null;
+
+        if (_suppressCloudProviderRestore)
+        {
+            return;
+        }
+
+        _ = _settings.UpdateAsync(preferences => preferences.CloudProvider = value.Kind.ToString());
+        if (IsCloudOpen)
+        {
+            _ = ApplySavedCloudSessionAsync(CancellationToken.None);
+        }
+    }
+
+    private async Task ApplySavedCloudSessionAsync(CancellationToken cancellationToken)
+    {
+        ClearCloudMessages();
+        if (_cloud.IsConfigured)
+        {
+            IsCloudConnected = true;
+            await RefreshCloudFilesAsync(cancellationToken);
+            return;
+        }
+
+        IsCloudConnected = false;
+        if (IsGoogleCloud)
+        {
+            CloudLogin = _settings.Current.GoogleDriveAccountEmail;
+            var refreshToken = SecretProtector.Unprotect(_settings.Current.GoogleDriveProtectedRefreshToken);
+            if (string.IsNullOrEmpty(refreshToken))
+            {
+                return;
+            }
+
+            await RestoreCloudSessionAsync(CloudLogin, refreshToken, cancellationToken);
+            return;
+        }
+
+        CloudLogin = _settings.Current.YandexDiskLogin;
+        var savedPassword = SecretProtector.Unprotect(_settings.Current.YandexDiskProtectedPassword);
+        if (string.IsNullOrEmpty(savedPassword))
+        {
+            return;
+        }
+
+        CloudPassword = savedPassword;
+        await RestoreCloudSessionAsync(CloudLogin, savedPassword, cancellationToken);
+    }
+
+    private async Task RestoreCloudSessionAsync(
+        string? login,
+        string secret,
+        CancellationToken cancellationToken)
+    {
+        IsCloudBusy = true;
+        CloudStatusMessage = Loc.T(IsGoogleCloud
+            ? "Подключение к Google Drive…"
+            : "Подключение к Яндекс.Диску…");
+        try
+        {
+            var restored = await _cloud.RestoreAsync(login, secret, cancellationToken);
+            if (!restored.IsSuccess)
+            {
+                IsCloudConnected = false;
+                CloudStatusMessage = null;
+                CloudErrorMessage = Loc.T(restored.Error!.UserMessage);
+                return;
+            }
+
+            IsCloudConnected = true;
+            CloudLogin = _cloud.AccountLogin ?? login;
+            await RefreshCloudFilesAsync(cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            CloudStatusMessage = null;
+        }
+        catch (Exception exception) when (exception is HttpRequestException or IOException or Win32Exception or InvalidOperationException)
+        {
+            CloudStatusMessage = null;
+            CloudErrorMessage = Loc.F(
+                IsGoogleCloud ? "Не удалось подключиться к Google Drive: {0}" : "Не удалось подключиться к Яндекс.Диску: {0}",
+                exception.Message);
+        }
+        finally
+        {
+            IsCloudBusy = false;
+        }
+    }
+
+    private static CloudProviderKind ParseCloudProvider(string? value) =>
+        Enum.TryParse<CloudProviderKind>(value, ignoreCase: true, out var kind)
+            ? kind
+            : CloudProviderKind.YandexDisk;
+
+    private bool CanUseCloud() => IsCloudConnected && !IsCloudBusy;
+
+    [RelayCommand(CanExecute = nameof(CanUseCloud))]
+    private async Task RefreshCloudFilesAsync(CancellationToken cancellationToken)
+    {
+        if (!_cloud.IsConfigured)
+        {
+            return;
+        }
+
+        CloudStatusMessage = Loc.T("Обновление списка облака…");
+        CloudErrorMessage = null;
+        try
+        {
+            var listed = await _cloud.ListAsync(cancellationToken);
+            if (!listed.IsSuccess)
+            {
+                CloudStatusMessage = null;
+                CloudErrorMessage = Loc.T(listed.Error!.UserMessage);
+                return;
+            }
+
+            CloudFiles.Clear();
+            foreach (var file in listed.Require())
+            {
+                CloudFiles.Add(new CloudFileItem(file, DownloadCloudFileCommand));
+            }
+
+            OnPropertyChanged(nameof(HasCloudFiles));
+            CloudStatusMessage = CloudFiles.Count == 0
+                ? Loc.T("В облаке пока нет проектов. Загрузите первый.")
+                : Loc.F("Проектов в облаке: {0}.", CloudFiles.Count);
+        }
+        catch (OperationCanceledException)
+        {
+            CloudStatusMessage = null;
+        }
+        catch (Exception exception) when (exception is HttpRequestException or IOException)
+        {
+            CloudStatusMessage = null;
+            CloudErrorMessage = Loc.F("Не удалось получить список облака: {0}", exception.Message);
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanUseCloud))]
+    private async Task UploadToCloudAsync(CancellationToken cancellationToken)
+    {
+        ClearCloudMessages();
+        var path = await ResolveCloudUploadPathAsync(cancellationToken);
+        if (path is null)
+        {
+            return;
+        }
+
+        IsCloudBusy = true;
+        CloudStatusMessage = Loc.F("Загрузка «{0}»…", Path.GetFileName(path));
+        try
+        {
+            var uploaded = await _cloud.UploadAsync(path, cancellationToken);
+            if (!uploaded.IsSuccess)
+            {
+                CloudStatusMessage = null;
+                CloudErrorMessage = Loc.T(uploaded.Error!.UserMessage);
+                return;
+            }
+
+            await RefreshCloudFilesAsync(cancellationToken);
+            CloudStatusMessage = Loc.F(
+                "«{0}» загружен в {1}.",
+                Path.GetFileName(path),
+                SelectedCloudProvider?.DisplayName ?? "облако");
+        }
+        catch (OperationCanceledException)
+        {
+            CloudStatusMessage = null;
+        }
+        catch (Exception exception) when (exception is HttpRequestException or IOException)
+        {
+            CloudStatusMessage = null;
+            CloudErrorMessage = Loc.F("Не удалось загрузить проект: {0}", exception.Message);
+        }
+        finally
+        {
+            IsCloudBusy = false;
+        }
+    }
+
+    /// <summary>
+    /// Что загружать: открытый проект (сначала сохраняем правки) или выбранную
+    /// карточку из списка последних.
+    /// </summary>
+    private async Task<string?> ResolveCloudUploadPathAsync(CancellationToken cancellationToken)
+    {
+        if (_projects.Current is { } openProject)
+        {
+            if (_editor.SceneId is not null && _editor.IsDirty)
+            {
+                var committed = await _editor.CommitAsync(cancellationToken);
+                if (!committed.IsSuccess)
+                {
+                    CloudErrorMessage = Loc.T(committed.Error!.UserMessage);
+                    return null;
+                }
+            }
+
+            if (_projects.IsDirty)
+            {
+                var saved = await _projects.SaveAsync(cancellationToken);
+                if (!saved.IsSuccess)
+                {
+                    CloudErrorMessage = Loc.T(saved.Error!.UserMessage);
+                    return null;
+                }
+            }
+
+            return openProject.FilePath;
+        }
+
+        if (SelectedProject is { } selected && File.Exists(selected.FilePath))
+        {
+            return selected.FilePath;
+        }
+
+        CloudErrorMessage = Loc.T("Откройте проект или выберите его карточку в списке.");
+        return null;
+    }
+
+    [RelayCommand(CanExecute = nameof(CanUseCloud))]
+    private async Task DownloadCloudFileAsync(CloudFileItem? item, CancellationToken cancellationToken)
+    {
+        if (item is null)
+        {
+            return;
+        }
+
+        ClearCloudMessages();
+        var path = await _dialogs.PickCloudDownloadPathAsync(
+            item.FileName,
+            SuggestedDirectory(),
+            cancellationToken);
+        if (string.IsNullOrEmpty(path))
+        {
+            return;
+        }
+
+        IsCloudBusy = true;
+        CloudStatusMessage = Loc.F("Скачивание «{0}»…", item.FileName);
+        try
+        {
+            var downloaded = await _cloud.DownloadAsync(item.File, path, cancellationToken);
+            if (!downloaded.IsSuccess)
+            {
+                CloudStatusMessage = null;
+                CloudErrorMessage = Loc.T(downloaded.Error!.UserMessage);
+                return;
+            }
+
+            await _settings.AddRecentProjectAsync(new RecentProjectEntry
+            {
+                FilePath = path,
+                Name = item.Name,
+                LastOpenedAt = DateTimeOffset.Now,
+                UpdatedAt = item.File.ModifiedAt ?? DateTimeOffset.Now,
+            }, cancellationToken);
+            RefreshRecentProjects();
+            CloudStatusMessage = Loc.F("«{0}» скачан: {1}", item.FileName, path);
+        }
+        catch (OperationCanceledException)
+        {
+            CloudStatusMessage = null;
+        }
+        catch (Exception exception) when (exception is HttpRequestException or IOException)
+        {
+            CloudStatusMessage = null;
+            CloudErrorMessage = Loc.F("Не удалось скачать проект: {0}", exception.Message);
+        }
+        finally
+        {
+            IsCloudBusy = false;
+        }
+    }
+
+    private void ClearCloudMessages()
+    {
+        CloudStatusMessage = null;
+        CloudErrorMessage = null;
+    }
+
+    /// <summary>Раздел «Блог» открывает сайт автора: экрана блога внутри приложения нет.</summary>
+    [RelayCommand]
+    private void OpenLink(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+        }
+        catch (Exception exception) when (exception is Win32Exception or InvalidOperationException)
+        {
+            ErrorMessage = Loc.F("Не удалось открыть ссылку: {0}", exception.Message);
+        }
+    }
 
     /// <summary>Загрузка настроек и списка последних проектов при старте приложения.</summary>
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
@@ -230,12 +951,12 @@ public sealed partial class LauncherViewModel : ViewModelBase, IDisposable
         var loaded = await _settings.LoadAsync(cancellationToken);
         if (!loaded.IsSuccess)
         {
-            ErrorMessage = loaded.Error!.UserMessage;
+            ErrorMessage = Loc.T(loaded.Error!.UserMessage);
         }
 
-        // Тема из настроек применяется здесь же: любой вход в приложение
-        // (в том числе тестовый) получает оформление, выбранное пользователем.
-        _theme.Apply(_settings.Current.Theme);
+        // Выбор тем временно отключён: всегда используется стандартная тема,
+        // даже если в старых настройках сохранена другая.
+        _theme.Apply(AppTheme.Starter);
 
         RefreshRecentProjects();
         CurrentProject = _projects.Current;
@@ -321,7 +1042,7 @@ public sealed partial class LauncherViewModel : ViewModelBase, IDisposable
         }
 
         RefreshRecentProjects();
-        StatusMessage = $"Проект «{item.Name}» убран из списка последних.";
+        StatusMessage = Loc.F("Проект «{0}» убран из списка последних.", item.Name);
     }
 
     [RelayCommand]
@@ -337,7 +1058,7 @@ public sealed partial class LauncherViewModel : ViewModelBase, IDisposable
 
         CurrentProject = _projects.Current;
         IsDirty = _projects.IsDirty;
-        StatusMessage = "Проект сохранён.";
+        StatusMessage = Loc.T("Проект сохранён.");
         if (CurrentProject is { } project)
         {
             await RememberProjectAsync(project, project.FilePath, CancellationToken.None);
@@ -361,7 +1082,7 @@ public sealed partial class LauncherViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        StatusMessage = "Проект закрыт.";
+        StatusMessage = Loc.T("Проект закрыт.");
     }
 
     /// <summary>
@@ -373,6 +1094,19 @@ public sealed partial class LauncherViewModel : ViewModelBase, IDisposable
 
         ClearMessages();
         await OpenPathAsync(path, cancellationToken);
+    }
+
+    /// <summary>Открывает последний проект, если пользователь включил эту опцию.</summary>
+    public async Task OpenLastProjectAsync(CancellationToken cancellationToken = default)
+    {
+        if (!_settings.Current.OpenLastProjectOnStartup
+            || _settings.Current.RecentProjects.FirstOrDefault() is not { } recent)
+        {
+            return;
+        }
+
+        ClearMessages();
+        await OpenPathAsync(recent.FilePath, cancellationToken);
     }
 
     public void RefreshRecentProjects()
@@ -459,6 +1193,7 @@ public sealed partial class LauncherViewModel : ViewModelBase, IDisposable
         IsDirty = _projects.IsDirty;
         OpenArchitectureCommand.NotifyCanExecuteChanged();
         OpenSettingsCommand.NotifyCanExecuteChanged();
+        OpenExportCommand.NotifyCanExecuteChanged();
         OpenCharactersCommand.NotifyCanExecuteChanged();
         OpenTimelineCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(FormatNotice));
@@ -528,29 +1263,32 @@ public sealed partial class LauncherViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        var recovery = await _projects.DetectRecoveryAsync(path, cancellationToken);
-        if (!recovery.IsSuccess)
+        if (_settings.Current.CheckRecoveryOnStartup)
         {
-            await ReportAsync(recovery.Error!);
-            return;
-        }
-
-        if (recovery.Value is { } info)
-        {
-            var restore = await _dialogs.ConfirmAsync(
-                "Найдено восстановление",
-                $"Найден файл восстановления от {info.WrittenAt.ToLocalTime():g}. Открыть восстановленные данные?",
-                "Открыть восстановление",
-                "Открыть файл проекта");
-
-            if (restore)
+            var recovery = await _projects.DetectRecoveryAsync(path, cancellationToken);
+            if (!recovery.IsSuccess)
             {
-                var recovered = await _projects.RecoverAsync(info, cancellationToken);
-                await HandleLoadedProjectAsync(recovered, path, cancellationToken);
+                await ReportAsync(recovery.Error!);
                 return;
             }
 
-            await _projects.DiscardRecoveryAsync(info, cancellationToken);
+            if (recovery.Value is { } info)
+            {
+                var restore = await _dialogs.ConfirmAsync(
+                    "Найдено восстановление",
+                    $"Найден файл восстановления от {info.WrittenAt.ToLocalTime():g}. Открыть восстановленные данные?",
+                    "Открыть восстановление",
+                    "Открыть файл проекта");
+
+                if (restore)
+                {
+                    var recovered = await _projects.RecoverAsync(info, cancellationToken);
+                    await HandleLoadedProjectAsync(recovered, path, cancellationToken);
+                    return;
+                }
+
+                await _projects.DiscardRecoveryAsync(info, cancellationToken);
+            }
         }
 
         var opened = await _projects.OpenAsync(path, cancellationToken);
@@ -571,7 +1309,7 @@ public sealed partial class LauncherViewModel : ViewModelBase, IDisposable
         var project = result.Require();
         CurrentProject = project;
         IsDirty = _projects.IsDirty;
-        StatusMessage = $"Проект «{project.Name}» открыт. Книг: {project.Series.Count}.";
+        StatusMessage = Loc.F("Проект «{0}» открыт. Книг: {1}.", project.Name, project.Series.Count);
 
         await RememberProjectAsync(project, path, cancellationToken);
 
@@ -657,10 +1395,10 @@ public sealed partial class LauncherViewModel : ViewModelBase, IDisposable
     private async Task ReportAsync(AppError error)
     {
         ErrorMessage = error.SuggestedAction is null
-            ? error.UserMessage
-            : $"{error.UserMessage} {error.SuggestedAction}";
+            ? Loc.T(error.UserMessage)
+            : $"{Loc.T(error.UserMessage)} {Loc.T(error.SuggestedAction)}";
 
-        await _dialogs.ShowErrorAsync("Ошибка", ErrorMessage);
+        await _dialogs.ShowErrorAsync(Loc.T("Ошибка"), ErrorMessage);
     }
 
     private void ClearMessages()

@@ -56,6 +56,18 @@ public sealed partial class ArchitectureHostViewModel : ViewModelBase
 
     public bool IsLinesSelected => Tab == ArchitectureTab.Lines;
 
+    /// <summary>Остались ли несохранённые правки на вкладках архитектора.</summary>
+    public bool HasPendingChanges =>
+        _map.HasPendingChanges || _characters.HasUnsavedDraft || _lines.HasUnsavedDraft;
+
+    /// <summary>Фиксирует правки всех вкладок архитектора перед выходом из приложения.</summary>
+    public async Task CommitPendingAsync(CancellationToken cancellationToken = default)
+    {
+        await _map.CommitPendingAsync(cancellationToken);
+        await _characters.FlushDraftAsync(cancellationToken);
+        await _lines.FlushDraftAsync(cancellationToken);
+    }
+
     /// <summary>Показывает вкладку без навигации: вызывается оболочкой при переходе.</summary>
     public void Show(ArchitectureTab tab)
     {

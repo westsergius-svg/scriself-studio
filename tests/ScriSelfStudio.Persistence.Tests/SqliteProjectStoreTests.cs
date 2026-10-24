@@ -190,6 +190,61 @@ public sealed class SqliteProjectStoreTests
         Assert.All(loaded.Project.EnumerateScenes(), scene => Assert.True(scene.Document.IsEmpty()));
     }
 
+    [Fact]
+    public async Task Load_reads_legacy_plot_line_stage_table_without_losing_step_data()
+    {
+        using var workspace = new TempWorkspace();
+        var path = workspace.FilePath("Этапы.scri");
+        var project = SampleProjects.CreateBookWithScenes();
+        var line = new PlotLine
+        {
+            Id = Guid.NewGuid(),
+            ProjectId = project.Id,
+            Name = "Главная линия",
+        };
+        var step = new PlotLineStep
+        {
+            Id = Guid.NewGuid(),
+            PlotLineId = line.Id,
+            Title = "Переломный момент",
+            Description = "Герой принимает решение",
+            IsFinal = true,
+            Icon = "star",
+            Order = 3,
+        };
+        step.SceneIds.Add(project.Series[0].Books[0].Chapters[0].Scenes[0].Id);
+        line.Steps.Add(step);
+        project.PlotLines.Add(line);
+
+        var store = new SqliteProjectStore();
+        var saved = await store.SaveAsync(new ProjectSaveRequest
+        {
+            Project = project,
+            FilePath = path,
+            CreateBackup = false,
+        });
+        Assert.True(saved.IsSuccess, saved.Error?.TechnicalDetails);
+
+        using (var connection = new SqliteConnection($"{BuildConnectionString(path)};Pooling=False"))
+        {
+            connection.Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = "ALTER TABLE plot_line_step RENAME TO plot_line_stage;";
+            command.ExecuteNonQuery();
+        }
+
+        var loaded = await store.LoadAsync(path);
+
+        Assert.True(loaded.IsSuccess, loaded.Error?.TechnicalDetails);
+        var restored = Assert.Single(Assert.Single(loaded.Require().Project.PlotLines).Steps);
+        Assert.Equal(step.Id, restored.Id);
+        Assert.Equal(step.Title, restored.Title);
+        Assert.Equal(step.Description, restored.Description);
+        Assert.True(restored.IsFinal);
+        Assert.Equal(step.Icon, restored.Icon);
+        Assert.Equal(step.SceneIds, restored.SceneIds);
+    }
+
     private static int ReadSchemaVersion(string path)
     {
         using var connection = new SqliteConnection(BuildConnectionString(path));

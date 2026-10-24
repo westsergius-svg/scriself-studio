@@ -13,21 +13,70 @@ using ScriSelfStudio.Contracts.Projects;
 using ScriSelfStudio.Core.Events;
 using ScriSelfStudio.Core.Model;
 using ScriSelfStudio.Presentation;
+using ScriSelfStudio.Presentation.Localization;
 using ScriSelfStudio.StoryUI;
 
 /// <summary>
 /// Персонаж сцены в правой панели «Сцена» (ТЗ п. 27): имя, роль, цель и шаг линии,
 /// через который персонаж попал в сцену (макет: роль в скобках, «Цель: …», чип этапа).
 /// </summary>
-public sealed record CharacterEntry(
-    string Initial,
-    string Name,
-    string RoleLabel,
-    string? Goal,
-    bool HasGoal,
-    string? StepLabel,
-    bool HasStep,
-    IBrush StepBrush);
+public sealed partial class CharacterEntry : ObservableObject
+{
+    private readonly Action<CharacterEntry> _toggleDescription;
+
+    public CharacterEntry(
+        string initial,
+        string name,
+        string roleLabel,
+        string? goal,
+        bool hasGoal,
+        string? stepLabel,
+        string? stepDescription,
+        bool hasStep,
+        IBrush stepBrush,
+        Action<CharacterEntry> toggleDescription)
+    {
+        Initial = initial;
+        Name = name;
+        RoleLabel = roleLabel;
+        Goal = goal;
+        HasGoal = hasGoal;
+        StepLabel = stepLabel;
+        StepDescription = stepDescription;
+        HasStep = hasStep;
+        StepBrush = stepBrush;
+        _toggleDescription = toggleDescription;
+    }
+
+    public string Initial { get; }
+
+    public string Name { get; }
+
+    public string RoleLabel { get; }
+
+    public string? Goal { get; }
+
+    public bool HasGoal { get; }
+
+    public string? StepLabel { get; }
+
+    public string? StepDescription { get; }
+
+    public bool HasStep { get; }
+
+    /// <summary>Описание этапа (шага линии) или явная отметка, что оно не задано.</summary>
+    public string StepDescriptionText => string.IsNullOrWhiteSpace(StepDescription)
+        ? Loc.T("Описание этапа не задано.")
+        : StepDescription!;
+
+    public IBrush StepBrush { get; }
+
+    [ObservableProperty]
+    private bool _isDescriptionExpanded;
+
+    [RelayCommand]
+    private void ToggleDescription() => _toggleDescription(this);
+}
 
 /// <summary>Сюжетная линия сцены в правой панели (название и цвет линии).</summary>
 public sealed record PlotLineEntry(string Name, IBrush Brush);
@@ -61,19 +110,26 @@ public sealed record CharacterOption(Guid Id, string Name)
 public sealed partial class SceneStepEntry : ObservableObject
 {
     private readonly Func<SceneStepEntry, CancellationToken, Task> _remove;
+    private readonly Action<SceneStepEntry> _toggleDescription;
 
     public SceneStepEntry(
         Guid stepId,
         string lineName,
         string stepTitle,
+        string? lineDescription,
+        string? stepDescription,
         IBrush brush,
-        Func<SceneStepEntry, CancellationToken, Task> remove)
+        Func<SceneStepEntry, CancellationToken, Task> remove,
+        Action<SceneStepEntry> toggleDescription)
     {
         StepId = stepId;
         LineName = lineName;
         StepTitle = stepTitle;
+        LineDescription = lineDescription;
+        StepDescription = stepDescription;
         Brush = brush;
         _remove = remove;
+        _toggleDescription = toggleDescription;
     }
 
     public Guid StepId { get; }
@@ -82,9 +138,32 @@ public sealed partial class SceneStepEntry : ObservableObject
 
     public string StepTitle { get; }
 
+    public string? LineDescription { get; }
+
+    public string? StepDescription { get; }
+
+    public bool HasLineDescription => !string.IsNullOrWhiteSpace(LineDescription);
+
+    public bool HasStepDescription => !string.IsNullOrWhiteSpace(StepDescription);
+
     public IBrush Brush { get; }
 
     public string Label => $"{LineName} · {StepTitle}";
+
+    /// <summary>Заголовок раскрытого описания: сразу видно, к какому этапу оно относится.</summary>
+    public string StepHeading => Loc.F("Этап «{0}»", StepTitle);
+
+    /// <summary>Заголовок блока линии — чтобы описание линии не принимали за описание этапа.</summary>
+    public string LineHeading => Loc.F("Линия «{0}»", LineName);
+
+    /// <summary>Описание этапа; если его нет — прямо об этом сообщаем.</summary>
+    public string StepDescriptionText => HasStepDescription ? StepDescription! : Loc.T("Описание этапа не задано.");
+
+    [ObservableProperty]
+    private bool _isDescriptionExpanded;
+
+    [RelayCommand]
+    private void ToggleDescription() => _toggleDescription(this);
 
     [RelayCommand]
     private Task RemoveAsync(CancellationToken cancellationToken) => _remove(this, cancellationToken);
@@ -106,6 +185,10 @@ public sealed partial class SceneContextViewModel : ViewModelBase, IDisposable
     private readonly IEventBus _events;
     private readonly IBookArchitectureService _architecture;
     private readonly List<IDisposable> _subscriptions = [];
+    private Guid? _loadedSceneId;
+    private bool _isEditorScreen;
+    private bool _isLoadingMeta;
+    private bool _metaDirty;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasError))]
@@ -196,13 +279,49 @@ public sealed partial class SceneContextViewModel : ViewModelBase, IDisposable
 
     public bool CanAddCharacter => HasScene && AssignedSteps.Count > 0 && SelectedCharacterOption is not null;
 
+    /// <summary>Есть несохранённые описание, статус или заметки сцены.</summary>
+    public bool HasPendingChanges => HasScene && _metaDirty;
+
+    /// <summary>Фиксирует контекст сцены перед закрытием приложения.</summary>
+    public async Task FlushAsync(CancellationToken cancellationToken = default)
+    {
+        if (_metaDirty)
+        {
+            await PersistAsync(cancellationToken);
+        }
+    }
+
+    partial void OnSummaryChanged(string value)
+    {
+        if (!_isLoadingMeta)
+        {
+            _metaDirty = true;
+        }
+    }
+
+    partial void OnNotesChanged(string? value)
+    {
+        if (!_isLoadingMeta)
+        {
+            _metaDirty = true;
+        }
+    }
+
+    partial void OnStatusChanged(SceneStatus value)
+    {
+        if (!_isLoadingMeta)
+        {
+            _metaDirty = true;
+        }
+    }
+
     /// <summary>Подписи статусов сцены для четырёх кнопок панели (ТЗ п. 10).</summary>
     public IReadOnlyList<Choice<SceneStatus>> StatusOptions { get; } =
     [
-        new(SceneStatus.Idea, "Идея"),
-        new(SceneStatus.Draft, "Черновик"),
-        new(SceneStatus.Revised, "В работе"),
-        new(SceneStatus.Final, "Готово"),
+        new(SceneStatus.Idea, Loc.T("Идея")),
+        new(SceneStatus.Draft, Loc.T("Черновик")),
+        new(SceneStatus.Revised, Loc.T("В работе")),
+        new(SceneStatus.Final, Loc.T("Готово")),
     ];
 
     public SceneContextViewModel(
@@ -219,13 +338,16 @@ public sealed partial class SceneContextViewModel : ViewModelBase, IDisposable
         _architecture = architecture;
 
         _subscriptions.Add(events.Subscribe<SceneChanged>(_ => Refresh()));
-        _subscriptions.Add(events.Subscribe<EditorDocumentChanged>(_ => Refresh()));
+        _subscriptions.Add(events.Subscribe<EditorDocumentChanged>(_ => OnEditorDocumentChanged()));
         _subscriptions.Add(events.Subscribe<PlotLineChanged>(_ => Refresh()));
         _subscriptions.Add(events.Subscribe<CharacterChanged>(_ => Refresh()));
         _subscriptions.Add(events.Subscribe<ProjectOpened>(_ => Refresh()));
         _subscriptions.Add(events.Subscribe<ProjectClosed>(_ => Refresh()));
         _subscriptions.Add(events.Subscribe<SaveCompleted>(_ => Refresh()));
         _subscriptions.Add(events.Subscribe<ProjectChanged>(_ => Refresh()));
+        _navigation.Navigated += OnNavigated;
+        _loadedSceneId = _engine.SceneId;
+        _isEditorScreen = _navigation.Current == AppScreen.Editor;
         Refresh();
     }
 
@@ -237,7 +359,13 @@ public sealed partial class SceneContextViewModel : ViewModelBase, IDisposable
     }
 
     [RelayCommand(CanExecute = nameof(HasScene))]
-    private async Task UpdateMetaAsync(CancellationToken cancellationToken) => await PersistAsync(cancellationToken);
+    private async Task UpdateMetaAsync(CancellationToken cancellationToken)
+    {
+        if (_metaDirty)
+        {
+            await PersistAsync(cancellationToken);
+        }
+    }
 
     [RelayCommand(CanExecute = nameof(CanAddStep))]
     private async Task AddStepAsync(CancellationToken cancellationToken)
@@ -324,7 +452,7 @@ public sealed partial class SceneContextViewModel : ViewModelBase, IDisposable
         if (!result.IsSuccess)
         {
             ErrorMessage = result.Error is null
-                ? "Не удалось добавить персонажа в сцену."
+                ? Loc.T("Не удалось добавить персонажа в сцену.")
                 : result.Error.UserMessage;
             return;
         }
@@ -355,22 +483,37 @@ public sealed partial class SceneContextViewModel : ViewModelBase, IDisposable
             return;
         }
 
+        await PersistAsync(sceneId, Summary, Status, Notes, cancellationToken);
+    }
+
+    private async Task PersistAsync(
+        Guid sceneId,
+        string summary,
+        SceneStatus status,
+        string? notes,
+        CancellationToken cancellationToken)
+    {
         var result = await _projects.UpdateSceneAsync(new UpdateSceneRequest
         {
             SceneId = sceneId,
-            Description = Summary,
-            Status = Status,
-            Notes = Notes,
+            Description = summary,
+            Status = status,
+            Notes = notes,
         }, cancellationToken);
         if (!result.IsSuccess)
         {
             ErrorMessage = result.Error is null
-                ? "Не удалось сохранить контекст сцены."
+                ? Loc.T("Не удалось сохранить контекст сцены.")
                 : result.Error.UserMessage;
             return;
         }
 
         ErrorMessage = null;
+        if (sceneId == _engine.SceneId)
+        {
+            _metaDirty = false;
+        }
+
         Refresh();
     }
 
@@ -392,7 +535,7 @@ public sealed partial class SceneContextViewModel : ViewModelBase, IDisposable
         if (!result.IsSuccess)
         {
             ErrorMessage = result.Error is null
-                ? "Не удалось сохранить привязку сцены к сюжетной линии."
+                ? Loc.T("Не удалось сохранить привязку сцены к сюжетной линии.")
                 : result.Error.UserMessage;
             return;
         }
@@ -403,6 +546,7 @@ public sealed partial class SceneContextViewModel : ViewModelBase, IDisposable
 
     public void Dispose()
     {
+        _navigation.Navigated -= OnNavigated;
         foreach (var subscription in _subscriptions)
         {
             subscription.Dispose();
@@ -411,10 +555,46 @@ public sealed partial class SceneContextViewModel : ViewModelBase, IDisposable
         _subscriptions.Clear();
     }
 
+    /// <summary>
+    /// При переключении сцены сохраняет описание и заметки предыдущей сцены:
+    /// событие приходит после открытия новой сцены, но поля панели ещё содержат
+    /// старые значения, поэтому их можно записать до обновления.
+    /// </summary>
+    private void OnEditorDocumentChanged()
+    {
+        var currentSceneId = _engine.SceneId;
+        if (_loadedSceneId == currentSceneId)
+        {
+            // Правка текста не меняет описание и заметки сцены. Перечитывать
+            // панель здесь нельзя: это затирало бы ещё не сохранённый текст.
+            return;
+        }
+
+        if (_loadedSceneId is { } previousSceneId && HasScene && _metaDirty)
+        {
+            _metaDirty = false;
+            _ = PersistAsync(previousSceneId, Summary, Status, Notes, CancellationToken.None);
+        }
+
+        _loadedSceneId = currentSceneId;
+        Refresh();
+    }
+
+    private void OnNavigated(object? sender, AppScreen screen)
+    {
+        if (_isEditorScreen && screen != AppScreen.Editor && HasScene && _metaDirty)
+        {
+            _ = PersistAsync(CancellationToken.None);
+        }
+
+        _isEditorScreen = screen == AppScreen.Editor;
+    }
+
     /// <summary>Перечитывает контекст открытой сцены из снимка проекта.</summary>
     public void Refresh()
     {
         var sceneId = _engine.SceneId;
+        var preserveMeta = _metaDirty && _loadedSceneId == sceneId && HasScene;
         var snapshot = _projects.Current;
         var scene = snapshot is null || sceneId is null
             ? null
@@ -426,13 +606,17 @@ public sealed partial class SceneContextViewModel : ViewModelBase, IDisposable
 
         if (scene is null || snapshot is null)
         {
+            _metaDirty = false;
+            _loadedSceneId = sceneId;
             HasScene = false;
             SceneTitle = string.Empty;
             SceneHeading = string.Empty;
             Breadcrumb = string.Empty;
+            _isLoadingMeta = true;
             Summary = string.Empty;
             Notes = null;
             Status = SceneStatus.Idea;
+            _isLoadingMeta = false;
             Characters.Clear();
             PlotLines.Clear();
             AssignedSteps.Clear();
@@ -444,10 +628,17 @@ public sealed partial class SceneContextViewModel : ViewModelBase, IDisposable
         }
 
         HasScene = true;
+        _loadedSceneId = sceneId;
         SceneTitle = scene.Title;
-        Summary = scene.Description ?? string.Empty;
-        Status = scene.Status;
-        Notes = scene.Notes;
+        if (!preserveMeta)
+        {
+            _isLoadingMeta = true;
+            Summary = scene.Description ?? string.Empty;
+            Status = scene.Status;
+            Notes = scene.Notes;
+            _isLoadingMeta = false;
+            _metaDirty = false;
+        }
 
         var chapter = snapshot.Series
             .SelectMany(series => series.Books)
@@ -483,16 +674,21 @@ public sealed partial class SceneContextViewModel : ViewModelBase, IDisposable
                         continue;
                     }
 
+                    var arcStage = participant.CharacterArcStageId is { } arcStageId
+                        ? character.ArcStages.FirstOrDefault(candidate => candidate.Id == arcStageId)
+                        : null;
                     var goal = character.ExternalGoal;
                     Characters.Add(new CharacterEntry(
                         character.Name.Length > 0 ? character.Name[0].ToString() : "?",
                         character.Name,
                         StoryLabels.RoleLabel(character.Role),
                         goal,
-                        HasGoal: !string.IsNullOrWhiteSpace(goal),
-                        $"Шаг: {step.Title}",
-                        HasStep: true,
-                        brush));
+                        !string.IsNullOrWhiteSpace(goal),
+                        arcStage is null ? Loc.T("Этап арки не выбран") : Loc.F("Этап арки: {0}", arcStage.Title),
+                        arcStage?.Description,
+                        arcStage is not null,
+                        brush,
+                        ToggleCharacterDescription));
                 }
             }
         }
@@ -539,8 +735,11 @@ public sealed partial class SceneContextViewModel : ViewModelBase, IDisposable
                     step.Id,
                     line.Name,
                     step.Title,
+                    line.Description,
+                    step.Description,
                     StoryLabels.BrushFromHex(line.ColorHex, PlotLineFallback),
-                    RemoveAssignedStepAsync));
+                    RemoveAssignedStepAsync,
+                    ToggleLineDescription));
             }
 
             if (line.Steps.Count > 0)
@@ -582,6 +781,39 @@ public sealed partial class SceneContextViewModel : ViewModelBase, IDisposable
             ?? StepOptions.FirstOrDefault(option => AssignedSteps.All(entry => entry.StepId != option.Id))
             ?? StepOptions.FirstOrDefault();
         OnPropertyChanged(nameof(HasStepOptions));
+    }
+
+    private void ToggleLineDescription(SceneStepEntry entry)
+    {
+        var expand = !entry.IsDescriptionExpanded;
+        CollapseDescriptions();
+        if (expand)
+        {
+            entry.IsDescriptionExpanded = true;
+        }
+    }
+
+    private void ToggleCharacterDescription(CharacterEntry entry)
+    {
+        var expand = !entry.IsDescriptionExpanded;
+        CollapseDescriptions();
+        if (expand)
+        {
+            entry.IsDescriptionExpanded = true;
+        }
+    }
+
+    public void CollapseDescriptions()
+    {
+        foreach (var entry in AssignedSteps)
+        {
+            entry.IsDescriptionExpanded = false;
+        }
+
+        foreach (var entry in Characters)
+        {
+            entry.IsDescriptionExpanded = false;
+        }
     }
 
     private static bool TouchesScene(PlotLineDto line, Guid sceneId)

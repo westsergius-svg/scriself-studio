@@ -10,4 +10,11 @@
     <ProjectReference Include="..\ScriSelfStudio.Core\ScriSelfStudio.Core.csproj" />
     <ProjectReference Include="..\ScriSelfStudio.Contracts\ScriSelfStudio.Contracts.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Cloud\google-oauth-client.json"
+                      Condition="Exists('Cloud\google-oauth-client.json')" />
+    <EmbeddedResource Include="Cloud\google-oauth-client.example.json"
+                      Condition="!Exists('Cloud\google-oauth-client.json')"
+                      LogicalName="ScriSelfStudio.Persistence.Cloud.google-oauth-client.json" />
+  </ItemGroup>
 </Project>

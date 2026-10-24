@@ -5,14 +5,14 @@
   </PropertyGroup>
 
   <ItemGroup Label="Avalonia">
-    <PackageVersion Include="Avalonia" Version="11.3.22" />
-    <PackageVersion Include="Avalonia.Desktop" Version="11.3.22" />
-    <PackageVersion Include="Avalonia.Themes.Fluent" Version="11.3.22" />
-    <PackageVersion Include="Avalonia.Fonts.Inter" Version="11.3.22" />
-    <PackageVersion Include="Avalonia.Diagnostics" Version="11.3.22" />
-    <PackageVersion Include="Avalonia.Headless" Version="11.3.22" />
-    <PackageVersion Include="Avalonia.Headless.XUnit" Version="11.3.22" />
-    <PackageVersion Include="Avalonia.Skia" Version="11.3.22" />
+    <PackageVersion Include="Avalonia" Version="12.1.4" />
+    <PackageVersion Include="Avalonia.Desktop" Version="12.1.4" />
+    <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.1.4" />
+    <PackageVersion Include="Avalonia.Fonts.Inter" Version="12.1.4" />
+    <PackageVersion Include="Avalonia.Headless" Version="12.1.4" />
+    <PackageVersion Include="Avalonia.Headless.XUnit" Version="12.1.4" />
+    <PackageVersion Include="Avalonia.Skia" Version="12.1.4" />
+    <PackageVersion Include="AvaloniaRichEditor" Version="1.2.1" />
   </ItemGroup>
 
   <ItemGroup Label="MVVM">
@@ -23,7 +23,7 @@
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.2" />
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="8.0.1" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.3" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="8.0.1" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="8.0.1" />
   </ItemGroup>
@@ -33,10 +33,17 @@
     <PackageVersion Include="System.Text.Json" Version="8.0.6" />
   </ItemGroup>
 
+  <ItemGroup Label="Export">
+    <PackageVersion Include="DocumentFormat.OpenXml" Version="3.5.1" />
+    <PackageVersion Include="PDFsharp" Version="6.2.4" />
+    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="8.0.2" />
+  </ItemGroup>
+
   <ItemGroup Label="Testing">
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageVersion Include="xunit" Version="2.9.3" />
-    <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
+    <PackageVersion Include="xunit.v3" Version="3.2.2" />
   </ItemGroup>
 
   <ItemGroup Label="DevTooling">

@@ -122,6 +122,12 @@ public sealed class SettingsContractTests
             {
                 preferences.Theme = AppTheme.Light;
                 preferences.Language = "en-US";
+                preferences.CheckForUpdatesOnStartup = false;
+                preferences.YandexDiskLogin = "author@yandex.ru";
+                preferences.YandexDiskProtectedPassword = "protected-value";
+                preferences.CloudProvider = "GoogleDrive";
+                preferences.GoogleDriveAccountEmail = "author@gmail.com";
+                preferences.GoogleDriveProtectedRefreshToken = "protected-refresh";
             });
 
             Assert.True(saved.IsSuccess, saved.Error?.TechnicalDetails);
@@ -132,6 +138,12 @@ public sealed class SettingsContractTests
         Assert.True((await reloaded.LoadAsync()).IsSuccess);
         Assert.Equal(AppTheme.Light, reloaded.Current.Theme);
         Assert.Equal("en-US", reloaded.Current.Language);
+        Assert.False(reloaded.Current.CheckForUpdatesOnStartup);
+        Assert.Equal("author@yandex.ru", reloaded.Current.YandexDiskLogin);
+        Assert.Equal("protected-value", reloaded.Current.YandexDiskProtectedPassword);
+        Assert.Equal("GoogleDrive", reloaded.Current.CloudProvider);
+        Assert.Equal("author@gmail.com", reloaded.Current.GoogleDriveAccountEmail);
+        Assert.Equal("protected-refresh", reloaded.Current.GoogleDriveProtectedRefreshToken);
     }
 
     [Fact]

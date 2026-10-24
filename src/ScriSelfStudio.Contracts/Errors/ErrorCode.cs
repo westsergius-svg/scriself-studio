@@ -31,4 +31,7 @@ public enum ErrorCode
 
     NavigationFailed = 60,
     FileOperationFailed = 70,
+
+    CloudAuthFailed = 80,
+    CloudOperationFailed = 81,
 }

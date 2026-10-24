@@ -8,6 +8,7 @@ using ScriSelfStudio.App.Views;
 using ScriSelfStudio.ArchitectureUI;
 using ScriSelfStudio.BookArchitecture;
 using ScriSelfStudio.Contracts.Books;
+using ScriSelfStudio.Contracts.Cloud;
 using ScriSelfStudio.Contracts.Dialogs;
 using ScriSelfStudio.Contracts.Editor;
 using ScriSelfStudio.Contracts.Navigation;
@@ -16,10 +17,12 @@ using ScriSelfStudio.Contracts.Settings;
 using ScriSelfStudio.Contracts.Storage;
 using ScriSelfStudio.Core;
 using ScriSelfStudio.Core.Events;
+using ScriSelfStudio.Core.Updates;
 using ScriSelfStudio.EditorEngine;
 using ScriSelfStudio.EditorUI;
 using ScriSelfStudio.Launcher;
 using ScriSelfStudio.Persistence.FileSystem;
+using ScriSelfStudio.Persistence.Cloud;
 using ScriSelfStudio.Persistence.Formats;
 using ScriSelfStudio.Persistence.Projects;
 using ScriSelfStudio.Persistence.Sqlite;
@@ -58,6 +61,14 @@ public static class ScriSelfStudioServices
         services.AddSingleton<IBookArchitectureService, BookArchitectureService>();
         services.AddSingleton<IEditorEngine, SceneEditorEngine>();
         services.AddSingleton<IAppSettingsService>(_ => new JsonAppSettingsService(settingsDirectory));
+
+        // Облако автора: Яндекс.Диск через WebDAV и Google Drive через OAuth.
+        services.AddSingleton<YandexDiskWebDavService>();
+        services.AddSingleton<GoogleDriveService>();
+        services.AddSingleton<ICloudStorageCatalog, CloudStorageCatalog>();
+
+        // Обновление с официального канала Scriborium: тот же адрес, что у 1.1.3.3S.
+        services.AddSingleton<IUpdateService>(_ => new ScriboriumUpdateService());
 
         services.AddSingleton<IThemeService, AvaloniaThemeService>();
         services.AddSingleton<ICultureService, CultureService>();

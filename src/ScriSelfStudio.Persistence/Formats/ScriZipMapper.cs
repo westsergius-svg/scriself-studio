@@ -93,8 +93,10 @@ public static class ScriZipMapper
                 SourceId = NullIfEmpty(Text(chapterNode, "id")),
             };
 
+            var sceneNodes = (chapterNode["scenes"] as JsonArray ?? []).OfType<JsonObject>().ToList();
+            var hasSceneText = sceneNodes.Any(node => NullIfEmpty(Text(node, "text")) is not null);
             var sceneOrder = 0;
-            foreach (var sceneNode in (chapterNode["scenes"] as JsonArray ?? []).OfType<JsonObject>())
+            foreach (var sceneNode in sceneNodes)
             {
                 var document = PlainTextDocument.FromText(Text(sceneNode, "text"));
                 var scene = new Scene
@@ -125,6 +127,23 @@ public static class ScriZipMapper
                 }
 
                 sceneOrder++;
+            }
+
+            // Старые файлы хранили текст главы целиком в `chapterText`, а сцены
+            // оставляли пустыми: разбирать в сценах было нечего, и текст пропадал
+            // при открытии. Переносим его в первую сцену главы — он не должен теряться.
+            if (!hasSceneText && NullIfEmpty(Text(chapterNode, "chapterText")) is { } chapterText)
+            {
+                var target = chapter.Scenes.FirstOrDefault();
+                if (target is null)
+                {
+                    target = new Scene { Title = "Сцена 1", Order = 0, ChapterId = chapter.Id };
+                    chapter.Scenes.Add(target);
+                }
+
+                var document = PlainTextDocument.FromText(chapterText);
+                target.Document = document;
+                target.Words = WordCounting.Count(document);
             }
 
             legacyBook.Chapters.Add(chapter);
@@ -188,6 +207,14 @@ public static class ScriZipMapper
 
             var legacyScenes = CloneObjects(legacyChapter["scenes"] as JsonArray);
             legacyChapter.Remove("scenes");
+
+            // Если в старых сценах текста не было, при открытии он был взят из
+            // `chapterText` и теперь записан в сцены — в главе его не дублируем.
+            if (legacyChapter.ContainsKey("chapterText")
+                && !legacyScenes.Any(node => NullIfEmpty(Text(node, "text")) is not null))
+            {
+                legacyChapter["chapterText"] = string.Empty;
+            }
 
             var scenes = new JsonArray();
             var sceneNumber = 0;

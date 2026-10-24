@@ -13,12 +13,15 @@ public enum AppTheme
     /// <summary>Светлая бумажная тема.</summary>
     Paper = 4,
 
+    /// <summary>Тёплая стартовая тема редактора: матовая светлая и тёмная палитра.</summary>
+    Starter = 5,
+
     /// <summary>Тёмная нейтральная тема.</summary>
-    Graphite = 5,
+    Graphite = 6,
 
     /// <summary>Холодная сине-зелёная тема.</summary>
-    Ocean = 6,
+    Ocean = 7,
 
     /// <summary>Глубокая зелёная тема.</summary>
-    Forest = 7,
+    Forest = 8,
 }

@@ -1,9 +1,9 @@
 namespace ScriSelfStudio.Presentation.Export;
 
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Text;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ScriSelfStudio.Contracts.Books;
@@ -11,7 +11,9 @@ using ScriSelfStudio.Contracts.Dialogs;
 using ScriSelfStudio.Contracts.Navigation;
 using ScriSelfStudio.Contracts.Projects;
 using ScriSelfStudio.Core.Model;
+using ScriSelfStudio.Core.Text;
 using ScriSelfStudio.Presentation;
+using ScriSelfStudio.Presentation.Localization;
 
 public sealed record ExportFormatOption(string Key, string Extension, string Name, string Description, string IconGlyph);
 
@@ -31,7 +33,7 @@ public sealed partial class ExportViewModel : ViewModelBase, IDisposable
     private ExportRangeOption _selectedRange = null!;
 
     [ObservableProperty]
-    private string _selectedDocumentStyle = "Классический (книжный)";
+    private string _selectedDocumentStyle = Loc.T("Классический (книжный)");
 
     [ObservableProperty]
     private string _selectedFont = "Georgia";
@@ -55,7 +57,7 @@ public sealed partial class ExportViewModel : ViewModelBase, IDisposable
     private bool _footnotes = true;
 
     [ObservableProperty]
-    private bool _preserveFormatting = false;
+    private bool _preserveFormatting = true;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasStatus))]
@@ -94,21 +96,27 @@ public sealed partial class ExportViewModel : ViewModelBase, IDisposable
         Formats =
         [
             new("DOCX", "docx", "DOCX", "Microsoft Word, .docx", "W"),
-            new("PDF", "pdf", "PDF", "Печатный формат, .pdf", "P"),
-            new("EPUB", "epub", "EPUB", "Электронная книга, .epub", "E"),
-            new("TXT", "txt", "TXT", "Простой текст, .txt", "T"),
-            new("Markdown", "md", "Markdown", "Текст с разметкой, .md", "M"),
+            new("PDF", "pdf", "PDF", Loc.T("Печатный формат, .pdf"), "P"),
+            new("EPUB", "epub", "EPUB", Loc.T("Электронная книга, .epub"), "E"),
+            new("TXT", "txt", "TXT", Loc.T("Простой текст, .txt"), "T"),
+            new("Markdown", "md", "Markdown", Loc.T("Текст с разметкой, .md"), "M"),
         ];
 
         Ranges =
         [
-            new("All", "Вся книга"),
-            new("Book", "Текущая книга"),
-            new("Chapter", "Текущая глава"),
-            new("Scenes", "Выбранные сцены"),
+            new("All", Loc.T("Вся книга")),
+            new("Book", Loc.T("Текущая книга")),
+            new("Chapter", Loc.T("Текущая глава")),
+            new("Scenes", Loc.T("Выбранные сцены")),
         ];
 
-        DocumentStyles = ["Классический (книжный)", "Стандартный", "Современный", "Академический"];
+        DocumentStyles =
+        [
+            Loc.T("Классический (книжный)"),
+            Loc.T("Стандартный"),
+            Loc.T("Современный"),
+            Loc.T("Академический"),
+        ];
         Fonts = ["Georgia", "Inter", "Times New Roman", "Segoe UI", "Consolas"];
         FontSizes = ["10", "11", "12", "14", "16"];
         LineSpacings = ["1.0", "1.15", "1.5", "2.0"];
@@ -140,6 +148,43 @@ public sealed partial class ExportViewModel : ViewModelBase, IDisposable
 
     public string ProjectTitle => _projects.Current?.Name ?? "Пепел и Серебро";
 
+    public string SettingsHeader => Loc.F("Настройки экспорта ({0})", SelectedFormat.Name);
+
+    partial void OnSelectedFormatChanged(ExportFormatOption value) =>
+        OnPropertyChanged(nameof(SettingsHeader));
+
+    /// <summary>
+    /// Стиль документа задаёт согласованный набор шрифта, размера и интервала.
+    /// Дальше автор может поправить любой из этих параметров отдельно.
+    /// </summary>
+    partial void OnSelectedDocumentStyleChanged(string value)
+    {
+        if (value == Loc.T("Классический (книжный)"))
+        {
+            SelectedFont = "Georgia";
+            SelectedFontSize = "12";
+            SelectedLineSpacing = "1.5";
+        }
+        else if (value == Loc.T("Стандартный"))
+        {
+            SelectedFont = "Times New Roman";
+            SelectedFontSize = "12";
+            SelectedLineSpacing = "1.15";
+        }
+        else if (value == Loc.T("Современный"))
+        {
+            SelectedFont = "Inter";
+            SelectedFontSize = "11";
+            SelectedLineSpacing = "1.5";
+        }
+        else if (value == Loc.T("Академический"))
+        {
+            SelectedFont = "Times New Roman";
+            SelectedFontSize = "14";
+            SelectedLineSpacing = "2.0";
+        }
+    }
+
     private void OnNavigated(object? sender, AppScreen screen)
     {
         if (screen == AppScreen.Export)
@@ -154,7 +199,7 @@ public sealed partial class ExportViewModel : ViewModelBase, IDisposable
         var project = _projects.Current;
         if (project is null)
         {
-            PreviewTitle = "Откройте проект";
+            PreviewTitle = Loc.T("Откройте проект");
             PreviewSubtitle = string.Empty;
             PreviewChapterHeader = string.Empty;
             PreviewPageCounter = string.Empty;
@@ -164,10 +209,12 @@ public sealed partial class ExportViewModel : ViewModelBase, IDisposable
         PreviewTitle = project.Name;
         var books = _architecture.GetBooks();
         var firstBook = books.FirstOrDefault();
-        PreviewSubtitle = firstBook?.Title ?? "Книга 1";
+        PreviewSubtitle = firstBook?.Title ?? Loc.T("Книга 1");
 
         var firstChapter = firstBook?.Chapters.FirstOrDefault();
-        PreviewChapterHeader = firstChapter != null ? $"Глава 1. {firstChapter.Title}" : "Глава 1. Начало";
+        PreviewChapterHeader = firstChapter != null
+            ? Loc.F("Глава 1. {0}", firstChapter.Title)
+            : Loc.T("Глава 1. Начало");
 
         var scenesCount = books.Sum(b => b.Chapters.Sum(c => c.Scenes.Count));
         var firstScene = firstChapter?.Scenes.FirstOrDefault();
@@ -176,7 +223,7 @@ public sealed partial class ExportViewModel : ViewModelBase, IDisposable
             PreviewTextExcerpt = ReadSceneText(firstScene.Id);
         }
 
-        PreviewPageCounter = $"Сцен: {scenesCount}. Предпросмотр текста без пагинации.";
+        PreviewPageCounter = Loc.F("Сцен: {0}. Предпросмотр текста без пагинации.", scenesCount);
     }
 
     [RelayCommand]
@@ -188,17 +235,12 @@ public sealed partial class ExportViewModel : ViewModelBase, IDisposable
         var format = SelectedFormat;
         if (!HasProject)
         {
-            ErrorMessage = "Сначала откройте проект.";
-            return;
-        }
-        if (format.Key is not ("TXT" or "Markdown"))
-        {
-            ErrorMessage = "Этот формат пока не реализован. Выберите TXT или Markdown.";
+            ErrorMessage = Loc.T("Сначала откройте проект.");
             return;
         }
         if (SelectedRange.Key != "All")
         {
-            ErrorMessage = "Пока поддерживается экспорт всего проекта.";
+            ErrorMessage = Loc.T("Пока поддерживается экспорт всего проекта.");
             return;
         }
         var fileName = $"{ProjectTitle}_{format.Key}".Replace(" ", "_");
@@ -211,82 +253,87 @@ public sealed partial class ExportViewModel : ViewModelBase, IDisposable
 
         try
         {
-            var content = BuildExportContent();
-            await File.WriteAllTextAsync(filePath, content, Encoding.UTF8, cancellationToken);
-            StatusMessage = $"Книга успешно экспортирована в файл \"{Path.GetFileName(filePath)}\"!";
+            var manuscript = ManuscriptExportBuilder.Build(
+                ProjectTitle,
+                _architecture.GetBooks(),
+                ReadSceneDocument,
+                PreserveFormatting);
+            var options = BuildOptions();
+
+            await Task.Run(
+                () => WriteExport(format.Key, manuscript, filePath, options),
+                cancellationToken);
+            StatusMessage = Loc.F("Книга успешно экспортирована в файл \"{0}\"!", Path.GetFileName(filePath));
         }
         catch (Exception ex)
         {
-            ErrorMessage = $"Ошибка при экспорте: {ex.Message}";
+            ErrorMessage = Loc.F("Ошибка при экспорте: {0}", ex.Message);
         }
     }
 
     [RelayCommand]
     private void SaveTemplate()
     {
-        ErrorMessage = "Сохранение шаблонов экспорта пока не реализовано.";
+        ErrorMessage = Loc.T("Сохранение шаблонов экспорта пока не реализовано.");
     }
 
     [RelayCommand]
     private void Preview()
     {
         UpdatePreview();
-        StatusMessage = "Предпросмотр обновлён.";
+        StatusMessage = Loc.T("Предпросмотр обновлён.");
     }
 
-    private string BuildExportContent()
+    private ExportOptions BuildOptions()
     {
-        var sb = new StringBuilder();
+        var fontSize = double.TryParse(
+            SelectedFontSize, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsedSize)
+            ? parsedSize
+            : 12;
+        var lineSpacing = double.TryParse(
+            SelectedLineSpacing, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsedSpacing)
+            ? parsedSpacing
+            : 1.5;
 
-        if (IncludeTitlePage)
+        return new ExportOptions(
+            SelectedFont,
+            fontSize,
+            lineSpacing,
+            IncludeTitlePage,
+            TableOfContents,
+            PageNumbering);
+    }
+
+    private static void WriteExport(
+        string format,
+        ExportManuscript manuscript,
+        string filePath,
+        ExportOptions options)
+    {
+        switch (format)
         {
-            sb.AppendLine("=========================================");
-            sb.AppendLine($"         {ProjectTitle.ToUpperInvariant()}         ");
-            sb.AppendLine($"         {PreviewSubtitle}         ");
-            sb.AppendLine("=========================================");
-            sb.AppendLine();
-            sb.AppendLine();
+            case "DOCX":
+                DocxExportWriter.Write(manuscript, filePath, options);
+                break;
+            case "PDF":
+                PdfExportWriter.Write(manuscript, filePath, options);
+                break;
+            case "EPUB":
+                EpubExportWriter.Write(manuscript, filePath, options);
+                break;
+            case "Markdown":
+                TextExportWriter.WriteMarkdown(manuscript, filePath, options);
+                break;
+            default:
+                TextExportWriter.WriteTxt(manuscript, filePath, options);
+                break;
         }
+    }
 
-        var books = _architecture.GetBooks();
-
-        if (TableOfContents)
-        {
-            sb.AppendLine("--- СОДЕРЖАНИЕ ---");
-            int index = 1;
-            foreach (var book in books)
-            {
-                foreach (var ch in book.Chapters)
-                {
-                    sb.AppendLine($"Глава {index++}. {ch.Title}");
-                }
-            }
-            sb.AppendLine("------------------");
-            sb.AppendLine();
-        }
-
-        int chIndex = 1;
-        foreach (var book in books)
-        {
-            foreach (var chapter in book.Chapters)
-            {
-                sb.AppendLine($"{(SelectedFormat.Key == "Markdown" ? "# " : string.Empty)}Глава {chIndex++}. {chapter.Title}");
-                sb.AppendLine();
-                int scIndex = 1;
-                foreach (var scene in chapter.Scenes)
-                {
-                    sb.AppendLine($"{(SelectedFormat.Key == "Markdown" ? "## " : string.Empty)}Сцена {scIndex++}: {scene.Title}");
-                    var text = ReadSceneText(scene.Id);
-                    if (!string.IsNullOrWhiteSpace(text))
-                    {
-                        sb.AppendLine(text);
-                    }
-                    sb.AppendLine();
-                }
-            }
-        }
-
-        return sb.ToString();
+    private RichDocument? ReadSceneDocument(Guid sceneId)
+    {
+        var result = _projects.GetSceneDocument(sceneId);
+        return result.TryGetValue(out var document) ? document.Document : null;
     }
 
     private string ReadSceneText(Guid sceneId) =>

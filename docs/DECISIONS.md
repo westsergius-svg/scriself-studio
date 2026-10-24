@@ -26,8 +26,9 @@
 | [017](decisions/017-map-scene-lines-and-characters.md) | Панель «Сцена» на карте: добавление и снятие линии, персонажи линии | Принято |
 | [018](decisions/018-editor-mockup.md) | Экран редактора по макету: тулбар, вкладка-крошки, «бумага», статус-бар | Принято |
 | [019](decisions/019-project-switch-and-empty-project.md) | Смена проекта (сохранить → закрыть → открыть) и открытие пустого проекта на карте | Принято |
-| [020](decisions/020-editor-scene-ribbon-and-editable-scene-panel.md) | Редактор — лента сцен без разрывов на TextBox; панель контекста сцены полностью редактируемая | Принято |
+| [020](decisions/020-editor-scene-ribbon-and-editable-scene-panel.md) | Лента сцен и редактируемая панель контекста; выбор TextBox для редактора заменён ADR 022 | Частично заменено |
 | [021](decisions/021-architect-three-tabs.md) | Архитектор — один главный экран с тремя вкладками: Карта, Персонажи, Сюжетные линии | Принято |
+| [022](decisions/022-wysiwyg-rich-text-editor.md) | WYSIWYG редактор на AvaloniaRichEditor с сохранением форматирования | Принято |
 
 ## Шаблон новой записи
 

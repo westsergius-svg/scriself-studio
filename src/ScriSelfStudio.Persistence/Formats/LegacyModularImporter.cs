@@ -848,12 +848,33 @@ public static class LegacyModularImporter
         using var command = connection.CreateCommand();
         command.CommandText = "SELECT key, value FROM meta;";
         using var reader = command.ExecuteReader();
-        while (reader.Read() && !reader.IsDBNull(0) && !reader.IsDBNull(1))
+        while (reader.Read() && !reader.IsDBNull(0))
         {
-            result[reader.GetString(0)] = reader.GetString(1);
+            var key = reader.GetString(0);
+            var value = ReadDbString(reader, 1);
+            if (value is not null)
+            {
+                result[key] = value;
+            }
         }
 
         return result;
+    }
+
+    private static string? ReadDbString(SqliteDataReader reader, int ordinal)
+    {
+        if (reader.IsDBNull(ordinal))
+        {
+            return null;
+        }
+
+        var value = reader.GetValue(ordinal);
+        return value switch
+        {
+            string text => text,
+            null => null,
+            _ => Convert.ToString(value, CultureInfo.InvariantCulture),
+        };
     }
 
     /// <summary>Повреждённый JSON в одном поле не должен отменять импорт всего файла.</summary>

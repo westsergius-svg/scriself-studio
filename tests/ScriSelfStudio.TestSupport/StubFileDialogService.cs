@@ -13,6 +13,8 @@ public sealed class StubFileDialogService : IFileDialogService
 
     public string? ExportPath { get; set; }
 
+    public string? CloudDownloadPath { get; set; }
+
     public bool ConfirmResult { get; set; }
 
     /// <summary>Ответ на <see cref="PromptAsync"/>. <c>null</c> — пользователь отменил ввод.</summary>
@@ -35,6 +37,9 @@ public sealed class StubFileDialogService : IFileDialogService
 
     public Task<string?> PickExportFileToSaveAsync(string suggestedFileName, string extension, string fileTypeName, string? suggestedDirectory, CancellationToken cancellationToken = default) =>
         Task.FromResult(ExportPath ?? (string.IsNullOrEmpty(CreatePath) ? null : Path.ChangeExtension(CreatePath, extension)));
+
+    public Task<string?> PickCloudDownloadPathAsync(string suggestedFileName, string? suggestedDirectory, CancellationToken cancellationToken = default) =>
+        Task.FromResult(CloudDownloadPath);
 
     public Task<bool> ConfirmAsync(string title, string message, string confirmText, string cancelText, CancellationToken cancellationToken = default)
     {

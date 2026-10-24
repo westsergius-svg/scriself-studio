@@ -1,6 +1,7 @@
 namespace ScriSelfStudio.IntegrationTests;
 
 using System.Text.Json.Nodes;
+using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
 using ScriSelfStudio.App.Composition;
 using ScriSelfStudio.Contracts.Dtos;
@@ -46,6 +47,26 @@ public sealed class LegacyModularImportTests
     }
 
     [Fact]
+    public void Legacy_modular_import_accepts_numeric_meta_values()
+    {
+        using var workspace = new TempWorkspace();
+        var path = workspace.FilePath("Ранний.scri");
+        new LegacyModularProjectBuilder().WriteTo(path);
+
+        using var connection = new SqliteConnection(
+            new SqliteConnectionStringBuilder { DataSource = path, Pooling = false }.ToString());
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = "UPDATE meta SET value = 2 WHERE key = 'formatVersion';";
+        command.ExecuteNonQuery();
+
+        var loaded = LegacyModularImporter.Load(path, DateTimeOffset.UnixEpoch);
+        Assert.Equal("Ранний проект", loaded.Project.Name);
+        Assert.Equal(2, loaded.SourceSchemaVersion);
+    }
+
+    [Fact]
     public async Task Project_opens_through_the_routing_store_and_reports_the_source_build()
     {
         using var workspace = new TempWorkspace();
@@ -56,6 +77,30 @@ public sealed class LegacyModularImportTests
 
         Assert.True(loaded.IsSuccess, loaded.Error?.UserMessage);
         Assert.Equal("Ранний проект", loaded.Require().Project.Name);
+    }
+
+    [Fact]
+    public async Task Routing_store_imports_legacy_projects_when_metadata_value_is_numeric()
+    {
+        using var workspace = new TempWorkspace();
+        var path = workspace.FilePath("Ранний.scri");
+        new LegacyModularProjectBuilder().WriteTo(path);
+
+        using var connection = new SqliteConnection(
+            new SqliteConnectionStringBuilder { DataSource = path, Pooling = false }.ToString());
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = "UPDATE meta SET value = 2 WHERE key = 'formatVersion';";
+        command.ExecuteNonQuery();
+
+        var store = new RoutingProjectStore(new SqliteProjectStore(), new ScriZipProjectStore());
+        var loaded = await store.LoadAsync(path);
+
+        Assert.True(loaded.IsSuccess, loaded.Error?.UserMessage);
+        var project = loaded.Require().Project;
+        Assert.Equal("Ранний проект", project.Name);
+        Assert.Equal(2, loaded.Require().SourceSchemaVersion);
     }
 
     [Fact]

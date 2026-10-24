@@ -4,9 +4,11 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Microsoft.Extensions.DependencyInjection;
+using AvaloniaRichEditor.Documents;
 using ScriSelfStudio.App.Views;
 using ScriSelfStudio.ArchitectureUI;
 using ScriSelfStudio.Contracts.Books;
@@ -18,6 +20,7 @@ using ScriSelfStudio.EditorUI;
 using ScriSelfStudio.Launcher;
 using ScriSelfStudio.StoryUI;
 using ScriSelfStudio.TestSupport;
+using AvaloniaRichEditor.Controls;
 
 /// <summary>
 /// Проверка, что экраны действительно рисуются: headless-платформа с Skia отдаёт кадр.
@@ -36,6 +39,8 @@ public sealed class ScreenRenderTests
         var window = provider.GetRequiredService<MainWindow>();
         var launcher = provider.GetRequiredService<LauncherViewModel>();
         await launcher.InitializeAsync();
+        window.Width = 1440;
+        window.Height = 768;
 
         // Кадр лаунчера сверяется с макетом «Мои проекты»: список наполняем
         // реальными проектами (файлы и структура настоящие), чтобы на кадре были
@@ -75,7 +80,20 @@ public sealed class ScreenRenderTests
             Role = CharacterRole.Protagonist,
             ExternalGoal = "Найти источник магии",
         })).Require();
+        var idanCard = withIdan.Characters.Single(candidate => candidate.Name == "Идан");
+        withIdan = (await architectureService.SaveCharacterAsync(idanCard with
+        {
+            ArcStages =
+            [
+                idanCard.ArcStages[0] with
+                {
+                    Title = "Сопротивление",
+                    Description = "Идан отказывается покинуть родной город.",
+                },
+            ],
+        })).Require();
         var idanId = withIdan.Characters.Single(candidate => candidate.Name == "Идан").Id;
+        var idanArcStageId = withIdan.Characters.Single(candidate => candidate.Name == "Идан").ArcStages[0].Id;
         await architectureService.SaveCharacterAsync(new CharacterDto
         {
             Name = "Лея",
@@ -85,6 +103,7 @@ public sealed class ScreenRenderTests
         await architectureService.SavePlotLineAsync(new PlotLineDto
         {
             Name = "Главная линия",
+            Description = "Описание главной сюжетной линии.",
             ColorHex = "#4A7DFF",
             Status = PlotLineStatus.InProgress,
             Steps =
@@ -92,7 +111,20 @@ public sealed class ScreenRenderTests
                 new PlotLineStepDto
                 {
                     Title = "Поиск",
-                    Participants = [new StepParticipantDto { CharacterId = idanId }],
+                    Description = "Идан начинает поиски источника магии.",
+                    Participants =
+                    [
+                        new StepParticipantDto
+                        {
+                            CharacterId = idanId,
+                            CharacterArcStageId = idanArcStageId,
+                        },
+                    ],
+                },
+                new PlotLineStepDto
+                {
+                    Title = "Развязка",
+                    Description = "Идан находит источник магии.",
                 },
             ],
         });
@@ -106,20 +138,68 @@ public sealed class ScreenRenderTests
         Assert.False(contextPanel.HasError, contextPanel.ErrorMessage);
         Assert.Single(contextPanel.AssignedSteps);
         Assert.Equal(2, contextPanel.Characters.Count);
+        var assignedFirstStep = contextPanel.AssignedSteps[0];
+        assignedFirstStep.ToggleDescriptionCommand.Execute(null);
+        Assert.True(assignedFirstStep.IsDescriptionExpanded);
+        Assert.Equal("Описание главной сюжетной линии.", assignedFirstStep.LineDescription);
+        Assert.Equal("Идан начинает поиски источника магии.", assignedFirstStep.StepDescription);
+        // Раскрытый этап обязан называть себя и показывать своё описание, а не только описание линии.
+        Assert.Equal("Этап «Поиск»", assignedFirstStep.StepHeading);
+        Assert.Equal("Линия «Главная линия»", assignedFirstStep.LineHeading);
+        Assert.Equal("Идан начинает поиски источника магии.", assignedFirstStep.StepDescriptionText);
+        var emptyStep = new ScriSelfStudio.App.Shell.SceneStepEntry(
+            Guid.NewGuid(),
+            "Главная линия",
+            "Этап без описания",
+            null,
+            null,
+            Avalonia.Media.Brushes.Gray,
+            (_, _) => Task.CompletedTask,
+            _ => { });
+        Assert.False(emptyStep.HasStepDescription);
+        Assert.Equal("Описание этапа не задано.", emptyStep.StepDescriptionText);
+        var character = contextPanel.Characters[0];
+        Assert.Equal("Этап арки: Сопротивление", character.StepLabel);
+        Assert.Equal("Идан отказывается покинуть родной город.", character.StepDescription);
+        character.ToggleDescriptionCommand.Execute(null);
+        Assert.True(character.IsDescriptionExpanded);
+        Assert.False(assignedFirstStep.IsDescriptionExpanded);
+        character.ToggleDescriptionCommand.Execute(null);
+        Assert.False(character.IsDescriptionExpanded);
+
+        contextPanel.SelectedStepOption = contextPanel.StepOptions.First(option => option.Title == "Развязка");
+        await contextPanel.AddStepCommand.ExecuteAsync(null);
+        Assert.Equal(2, contextPanel.AssignedSteps.Count);
+        Assert.False(contextPanel.AssignedSteps[0].IsDescriptionExpanded);
+        contextPanel.AssignedSteps[1].ToggleDescriptionCommand.Execute(null);
+        Assert.True(contextPanel.AssignedSteps[1].IsDescriptionExpanded);
+        contextPanel.AssignedSteps[1].ToggleDescriptionCommand.Execute(null);
+        Assert.False(contextPanel.AssignedSteps[1].IsDescriptionExpanded);
+
+        character = contextPanel.Characters[0];
+        character.ToggleDescriptionCommand.Execute(null);
+        Assert.True(character.IsDescriptionExpanded);
+        Assert.Equal("Идан отказывается покинуть родной город.", character.StepDescription);
+        contextPanel.CollapseDescriptions();
+        Assert.False(character.IsDescriptionExpanded);
+        Assert.All(contextPanel.AssignedSteps, step => Assert.False(step.IsDescriptionExpanded));
+
         var editor = provider.GetRequiredService<EditorViewModel>();
         editor.Text = "Первая строка рукописи.\nВторая строка с «ёжиком» и emoji 🚀.\n\nЕщё абзац.";
         Dispatcher.UIThread.RunJobs();
-        // Лента главы: активная сцена правится обычным текстовым полем, а не
-        // собственным движком ввода. Снимок правки обязан дойти до документа.
+        // The active scene uses the rich-text editor and synchronizes with the document.
         Assert.NotEmpty(editor.Blocks);
         var block = editor.Blocks.FirstOrDefault(candidate => candidate.IsActive);
         Assert.NotNull(block);
         Assert.Equal(editor.Text, block!.Text);
         Assert.Equal(editor.Text, editor.Engine.PlainText);
 
-        var sceneField = FindSceneTextBox(window);
+        var sceneField = FindRichEditor(window);
         Assert.NotNull(sceneField);
-        Assert.Equal(editor.Text, sceneField!.Text);
+        Assert.Contains(editor.Text, sceneField!.GetPlainText().Replace("\r\n", "\n"));
+        Assert.Equal(
+            editor.Blocks.Count - 1,
+            sceneField.Document!.Blocks.OfType<DividerBlock>().Count());
         Assert.True(sceneField.Bounds.Height > 0, $"Высота поля сцены равна 0 (bounds={sceneField.Bounds}).");
         Render(window, "03-editor");
 
@@ -143,6 +223,8 @@ public sealed class ScreenRenderTests
 
 
         launcher.OpenCharactersCommand.Execute(null);
+        Assert.False(shell.ShowBookTree);
+        Assert.False(shell.ShowScenePanel);
         var characters = provider.GetRequiredService<CharactersViewModel>();
         characters.NewCharacterCommand.Execute(null);
         characters.Draft.Name = "Анна";
@@ -198,6 +280,13 @@ public sealed class ScreenRenderTests
         timeline.SelectedLine = timeline.PlotLines.First(line => line.Name == "Главная сюжетная линия");
         Dispatcher.UIThread.RunJobs();
         Render(window, "06-timeline");
+
+        shell.OpenSettingsCommand.Execute(null);
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(shell.ShowBookTree);
+        Assert.False(shell.ShowScenePanel);
+        Assert.False(shell.ShowStatusBar);
+        Render(window, "07-settings");
 
         window.Close();
     }
@@ -295,9 +384,7 @@ public sealed class ScreenRenderTests
     }
 
     /// <summary>
-    /// Ввод в редакторе не должен падать, а модель и документ — расходиться.
-    /// Раньше ввод поверх выделения ронял экран: обработчик SelectionChanged
-    /// разыменовывал SurroundingSegment, который у выделения без сегментов null.
+    /// Ввод в rich-text редакторе не должен падать, а rich-документ и модель — расходиться.
     /// </summary>
     [AvaloniaFact]
     public async Task Typing_into_editor_does_not_throw()
@@ -326,27 +413,25 @@ public sealed class ScreenRenderTests
         editor.Text = "Первая строка рукописи.\nВторая строка.";
         Dispatcher.UIThread.RunJobs();
 
-        var textBox = FindSceneTextBox(window);
-        textBox.Focus();
+        var richEditor = FindRichEditor(window);
+        richEditor.FocusDocumentEnd();
         Dispatcher.UIThread.RunJobs();
 
-        var cases = new (string Name, Action Act)[]
+        var cases = new (string Name, string Text)[]
         {
-            ("ввод в конец", () => textBox.Text += "Z"),
-            ("ввод в середину", () => textBox.Text = (textBox.Text ?? string.Empty).Insert(5, "Q")),
-            ("перевод строки", () => textBox.Text = "\n" + textBox.Text),
-            ("замена начала", () => textBox.Text = "qqqqq" + (textBox.Text ?? string.Empty)[5..]),
-            ("ввод кириллицы", () => textBox.Text = "Ёжик" + textBox.Text),
-            ("ввод emoji", () => textBox.Text = "🚀" + textBox.Text),
-            ("ввод пробела", () => textBox.Text = " " + textBox.Text),
-            ("ввод табуляции", () => textBox.Text = "\t" + textBox.Text),
+            ("ввод латиницы", "Z"),
+            ("ввод кириллицы", "Ёжик"),
+            ("ввод emoji", "🚀"),
+            ("ввод пробела", " "),
+            ("ввод табуляции", "\t"),
+            ("перевод строки", "\n"),
         };
 
         foreach (var (name, act) in cases)
         {
             try
             {
-                act();
+                richEditor.InsertText(act);
                 Dispatcher.UIThread.RunJobs();
                 AvaloniaHeadlessPlatform.ForceRenderTimerTick();
                 Dispatcher.UIThread.RunJobs();
@@ -356,24 +441,33 @@ public sealed class ScreenRenderTests
                 Assert.Fail($"Сценарий '{name}' упал: {ex}");
             }
 
-            if (editor.Text != textBox.Text)
+            var richText = WithoutSceneHeaders(richEditor.GetPlainText());
+            if (editor.Text != richText)
             {
-                Assert.Fail($"Сценарий '{name}': модель и поле разошлись.\nмодель: {editor.Text}\nполе: {textBox.Text}");
+                Assert.Fail($"Сценарий '{name}': модель и rich editor разошлись.\nмодель: {editor.Text}\nrich editor: {richText}");
             }
 
-            if (editor.Engine.PlainText != textBox.Text)
+            if (editor.Engine.PlainText != richText)
             {
-                Assert.Fail($"Сценарий '{name}': документ и поле разошлись.\nдокумент: {editor.Engine.PlainText}\nполе: {textBox.Text}");
+                Assert.Fail($"Сценарий '{name}': документ и rich editor разошлись.\nдокумент: {editor.Engine.PlainText}\nrich editor: {richText}");
             }
         }
 
         window.Close();
     }
 
-    private static TextBox FindSceneTextBox(Visual root)
+    private static RichEditor FindRichEditor(Visual root)
     {
-        return root.GetVisualDescendants().OfType<TextBox>().First(box => box.Classes.Contains("sceneText"));
+        return root.GetVisualDescendants().OfType<RichEditor>().First();
     }
+
+    /// <summary>
+    /// Служебные заголовки сцен живут только в отображаемом FlowDocument:
+    /// в модель сцены они не попадают, поэтому тесты сравнивают текст без них.
+    /// </summary>
+    private static string WithoutSceneHeaders(string text) =>
+        string.Join('\n', text.Replace("\r\n", "\n").Split('\n')
+            .Where(line => !line.StartsWith('\u200B')));
 
     /// <summary>
     /// Карта книги с наполнением: столбцы глав, номера сцен, правая панель «Сцена»
@@ -483,6 +577,12 @@ public sealed class ScreenRenderTests
             Status = PlotLineStatus.Done,
             SceneIds = [selectedSceneId],
         });
+        var withMira = (await architecture.SaveCharacterAsync(new CharacterDto
+        {
+            Name = "Мира",
+            Role = CharacterRole.Secondary,
+        })).Require();
+        var miraId = withMira.Characters.Single(character => character.Name == "Мира").Id;
 
         launcher.OpenArchitectureCommand.Execute(null);
         var map = provider.GetRequiredService<ArchitectureViewModel>();
@@ -501,12 +601,27 @@ public sealed class ScreenRenderTests
         Assert.True(map.SceneDetails.IsKey);
         Assert.Equal(2, map.SceneDetails.Lines.Count);
         Assert.Equal(2, map.SceneDetails.Characters.Count);
+        Assert.Single(map.SceneDetails.CharacterChoices);
+        Assert.Equal(miraId, map.SceneDetails.CharacterChoices[0].Id);
         Assert.Equal("Главная линия", map.SceneDetails.Lines[0].Name);
+        Assert.Equal("Краткое содержание сцены для правой панели карты.", map.SceneDetails.Description);
         Assert.True(map.MapColumns[0].Scenes[0].IsLocked);
         Assert.False(map.SceneDetails.IsLocked);
         Assert.Contains(map.PlotLineLegend, marker => marker.IsClosed);
         Assert.True(map.ShowLegend);
         Render(window, "20-map");
+
+        var sceneDetails = map.SceneDetails!;
+        sceneDetails.Description = "Описание редактируется прямо в панели сцены.";
+        await sceneDetails.SaveDescriptionCommand.ExecuteAsync(null);
+        Assert.Equal(
+            "Описание редактируется прямо в панели сцены.",
+            projects.Current!.Series[0].Books[0].Chapters[0].Scenes[1].Description);
+
+        sceneDetails = map.SceneDetails!;
+        sceneDetails.SelectedCharacterChoice = sceneDetails.CharacterChoices[0];
+        await sceneDetails.AddCharacterCommand.ExecuteAsync(null);
+        Assert.Equal(3, map.SceneDetails!.Characters.Count);
 
         map.ToggleOverviewCommand.Execute(null);
         Assert.False(map.IsOverviewExpanded);
@@ -515,6 +630,28 @@ public sealed class ScreenRenderTests
 
         map.ToggleOverviewCommand.Execute(null);
         Assert.True(map.IsOverviewExpanded);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task Cloud_panel_renders_connection_form()
+    {
+        using var workspace = new TempWorkspace();
+        using var provider = ServiceProviderFactory.Create(workspace.Root);
+        var window = provider.GetRequiredService<MainWindow>();
+        var launcher = provider.GetRequiredService<LauncherViewModel>();
+        await launcher.InitializeAsync();
+        window.Width = 1440;
+        window.Height = 768;
+        window.Show();
+
+        launcher.OpenCloudCommand.Execute(null);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.True(launcher.IsCloudOpen);
+        Assert.False(launcher.IsCloudConnected);
+        Render(window, "22-cloud-connect");
 
         window.Close();
     }
@@ -535,6 +672,6 @@ public sealed class ScreenRenderTests
         }
 
         Directory.CreateDirectory(directory);
-        frame!.Save(Path.Combine(directory, name + ".png"));
+        frame!.Save(Path.Combine(directory, name + ".png"), PngBitmapEncoderOptions.Default);
     }
 }

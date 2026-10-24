@@ -211,7 +211,10 @@ internal static class DocumentEditor
         {
             var a = left.Blocks[index];
             var b = right.Blocks[index];
-            if (a.Kind != b.Kind || a.Alignment != b.Alignment || a.IndentLevel != b.IndentLevel)
+            if (a.Kind != b.Kind
+                || a.Alignment != b.Alignment
+                || a.IndentLevel != b.IndentLevel
+                || a.ListMarker != b.ListMarker)
             {
                 return false;
             }
@@ -331,6 +334,7 @@ internal static class DocumentEditor
             Kind = source.Kind,
             Alignment = source.Alignment,
             IndentLevel = source.IndentLevel,
+            ListMarker = source.ListMarker,
         };
 
         if (primary is not null)
@@ -394,6 +398,7 @@ internal static class DocumentEditor
             Kind = block.Kind,
             Alignment = block.Alignment,
             IndentLevel = block.IndentLevel,
+            ListMarker = block.ListMarker,
         };
 
         var tail = new TextBlock
@@ -402,6 +407,7 @@ internal static class DocumentEditor
             Kind = block.Kind,
             Alignment = block.Alignment,
             IndentLevel = block.IndentLevel,
+            ListMarker = block.ListMarker,
         };
 
         var remaining = split;

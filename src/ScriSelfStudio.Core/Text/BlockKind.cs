@@ -11,4 +11,7 @@ public enum BlockKind
     NumberedListItem = 5,
     Quote = 6,
     Separator = 7,
+    Heading4 = 8,
+    Heading5 = 9,
+    Heading6 = 10,
 }

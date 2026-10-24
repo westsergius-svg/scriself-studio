@@ -26,6 +26,8 @@ public static class ErrorMessages
         ErrorCode.SettingsWriteFailed => "Не удалось сохранить настройки приложения.",
         ErrorCode.NavigationFailed => "Не удалось открыть выбранный экран.",
         ErrorCode.FileOperationFailed => "Не удалось выполнить операцию с файлом.",
+        ErrorCode.CloudAuthFailed => "Не удалось войти в Яндекс.Диск. Проверьте логин и пароль приложения.",
+        ErrorCode.CloudOperationFailed => "Не удалось выполнить операцию с облаком.",
         _ => "Произошла непредвиденная ошибка.",
     };
 
@@ -41,6 +43,7 @@ public static class ErrorMessages
         ErrorCode.SettingsReadFailed => "Настройки будут восстановлены со значениями по умолчанию.",
         ErrorCode.EditorOperationConflict => "Закройте и снова откройте сцену.",
         ErrorCode.EntityNotFound => "Обновите список и повторите действие.",
+        ErrorCode.CloudAuthFailed => "Создайте пароль приложения в настройках Яндекса и попробуйте снова.",
         _ => null,
     };
 }

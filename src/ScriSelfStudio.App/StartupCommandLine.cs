@@ -10,6 +10,13 @@ public static class StartupCommandLine
 {
     public const string ProjectExtension = ".scri";
 
+    private static readonly HashSet<string> OpenableExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ProjectExtension,
+        ".bak",
+        ".backup",
+    };
+
     /// <summary>
     /// Возвращает полный путь к проекту, переданному аргументом, либо <c>null</c>.
     /// Аргументы, начинающиеся с «-», принадлежат Avalonia и игнорируются.
@@ -25,7 +32,7 @@ public static class StartupCommandLine
                 continue;
             }
 
-            if (!Path.GetExtension(argument).Equals(ProjectExtension, StringComparison.OrdinalIgnoreCase))
+            if (!OpenableExtensions.Contains(Path.GetExtension(argument)))
             {
                 continue;
             }

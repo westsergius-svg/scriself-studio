@@ -3,6 +3,7 @@ namespace ScriSelfStudio.StoryUI;
 using System.Globalization;
 using Avalonia.Media;
 using ScriSelfStudio.Core.Model;
+using ScriSelfStudio.Presentation.Localization;
 
 /// <summary>
 /// Подписи перечислений и вспомогательные данные экранов персонажей и линий.
@@ -73,17 +74,17 @@ public static class StoryLabels
         new(CharacterArcStageKind.Custom, "Свой этап"),
     ];
 
-    public static string RoleLabel(CharacterRole role) => Find(Roles, role).Label;
+    public static string RoleLabel(CharacterRole role) => Loc.T(Find(Roles, role).Label);
 
-    public static string ImportanceLabel(CharacterImportance importance) => Find(Importances, importance).Label;
+    public static string ImportanceLabel(CharacterImportance importance) => Loc.T(Find(Importances, importance).Label);
 
-    public static string StatusLabel(CharacterStatus status) => Find(Statuses, status).Label;
+    public static string StatusLabel(CharacterStatus status) => Loc.T(Find(Statuses, status).Label);
 
-    public static string ArcTypeLabel(CharacterArcType arcType) => Find(ArcTypes, arcType).Label;
+    public static string ArcTypeLabel(CharacterArcType arcType) => Loc.T(Find(ArcTypes, arcType).Label);
 
-    public static string DraftStatusLabel(CharacterDraftStatus status) => Find(DraftStatuses, status).Label;
+    public static string DraftStatusLabel(CharacterDraftStatus status) => Loc.T(Find(DraftStatuses, status).Label);
 
-    public static string ArcStageKindLabel(CharacterArcStageKind kind) => Find(ArcStageKinds, kind).Label;
+    public static string ArcStageKindLabel(CharacterArcStageKind kind) => Loc.T(Find(ArcStageKinds, kind).Label);
 
     public static Choice<T> Find<T>(IReadOnlyList<Choice<T>> choices, T value)
         where T : struct, Enum =>
@@ -126,7 +127,7 @@ public static class StoryLabels
         new(PlotLineStatus.Done, "Готово"),
     ];
 
-    public static string LineStatusLabel(PlotLineStatus status) => Find(LineStatuses, status).Label;
+    public static string LineStatusLabel(PlotLineStatus status) => Loc.T(Find(LineStatuses, status).Label);
 
     /// <summary>Цвет точки статуса линии (макет: зелёная точка у «В работе»).</summary>
     public static IBrush StatusDot(PlotLineStatus status) => status switch
@@ -146,5 +147,5 @@ public static class StoryLabels
 public sealed record Choice<T>(T Value, string Label)
 {
     /// <summary>ComboBox показывает элемент через <c>ToString</c>: без этого был бы тип записи.</summary>
-    public override string ToString() => Label;
+    public override string ToString() => Loc.T(Label);
 }

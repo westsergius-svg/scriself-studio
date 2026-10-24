@@ -11,7 +11,7 @@ public sealed class AvaloniaThemeService : IThemeService
     // Макет ScriSelf Studio использует кремовую бумажную тему как стартовую.
     // Это также предотвращает краткое появление тёмного Fluent-интерфейса до
     // завершения загрузки пользовательских настроек.
-    public AppTheme Current { get; private set; } = AppTheme.Paper;
+    public AppTheme Current { get; private set; } = AppTheme.Starter;
 
     public void Apply(AppTheme theme)
     {
@@ -23,9 +23,9 @@ public sealed class AvaloniaThemeService : IThemeService
 
         application.RequestedThemeVariant = theme switch
         {
-            AppTheme.Light or AppTheme.Paper => ThemeVariant.Light,
-            // Оформленные темы кроме Paper тёмные, поэтому им подходит тёмный
-            // каркас Fluent: иначе светлые контролы спорили бы с палитрой.
+            AppTheme.Light or AppTheme.Paper or AppTheme.Starter => ThemeVariant.Light,
+            // Оформленные темы, кроме Paper/Starter, тёмные; это сохраняет
+            // читаемость базовых контролов и согласует их с палитрой.
             _ => ThemeVariant.Dark,
         };
 

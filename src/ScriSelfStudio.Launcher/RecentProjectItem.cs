@@ -5,6 +5,7 @@ using System.Windows.Input;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using ScriSelfStudio.Contracts.Settings;
+using ScriSelfStudio.Presentation.Localization;
 
 /// <summary>
 /// Карточка проекта в списке лаунчера (ТЗ п. 27): имя, сводка, дата изменения и
@@ -98,7 +99,7 @@ public sealed class RecentProjectItem
     public string LastChangedText => BuildLastChanged();
 
     public string DescriptionText => string.IsNullOrWhiteSpace(Description)
-        ? "Описание пока не задано."
+        ? Loc.T("Описание пока не задано.")
         : Description!;
 
     private static int CoverIndex(string value)
@@ -139,11 +140,11 @@ public sealed class RecentProjectItem
         var today = DateTimeOffset.Now.Date;
         var day = local.Date;
         var when = day == today
-            ? "сегодня"
+            ? Loc.T("сегодня")
             : day == today.AddDays(-1)
-                ? "вчера"
+                ? Loc.T("вчера")
                 : local.ToString("dd.MM.yyyy", CultureInfo.CurrentCulture);
-        return $"Последнее изменение: {when}, {local.ToString("HH:mm", CultureInfo.CurrentCulture)}";
+        return Loc.F("Последнее изменение: {0}, {1}", when, local.ToString("HH:mm", CultureInfo.CurrentCulture));
     }
 
     /// <summary>Русская форма числительного: 1 глава, 2 главы, 5 глав.</summary>
@@ -159,6 +160,6 @@ public sealed class RecentProjectItem
                 2 or 3 or 4 => few,
                 _ => many,
             };
-        return $"{count} {word}";
+        return $"{count} {Loc.T(word)}";
     }
 }

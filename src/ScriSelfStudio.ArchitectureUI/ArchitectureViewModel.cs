@@ -15,6 +15,7 @@ using ScriSelfStudio.Core.Model;
 using ScriSelfStudio.ArchitectureUI.Map;
 using ScriSelfStudio.BookArchitecture.Map;
 using ScriSelfStudio.Presentation;
+using ScriSelfStudio.Presentation.Localization;
 
 /// <summary>
 /// Экран структуры книги: дерево серий, книг, глав и сцен, команды создания,
@@ -27,6 +28,8 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
     private readonly IEditorEngine _editor;
     private readonly INavigationService _navigation;
     private readonly IFileDialogService _dialogs;
+    private bool _isArchitectureScreen;
+    private bool _suppressSceneDetailsSave;
 
     [ObservableProperty]
     private ArchitectureNodeViewModel? _selected;
@@ -92,6 +95,7 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
         _navigation = navigation;
         _dialogs = dialogs;
         _navigation.Navigated += OnNavigated;
+        _isArchitectureScreen = _navigation.Current == AppScreen.Architecture;
         Refresh();
     }
 
@@ -125,6 +129,12 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
 
     public double MapContentWidth { get; private set; }
 
+    public double MapBoardContentWidth { get; private set; }
+
+    public double MapAddChapterX { get; private set; }
+
+    public double MapColumnWidth { get; private set; }
+
     /// <summary>Глава выбрана или в ней выбрана сцена — столбец раскрыт.</summary>
     public bool HasMapColumns => MapColumns.Count > 0;
 
@@ -132,7 +142,7 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
     public bool HasBooks => Books.Count > 0;
 
     /// <summary>Карта пуста: вместо приглушённой подсказки показываем карточку с действием.</summary>
-    public bool ShowMapEmpty => !HasMapColumns;
+    public bool ShowMapEmpty => !HasMapColumns && !CanCreateChapterInBook;
 
     public bool HasPlotLines => PlotLineLegend.Count > 0;
 
@@ -160,7 +170,7 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
         : "В выбранной книге нет глав. Создайте главу в списке.";
 
     /// <summary>Подпись кнопки на пустой карте: следующий недостающий элемент структуры.</summary>
-    public string MapEmptyActionLabel => SelectedBook is null ? "Создать книгу" : "Создать главу";
+    public string MapEmptyActionLabel => SelectedBook is null ? Loc.T("Создать книгу") : Loc.T("Создать главу");
 
     public bool HasError => !string.IsNullOrEmpty(ErrorMessage);
 
@@ -194,9 +204,20 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
             }
         }
 
-        Selected = selectedId is { } id
-            ? Roots.SelectMany(Enumerate).FirstOrDefault(node => node.Id == id)
-            : null;
+        // Перечитывание структуры не должно приниматься за выбор пользователя:
+        // иначе сохранение описания сцены запускало бы само себя.
+        _suppressSceneDetailsSave = true;
+        try
+        {
+            Selected = selectedId is { } id
+                ? Roots.SelectMany(Enumerate).FirstOrDefault(node => node.Id == id)
+                : null;
+        }
+        finally
+        {
+            _suppressSceneDetailsSave = false;
+        }
+
         RefreshBooks();
         OnPropertyChanged(nameof(HasProject));
         OnPropertyChanged(nameof(ProjectTitle));
@@ -406,10 +427,21 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
             MapColumns[index].ApplyGeometry(layout.Columns[index]);
         }
 
-        MapFits = layout.Fits;
+        MapColumnWidth = options.ColumnWidth;
+        MapAddChapterX = MapColumns.Count == 0
+            ? 0d
+            : layout.Columns[^1].X + layout.Columns[^1].Width + options.Gap;
         MapContentWidth = layout.ContentWidth;
+        MapBoardContentWidth = CanCreateChapterInBook
+            ? MapAddChapterX + MapColumnWidth
+            : layout.ContentWidth;
+        MapFits = MapBoardContentWidth <= MapViewportWidth || MapBoardContentWidth == 0d;
         OnPropertyChanged(nameof(MapContentWidth));
+        OnPropertyChanged(nameof(MapBoardContentWidth));
+        OnPropertyChanged(nameof(MapAddChapterX));
+        OnPropertyChanged(nameof(MapColumnWidth));
         OnPropertyChanged(nameof(HasMapColumns));
+        OnPropertyChanged(nameof(ShowMapEmpty));
     }
 
     /// <summary>Подсветка выбора: выбранная глава, выбранная сцена и правая панель.</summary>
@@ -488,6 +520,13 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
                     .OrderBy(step => step.Order)
                     .Select((step, index) => new SceneStepOption(step.Id, step.Title, index + 1))]))
             .ToList();
+        var characters = BuildSceneCharacters(snapshot, touchingLines, node.Id);
+        var assignedCharacterIds = touchingLines
+            .SelectMany(line => line.Steps)
+            .Where(step => step.SceneIds.Contains(node.Id))
+            .SelectMany(step => step.Participants)
+            .Select(participant => participant.CharacterId)
+            .ToHashSet();
 
         SceneDetails = new SceneDetailsViewModel(
             scene.Id,
@@ -501,13 +540,25 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
             scene.IsLocked,
             scene.Notes,
             lines,
-            BuildSceneCharacters(snapshot, touchingLines, node.Id),
+            characters,
+            snapshot.Characters
+                .Where(character => !assignedCharacterIds.Contains(character.Id))
+                .Select(character => new SceneCharacterOption(character.Id, character.Name))
+                .ToList(),
+            touchingLines.SelectMany(line => line.Steps)
+                .FirstOrDefault(step => step.SceneIds.Contains(node.Id))?.Id,
             lineChoices,
             OpenSceneAsync,
             ToggleKeyAsync,
             ToggleLockAsync,
             (stepId, cancellationToken) => AddSceneLineAsync(scene.Id, stepId, cancellationToken),
-            (lineId, cancellationToken) => RemoveSceneLineAsync(scene.Id, lineId, cancellationToken));
+            (lineId, cancellationToken) => RemoveSceneLineAsync(scene.Id, lineId, cancellationToken),
+            (characterId, stepId, cancellationToken) =>
+                AddSceneCharacterAsync(scene.Id, characterId, stepId, cancellationToken),
+            (description, cancellationToken) =>
+                SaveSceneDescriptionAsync(scene.Id, description, cancellationToken),
+            (notes, cancellationToken) =>
+                SaveSceneNotesAsync(scene.Id, notes, cancellationToken));
     }
 
     /// <summary>Персонажи сцены: участники этапов линий, привязанных к этой сцене.</summary>
@@ -541,7 +592,12 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
                         character.Name.Length > 0 ? character.Name[0].ToString() : "?",
                         character.Name,
                         StoryText.RoleLabel(character.Role),
-                        $"Шаг: {step.Title}",
+                        !string.IsNullOrWhiteSpace(character.ExternalGoal)
+                            ? $"Цель: {character.ExternalGoal}"
+                            : character.Description ?? string.Empty,
+                        !string.IsNullOrWhiteSpace(character.ExternalGoal)
+                            || !string.IsNullOrWhiteSpace(character.Description),
+                        $"Этап: {step.Title}",
                         brush,
                         HasStep: true));
                 }
@@ -559,6 +615,85 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
     {
         var stepIds = CurrentSceneStepIds(sceneId).Append(stepId).Distinct().ToList();
         await ApplySceneLinesAsync(sceneId, stepIds, cancellationToken);
+    }
+
+    private async Task AddSceneCharacterAsync(
+        Guid sceneId,
+        Guid characterId,
+        Guid stepId,
+        CancellationToken cancellationToken)
+    {
+        var snapshot = _projects.Current;
+        var line = snapshot?.PlotLines.FirstOrDefault(candidate =>
+            candidate.Steps.Any(step => step.Id == stepId && step.SceneIds.Contains(sceneId)));
+        var step = line?.Steps.FirstOrDefault(candidate => candidate.Id == stepId);
+        if (line is null || step is null
+            || step.Participants.Any(participant => participant.CharacterId == characterId))
+        {
+            return;
+        }
+
+        var updatedStep = step with
+        {
+            Participants = [.. step.Participants, new StepParticipantDto { CharacterId = characterId }],
+        };
+        var updatedLine = line with
+        {
+            Steps = [.. line.Steps.Select(candidate => candidate.Id == step.Id ? updatedStep : candidate)],
+        };
+        var result = await _architecture.SavePlotLineAsync(updatedLine, cancellationToken);
+        if (!result.IsSuccess)
+        {
+            await ReportAsync(result.Error!);
+            return;
+        }
+
+        Refresh();
+        StatusMessage = Loc.T("Персонаж добавлен в сцену.");
+    }
+
+    private async Task<bool> SaveSceneDescriptionAsync(
+        Guid sceneId,
+        string description,
+        CancellationToken cancellationToken)
+    {
+        ClearMessages();
+        var result = await _projects.UpdateSceneAsync(new UpdateSceneRequest
+        {
+            SceneId = sceneId,
+            Description = string.IsNullOrWhiteSpace(description) ? null : description,
+        }, cancellationToken);
+        if (!result.IsSuccess)
+        {
+            await ReportAsync(result.Error!);
+            return false;
+        }
+
+        Refresh();
+        StatusMessage = Loc.T("Описание сцены сохранено.");
+        return true;
+    }
+
+    private async Task<bool> SaveSceneNotesAsync(
+        Guid sceneId,
+        string notes,
+        CancellationToken cancellationToken)
+    {
+        ClearMessages();
+        var result = await _projects.UpdateSceneAsync(new UpdateSceneRequest
+        {
+            SceneId = sceneId,
+            Notes = string.IsNullOrWhiteSpace(notes) ? null : notes,
+        }, cancellationToken);
+        if (!result.IsSuccess)
+        {
+            await ReportAsync(result.Error!);
+            return false;
+        }
+
+        Refresh();
+        StatusMessage = Loc.T("Заметки сцены сохранены.");
+        return true;
     }
 
     /// <summary>Снять линию со сцены: убираются все этапы этой линии, привязанные к сцене.</summary>
@@ -598,7 +733,7 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
         }
 
         Refresh();
-        StatusMessage = "Сюжетные линии сцены обновлены.";
+        StatusMessage = Loc.T("Сюжетные линии сцены обновлены.");
     }
 
     private static bool TouchesScene(PlotLineDto line, Guid sceneId) =>
@@ -611,7 +746,7 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
     [RelayCommand(CanExecute = nameof(HasProject))]
     private async Task CreateSeriesAsync(CancellationToken cancellationToken)
     {
-        var title = await _dialogs.PromptAsync("Новая серия", "Название серии", "Серия", cancellationToken);
+        var title = await _dialogs.PromptAsync(Loc.T("Новая серия"), Loc.T("Название серии"), Loc.T("Серия"), cancellationToken);
         if (title is null)
         {
             return;
@@ -629,7 +764,7 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        var title = await _dialogs.PromptAsync("Новая книга", "Название книги", "Книга", cancellationToken);
+        var title = await _dialogs.PromptAsync(Loc.T("Новая книга"), Loc.T("Название книги"), Loc.T("Книга"), cancellationToken);
         if (title is null)
         {
             return;
@@ -649,7 +784,7 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        var title = await _dialogs.PromptAsync("Новая глава", "Название главы", "Глава", cancellationToken);
+        var title = await _dialogs.PromptAsync(Loc.T("Новая глава"), Loc.T("Название главы"), Loc.T("Глава"), cancellationToken);
         if (title is null)
         {
             return;
@@ -669,7 +804,7 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        var title = await _dialogs.PromptAsync("Новая сцена", "Название сцены", "Сцена", cancellationToken);
+        var title = await _dialogs.PromptAsync(Loc.T("Новая сцена"), Loc.T("Название сцены"), Loc.T("Сцена"), cancellationToken);
         if (title is null)
         {
             return;
@@ -689,7 +824,7 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        var title = await _dialogs.PromptAsync("Новая сцена", "Название сцены", "Сцена", CancellationToken.None);
+        var title = await _dialogs.PromptAsync(Loc.T("Новая сцена"), Loc.T("Название сцены"), Loc.T("Сцена"), CancellationToken.None);
         if (title is null)
         {
             return;
@@ -711,7 +846,7 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        var title = await _dialogs.PromptAsync("Новая глава", "Название главы", "Глава", cancellationToken);
+        var title = await _dialogs.PromptAsync(Loc.T("Новая глава"), Loc.T("Название главы"), Loc.T("Глава"), cancellationToken);
         if (title is null)
         {
             return;
@@ -724,7 +859,7 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
             selectCreated: true);
     }
 
-    private bool CanCreateChapterInBook => HasProject && SelectedBook is not null;
+    public bool CanCreateChapterInBook => HasProject && SelectedBook is not null;
 
     /// <summary>Звезда в правой панели: пометить сцену ключевой или снять отметку (ТЗ п. 27).</summary>
     [RelayCommand(CanExecute = nameof(IsSceneSelected))]
@@ -762,7 +897,7 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        var title = await _dialogs.PromptAsync("Переименовать", node.KindLabel, node.Title, cancellationToken);
+        var title = await _dialogs.PromptAsync(Loc.T("Переименовать"), node.KindLabel, node.Title, cancellationToken);
         if (title is null)
         {
             return;
@@ -785,10 +920,10 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
         }
 
         var confirmed = await _dialogs.ConfirmAsync(
-            "Удаление",
-            $"Удалить «{node.Title}» ({node.KindLabel})? Содержимое будет скрыто.",
-            "Удалить",
-            "Отмена",
+            Loc.T("Удаление"),
+            Loc.F("Удалить «{0}» ({1})? Содержимое будет скрыто.", node.Title, node.KindLabel),
+            Loc.T("Удалить"),
+            Loc.T("Отмена"),
             cancellationToken);
         if (!confirmed)
         {
@@ -836,6 +971,14 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
 
     private void OnNavigated(object? sender, AppScreen screen)
     {
+        if (_isArchitectureScreen
+            && screen != AppScreen.Architecture
+            && SceneDetails is { CanSaveDescription: true } details)
+        {
+            _ = details.SaveDescriptionCommand.ExecuteAsync(null);
+        }
+
+        _isArchitectureScreen = screen == AppScreen.Architecture;
         if (screen == AppScreen.Architecture)
         {
             Refresh();
@@ -843,6 +986,18 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
     }
 
     public bool HasSelection => Selected is not null;
+
+    /// <summary>Остались ли правки правой панели, которые ещё не записаны.</summary>
+    public bool HasPendingChanges => SceneDetails is { CanSaveDescription: true };
+
+    /// <summary>Фиксирует описание сцены перед переключением экрана или выходом.</summary>
+    public async Task CommitPendingAsync(CancellationToken cancellationToken = default)
+    {
+        if (SceneDetails is { CanSaveDescription: true } details)
+        {
+            await details.SaveDescriptionCommand.ExecuteAsync(null);
+        }
+    }
 
     /// <summary>Книга создаётся в выбранной серии, иначе — в первой серии проекта.</summary>
     public bool CanCreateBook => HasProject && ResolveSeriesTarget() is not null;
@@ -870,6 +1025,15 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
 
     partial void OnSelectedChanged(ArchitectureNodeViewModel? value)
     {
+        // Уход со сцены фиксирует несохранённое описание правой панели.
+        if (!_suppressSceneDetailsSave
+            && value is not null
+            && SceneDetails is { CanSaveDescription: true } details
+            && details.SceneId != value.Id)
+        {
+            _ = details.SaveDescriptionCommand.ExecuteAsync(null);
+        }
+
         UpdateMapSelection();
         NotifyCommands();
     }
@@ -921,15 +1085,15 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
             }
         }
 
-        StatusMessage = "Структура обновлена.";
+        StatusMessage = Loc.T("Структура обновлена.");
     }
 
     private async Task ReportAsync(AppError error)
     {
         ErrorMessage = error.SuggestedAction is null
-            ? error.UserMessage
-            : $"{error.UserMessage} {error.SuggestedAction}";
-        await _dialogs.ShowErrorAsync("Ошибка структуры", ErrorMessage);
+            ? Loc.T(error.UserMessage)
+            : $"{Loc.T(error.UserMessage)} {Loc.T(error.SuggestedAction)}";
+        await _dialogs.ShowErrorAsync(Loc.T("Ошибка структуры"), ErrorMessage);
     }
 
     private void ClearMessages()

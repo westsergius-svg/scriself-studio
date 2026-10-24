@@ -2,6 +2,7 @@ namespace ScriSelfStudio.ArchitectureUI.Map;
 
 using Avalonia.Media;
 using ScriSelfStudio.Core.Model;
+using ScriSelfStudio.Presentation.Localization;
 
 /// <summary>
 /// Подписи перечислений и склонения для карты книги. Ядро хранит значения,
@@ -12,29 +13,29 @@ public static class StoryText
 {
     public static string SceneStatusLabel(SceneStatus status) => status switch
     {
-        SceneStatus.Draft => "черновик",
-        SceneStatus.Revised => "в работе",
-        SceneStatus.Final => "готово",
-        _ => "идея",
+        SceneStatus.Draft => Loc.T("черновик"),
+        SceneStatus.Revised => Loc.T("в работе"),
+        SceneStatus.Final => Loc.T("готово"),
+        _ => Loc.T("идея"),
     };
 
     public static string LineStatusLabel(PlotLineStatus status) => status switch
     {
-        PlotLineStatus.Idea => "идея",
-        PlotLineStatus.Draft => "черновик",
-        PlotLineStatus.InProgress => "в работе",
-        PlotLineStatus.Done => "готова",
-        _ => "идея",
+        PlotLineStatus.Idea => Loc.T("идея"),
+        PlotLineStatus.Draft => Loc.T("черновик"),
+        PlotLineStatus.InProgress => Loc.T("в работе"),
+        PlotLineStatus.Done => Loc.T("готова"),
+        _ => Loc.T("идея"),
     };
 
     public static string RoleLabel(CharacterRole role) => role switch
     {
-        CharacterRole.Protagonist => "Протагонист",
-        CharacterRole.Antagonist => "Антагонист",
-        CharacterRole.Ally => "Союзник",
-        CharacterRole.Mentor => "Наставник",
-        CharacterRole.Episodic => "Эпизодический",
-        _ => "Второстепенный",
+        CharacterRole.Protagonist => Loc.T("Протагонист"),
+        CharacterRole.Antagonist => Loc.T("Антагонист"),
+        CharacterRole.Ally => Loc.T("Союзник"),
+        CharacterRole.Mentor => Loc.T("Наставник"),
+        CharacterRole.Episodic => Loc.T("Эпизодический"),
+        _ => Loc.T("Второстепенный"),
     };
 
     /// <summary>Цвет точки статуса линии (макет: зелёная точка у «В работе»).</summary>
@@ -62,14 +63,14 @@ public static class StoryText
         var mod10 = mod100 % 10;
         if (mod100 is >= 11 and <= 14)
         {
-            return many;
+            return Loc.T(many);
         }
 
         return mod10 switch
         {
-            1 => one,
-            >= 2 and <= 4 => few,
-            _ => many,
+            1 => Loc.T(one),
+            >= 2 and <= 4 => Loc.T(few),
+            _ => Loc.T(many),
         };
     }
 

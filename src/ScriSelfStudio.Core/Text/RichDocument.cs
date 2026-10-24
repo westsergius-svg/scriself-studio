@@ -76,6 +76,7 @@ public sealed class RichDocument
                 Kind = block.Kind,
                 Alignment = block.Alignment,
                 IndentLevel = block.IndentLevel,
+                ListMarker = block.ListMarker,
             };
 
             foreach (var span in block.Spans)

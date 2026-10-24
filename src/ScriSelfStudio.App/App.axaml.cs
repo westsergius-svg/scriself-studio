@@ -5,6 +5,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Microsoft.Extensions.DependencyInjection;
 using ScriSelfStudio.App.Composition;
+using ScriSelfStudio.App.Shell;
 using ScriSelfStudio.App.Views;
 using ScriSelfStudio.Contracts.Settings;
 using ScriSelfStudio.Launcher;
@@ -15,6 +16,7 @@ using ScriSelfStudio.Presentation.Theme;
 public partial class App : Application
 {
     private ServiceProvider? _provider;
+    private bool _shutdownFlushed;
 
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
@@ -27,8 +29,13 @@ public partial class App : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             _provider = ScriSelfStudioServices.Build();
+            // Язык применяется до создания главного окна: подписи enum и разделов
+            // создаются вместе с моделями экранов и должны сразу быть на нужном языке.
+            var preferences = _provider.GetRequiredService<IAppSettingsService>().Current;
+            _provider.GetRequiredService<ICultureService>().Apply(preferences.Language);
             desktop.MainWindow = _provider.GetRequiredService<MainWindow>();
             desktop.MainWindow.WindowState = Avalonia.Controls.WindowState.Maximized;
+            desktop.ShutdownRequested += OnShutdownRequested;
             desktop.Exit += (_, _) => _provider?.Dispose();
         }
 
@@ -44,6 +51,35 @@ public partial class App : Application
         _ = InitializeAsync();
     }
 
+    /// <summary>
+    /// Перед закрытием приложения фиксирует текст и черновики, которые ещё не
+    /// дошли до проекта. Закрытие откладывается до завершения записи.
+    /// </summary>
+    private async void OnShutdownRequested(object? sender, ShutdownRequestedEventArgs e)
+    {
+        if (_shutdownFlushed
+            || sender is not IClassicDesktopStyleApplicationLifetime desktop
+            || desktop.MainWindow?.DataContext is not ShellViewModel shell
+            || !shell.HasPendingEdits)
+        {
+            return;
+        }
+
+        e.Cancel = true;
+        _shutdownFlushed = true;
+        try
+        {
+            await shell.FlushPendingEditsAsync();
+        }
+        catch
+        {
+            // Выход не должен блокироваться ошибкой сохранения: пользователь
+            // уже закрыл окно, а сообщение об ошибке некуда показать.
+        }
+
+        desktop.Shutdown();
+    }
+
     private async Task InitializeAsync()
     {
         if (_provider is null)
@@ -55,11 +91,21 @@ public partial class App : Application
         await launcher.InitializeAsync();
 
         var preferences = _provider.GetRequiredService<IAppSettingsService>().Current;
-        _provider.GetRequiredService<ICultureService>().Apply(preferences.Language);
 
         if (Program.StartupProjectPath is { Length: > 0 } startupProject)
         {
             await launcher.OpenProjectFromCommandLineAsync(startupProject);
+        }
+        else if (preferences.OpenLastProjectOnStartup)
+        {
+            await launcher.OpenLastProjectAsync();
+        }
+
+        // Проверка обновлений идёт после открытия проекта и не задерживает запуск:
+        // сеть может быть недоступна, тогда приложение просто продолжает работу.
+        if (preferences.CheckForUpdatesOnStartup)
+        {
+            _ = launcher.CheckForUpdatesOnStartupAsync();
         }
     }
 }

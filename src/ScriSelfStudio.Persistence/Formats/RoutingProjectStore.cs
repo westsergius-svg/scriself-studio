@@ -132,6 +132,10 @@ internal static class LegacyModularFormat
         using var command = connection.CreateCommand();
         command.CommandText = "SELECT value FROM meta WHERE key = $key LIMIT 1;";
         command.Parameters.AddWithValue("$key", key);
-        return command.ExecuteScalar() as string;
+
+        var value = command.ExecuteScalar();
+        return value is null || value is DBNull
+            ? null
+            : Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture);
     }
 }

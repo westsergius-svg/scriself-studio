@@ -1,13 +1,17 @@
 namespace ScriSelfStudio.UiSmokeTests;
 
 using Avalonia.Headless.XUnit;
+using Avalonia.Controls;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Microsoft.Extensions.DependencyInjection;
 using ScriSelfStudio.App.Composition;
 using ScriSelfStudio.App.Shell;
 using ScriSelfStudio.App.Views;
+using ScriSelfStudio.ArchitectureUI;
 using ScriSelfStudio.Contracts.Books;
+using ScriSelfStudio.Contracts.Dtos;
+using ScriSelfStudio.Core.Model;
 using ScriSelfStudio.Contracts.Navigation;
 using ScriSelfStudio.Launcher;
 using ScriSelfStudio.StoryUI;
@@ -41,21 +45,41 @@ public sealed class StoryScreensTests
         Assert.True(characters.Draft.IsNew);
         Assert.Equal(7, characters.Draft.ArcStages.Count);
 
+        // Роль — выпадающий список: выбор должен сразу попадать в черновик.
+        var roleCombo = window.GetVisualDescendants().OfType<ComboBox>()
+            .Single(combo => ReferenceEquals(combo.ItemsSource, characters.Roles));
+        var mentor = characters.Roles.Single(role => role.Value == CharacterRole.Mentor);
+        roleCombo.SelectedItem = mentor;
+        Dispatcher.UIThread.RunJobs();
+        Assert.Same(mentor, characters.Draft.Role);
+
         characters.Draft.Name = "Анна";
         characters.Draft.Age = "25 лет";
         characters.Draft.FalseBelief = "Деньги решают всё";
         characters.Draft.TagsText = "маг, предатель";
+        characters.Draft.Status = characters.Statuses.Single(status => status.Value == CharacterStatus.Dead);
         characters.AddArcStageCommand.Execute(null);
         characters.Draft.ArcStages[^1].Title = "Своя ступень";
         await characters.SaveCharacterCommand.ExecuteAsync(null);
+        Dispatcher.UIThread.RunJobs();
 
         Assert.False(characters.HasError, characters.ErrorMessage);
         var saved = Assert.Single(characters.Characters);
         Assert.Equal("Анна", saved.Name);
         Assert.Equal(8, saved.ArcStageCount);
+        var characterList = window.GetVisualDescendants().OfType<ListBox>()
+            .Single(list => ReferenceEquals(list.ItemsSource, characters.Characters));
+        var renderedCharacterText = characterList.GetVisualDescendants().OfType<TextBlock>()
+            .Select(textBlock => textBlock.Text)
+            .ToArray();
+        Assert.Contains("Анна", renderedCharacterText);
+        Assert.Contains("Мёртв", renderedCharacterText);
+        Assert.Contains("Наставник", renderedCharacterText);
+        Assert.DoesNotContain(renderedCharacterText, text => text?.StartsWith("CharacterListItem", StringComparison.Ordinal) == true);
 
         var card = provider.GetRequiredService<IBookArchitectureService>().GetCharacters()[0];
         Assert.Equal("25 лет", card.Age);
+        Assert.Equal(CharacterRole.Mentor, card.Role);
         Assert.Equal(2, card.Tags.Count);
         Assert.Equal("Своя ступень", card.ArcStages[^1].Title);
 
@@ -66,6 +90,131 @@ public sealed class StoryScreensTests
         Assert.Equal(8, characters.Draft.ArcStages.Count);
 
         window.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task Character_draft_is_saved_when_leaving_the_screen()
+    {
+        using var workspace = new TempWorkspace();
+        var dialogs = new StubFileDialogService { CreatePath = workspace.FilePath("Рукопись.scri") };
+        using var provider = ServiceProviderFactory.Create(workspace.Root, dialogs);
+        var navigation = provider.GetRequiredService<INavigationService>();
+        var launcher = provider.GetRequiredService<LauncherViewModel>();
+        await launcher.InitializeAsync();
+        await launcher.CreateProjectCommand.ExecuteAsync(null);
+
+        launcher.OpenCharactersCommand.Execute(null);
+        var characters = provider.GetRequiredService<CharactersViewModel>();
+        characters.Draft.Name = "Анна";
+        await characters.SaveCharacterCommand.ExecuteAsync(null);
+
+        characters.Draft.Description = "Описание, набранное без кнопки сохранения.";
+        navigation.NavigateTo(AppScreen.Launcher);
+
+        Assert.False(characters.HasError, characters.ErrorMessage);
+        var card = Assert.Single(provider.GetRequiredService<IBookArchitectureService>().GetCharacters());
+        Assert.Equal("Описание, набранное без кнопки сохранения.", card.Description);
+    }
+
+    [AvaloniaFact]
+    public async Task Character_draft_is_saved_when_switching_to_another_card()
+    {
+        using var workspace = new TempWorkspace();
+        var dialogs = new StubFileDialogService { CreatePath = workspace.FilePath("Рукопись.scri") };
+        using var provider = ServiceProviderFactory.Create(workspace.Root, dialogs);
+        var launcher = provider.GetRequiredService<LauncherViewModel>();
+        await launcher.InitializeAsync();
+        await launcher.CreateProjectCommand.ExecuteAsync(null);
+
+        launcher.OpenCharactersCommand.Execute(null);
+        var characters = provider.GetRequiredService<CharactersViewModel>();
+        characters.Draft.Name = "Анна";
+        await characters.SaveCharacterCommand.ExecuteAsync(null);
+        var annaId = characters.Characters.Single().Id;
+
+        characters.NewCharacterCommand.Execute(null);
+        characters.Draft.Name = "Идан";
+        await characters.SaveCharacterCommand.ExecuteAsync(null);
+
+        characters.Selected = characters.Characters.Single(item => item.Id == annaId);
+        characters.Draft.Description = "Описание Анны без кнопки сохранения.";
+        characters.Selected = characters.Characters.Single(item => item.Name == "Идан");
+
+        var anna = provider.GetRequiredService<IBookArchitectureService>()
+            .GetCharacters().Single(card => card.Id == annaId);
+        Assert.Equal("Описание Анны без кнопки сохранения.", anna.Description);
+    }
+
+    [AvaloniaFact]
+    public async Task Timeline_draft_is_saved_when_switching_to_another_line()
+    {
+        using var workspace = new TempWorkspace();
+        var dialogs = new StubFileDialogService { CreatePath = workspace.FilePath("Рукопись.scri") };
+        using var provider = ServiceProviderFactory.Create(workspace.Root, dialogs);
+        var launcher = provider.GetRequiredService<LauncherViewModel>();
+        await launcher.InitializeAsync();
+        await launcher.CreateProjectCommand.ExecuteAsync(null);
+
+        launcher.OpenTimelineCommand.Execute(null);
+        var timeline = provider.GetRequiredService<TimelineViewModel>();
+        timeline.NewLineCommand.Execute(null);
+        timeline.Draft.Name = "Линия А";
+        await timeline.SaveLineCommand.ExecuteAsync(null);
+        var firstId = timeline.PlotLines.Single().Id;
+
+        timeline.NewLineCommand.Execute(null);
+        timeline.Draft.Name = "Линия Б";
+        await timeline.SaveLineCommand.ExecuteAsync(null);
+
+        timeline.SelectedLine = timeline.PlotLines.Single(line => line.Id == firstId);
+        timeline.Draft.Goal = "Цель без кнопки сохранения";
+        timeline.SelectedLine = timeline.PlotLines.Single(line => line.Name == "Линия Б");
+
+        var first = provider.GetRequiredService<IBookArchitectureService>()
+            .GetPlotLines().Single(line => line.Id == firstId);
+        Assert.Equal("Цель без кнопки сохранения", first.Goal);
+    }
+
+    [AvaloniaFact]
+    public async Task Scene_description_is_saved_when_switching_to_another_scene()
+    {
+        using var workspace = new TempWorkspace();
+        var dialogs = new StubFileDialogService
+        {
+            CreatePath = workspace.FilePath("Рукопись.scri"),
+            PromptResult = "Сцена",
+        };
+        dialogs.PromptResponses.Enqueue("Книга");
+        dialogs.PromptResponses.Enqueue("Глава");
+        dialogs.PromptResponses.Enqueue("Сцена 1");
+        dialogs.PromptResponses.Enqueue("Сцена 2");
+        using var provider = ServiceProviderFactory.Create(workspace.Root, dialogs);
+        var launcher = provider.GetRequiredService<LauncherViewModel>();
+        await launcher.InitializeAsync();
+        await launcher.CreateProjectCommand.ExecuteAsync(null);
+        launcher.OpenArchitectureCommand.Execute(null);
+
+        var architecture = provider.GetRequiredService<ArchitectureViewModel>();
+        architecture.Selected = architecture.Roots[0];
+        await architecture.CreateBookCommand.ExecuteAsync(null);
+        architecture.Selected = architecture.Roots[0].Children[0];
+        await architecture.CreateChapterCommand.ExecuteAsync(null);
+        architecture.Selected = architecture.Roots[0].Children[0].Children[0];
+        await architecture.CreateSceneCommand.ExecuteAsync(null);
+        await architecture.CreateSceneCommand.ExecuteAsync(null);
+
+        var chapter = architecture.Roots[0].Children[0].Children[0];
+        var firstSceneId = chapter.Children[0].Id;
+        architecture.Selected = chapter.Children[0];
+        architecture.SceneDetails!.Description = "Описание сцены без кнопки сохранения.";
+        architecture.Selected = chapter.Children[1];
+
+        var scene = provider.GetRequiredService<ScriSelfStudio.Contracts.Projects.IProjectService>()
+            .Current!.Series.SelectMany(series => series.Books)
+            .SelectMany(book => book.Chapters)
+            .SelectMany(chapter => chapter.Scenes)
+            .Single(item => item.Id == firstSceneId);
+        Assert.Equal("Описание сцены без кнопки сохранения.", scene.Description);
     }
 
     [AvaloniaFact]
@@ -290,6 +439,100 @@ public sealed class StoryScreensTests
         Assert.Equal(StoryLabels.LineSwatches[0], lines[0].ColorHex);
         Assert.Equal(StoryLabels.LineSwatches[1], lines[1].ColorHex);
         Assert.Equal(["Начало", "Призыв", "Поиск"], lines[0].Steps.Select(step => step.Title));
+    }
+
+    [AvaloniaFact]
+    public async Task Characters_screen_right_panel_reads_relations_lines_and_scenes()
+    {
+        using var workspace = new TempWorkspace();
+        var dialogs = new StubFileDialogService { CreatePath = workspace.FilePath("Рукопись.scri") };
+        using var provider = ServiceProviderFactory.Create(workspace.Root, dialogs);
+        var launcher = provider.GetRequiredService<LauncherViewModel>();
+        await launcher.InitializeAsync();
+        await launcher.CreateProjectCommand.ExecuteAsync(null);
+
+        var sceneId = await CreateSceneAsync(provider);
+        var architecture = provider.GetRequiredService<IBookArchitectureService>();
+
+        var withIdan = (await architecture.SaveCharacterAsync(new CharacterDto { Name = "Идан" })).Require();
+        var idanId = withIdan.Characters.Single(card => card.Name == "Идан").Id;
+        var withAnna = (await architecture.SaveCharacterAsync(new CharacterDto
+        {
+            Name = "Анна",
+            Relations = [new CharacterRelationDto { CharacterId = idanId, Type = CharacterRelationType.Friend }],
+        })).Require();
+        var annaId = withAnna.Characters.Single(card => card.Name == "Анна").Id;
+
+        await architecture.SavePlotLineAsync(new PlotLineDto
+        {
+            Name = "Главная линия",
+            Status = PlotLineStatus.InProgress,
+            Steps =
+            [
+                new PlotLineStepDto
+                {
+                    Title = "Поиск",
+                    Participants = [new StepParticipantDto { CharacterId = annaId }],
+                    SceneIds = [sceneId],
+                },
+            ],
+        });
+
+        launcher.OpenCharactersCommand.Execute(null);
+        var characters = provider.GetRequiredService<CharactersViewModel>();
+        characters.Selected = characters.Characters.Single(item => item.Id == annaId);
+
+        // Правая панель — не заглушка: связи, линии и сцены берутся из проекта.
+        var relation = Assert.Single(characters.RelatedCharacters);
+        Assert.Equal("Идан", relation.Name);
+        Assert.Equal("Друг", relation.RelationLabel);
+
+        var line = Assert.Single(characters.RelatedLines);
+        Assert.Equal("Главная линия", line.Name);
+        Assert.Equal("В работе", line.StatusLabel);
+        Assert.True(characters.HasRelatedLines);
+
+        Assert.Equal(1, characters.SceneCount);
+        Assert.Equal("1 сцена", characters.SceneCountLabel);
+
+        // Правка связей в карточке сразу отражается в панели.
+        characters.RemoveRelationCommand.Execute(characters.Draft.Relations[0]);
+        Assert.Empty(characters.RelatedCharacters);
+        Assert.False(characters.HasRelatedCharacters);
+    }
+    [AvaloniaFact]
+    public async Task Shell_flush_saves_pending_text_and_scene_context()
+    {
+        using var workspace = new TempWorkspace();
+        var dialogs = new StubFileDialogService { CreatePath = workspace.FilePath("Рукопись.scri") };
+        using var provider = ServiceProviderFactory.Create(workspace.Root, dialogs);
+        var launcher = provider.GetRequiredService<LauncherViewModel>();
+        await launcher.InitializeAsync();
+        await launcher.CreateProjectCommand.ExecuteAsync(null);
+
+        var sceneId = await CreateSceneAsync(provider);
+        var editor = provider.GetRequiredService<ScriSelfStudio.EditorUI.EditorViewModel>();
+        await editor.Engine.OpenSceneAsync(sceneId);
+        editor.Text = "Текст перед закрытием приложения";
+
+        var panel = provider.GetRequiredService<SceneContextViewModel>();
+        panel.Refresh();
+        panel.Summary = "Описание перед закрытием приложения";
+
+        var shell = provider.GetRequiredService<ShellViewModel>();
+        Assert.True(shell.HasPendingEdits);
+
+        await shell.FlushPendingEditsAsync();
+
+        Assert.False(editor.IsDirty);
+        Assert.False(panel.HasPendingChanges);
+        var scene = provider.GetRequiredService<ScriSelfStudio.Contracts.Projects.IProjectService>()
+            .Current!.Series.SelectMany(series => series.Books)
+            .SelectMany(book => book.Chapters)
+            .SelectMany(chapter => chapter.Scenes)
+            .Single(item => item.Id == sceneId);
+        Assert.Equal("Описание перед закрытием приложения", scene.Description);
+        Assert.False(shell.HasPendingEdits);
     }
 
     private static async Task<Guid> CreateSceneAsync(IServiceProvider provider)

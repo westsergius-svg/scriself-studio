@@ -74,6 +74,8 @@ public sealed record BlockStyleDto
     public required TextAlignment Alignment { get; init; }
 
     public required int IndentLevel { get; init; }
+
+    public ListMarkerKind ListMarker { get; init; }
 }
 
 /// <summary>
@@ -144,6 +146,9 @@ public interface IEditorEngine
     /// <summary>Формат, общий для всех символов диапазона (для состояния панели форматирования).</summary>
     Result<TextFormat> GetFormatting(TextRange range);
 
+    /// <summary>Снимок текущего документа без коммита — например, для форматированного предпросмотра.</summary>
+    Result<SceneDocumentDto> GetDocumentSnapshot();
+
     /// <summary>
     /// Задаёт оформление диапазона: шрифт, кегль и цвета. Меняются только
     /// переданные поля, символьные флаги сохраняются. Цвета — <c>#RRGGBB</c>
@@ -166,8 +171,13 @@ public interface IEditorEngine
     /// <summary>Стиль блока в позиции курсора.</summary>
     Result<BlockStyleDto> GetBlockStyleAt(TextPosition position);
 
-    /// <summary>Меняет тип блока, выравнивание и отступ для блоков в диапазоне.</summary>
-    Result ApplyBlockStyle(TextRange range, BlockKind? kind = null, TextAlignment? alignment = null, int? indentLevel = null);
+    /// <summary>Меняет тип блока, выравнивание, отступ и маркер списка в диапазоне.</summary>
+    Result ApplyBlockStyle(
+        TextRange range,
+        BlockKind? kind = null,
+        TextAlignment? alignment = null,
+        int? indentLevel = null,
+        ListMarkerKind? listMarker = null);
 
     Result Undo();
 
@@ -179,6 +189,9 @@ public interface IEditorEngine
     /// элемент ввода, как в обычном текстовом поле Windows (ТЗ п. 11, 22).
     /// </summary>
     Result SetPlainText(string text);
+
+    /// <summary>Replaces the document snapshot supplied by a rich-text editor.</summary>
+    Result ReplaceDocument(RichDocument document);
     Result<SearchResult> Search(string query, SearchOptions? options = null);
 
     Result<UpdateSceneDocumentRequest> CreateCommitRequest();

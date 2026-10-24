@@ -9,6 +9,10 @@
     <PackageReference Include="CommunityToolkit.Mvvm" />
   </ItemGroup>
   <ItemGroup>
+    <!-- QR страницы «Спасибо» на карточке проекта: картинка собрана из SVG-исходника. -->
+    <AvaloniaResource Include="Assets\qr-spasibo.png" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\ScriSelfStudio.Core\ScriSelfStudio.Core.csproj" />
     <ProjectReference Include="..\ScriSelfStudio.Contracts\ScriSelfStudio.Contracts.csproj" />
     <ProjectReference Include="..\ScriSelfStudio.Presentation\ScriSelfStudio.Presentation.csproj" />

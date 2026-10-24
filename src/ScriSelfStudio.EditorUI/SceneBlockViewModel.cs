@@ -4,11 +4,12 @@ using System.Globalization;
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using ScriSelfStudio.Core.Model;
+using ScriSelfStudio.Presentation.Localization;
 
 /// <summary>
-/// Сцена в ленте главы (ТЗ п. 27): номер, заголовок, статус и текст. Редактируется
-/// только текст активного блока — он попадает в документ сцены; остальные блоки
-/// показывают снимок текста, пока автор не перейдёт в них.
+/// Сцена в ленте главы (ТЗ п. 27): номер, заголовок, статус и текстовый снимок.
+/// Rich-text редактор объединяет документы сцен только для отображения; модель
+/// сохраняет отдельный документ и отдельную ревизию для каждой сцены.
 /// </summary>
 public sealed partial class SceneBlockViewModel : ObservableObject
 {
@@ -61,15 +62,15 @@ public sealed partial class SceneBlockViewModel : ObservableObject
     /// <summary>Номер сцены в главе: «01», «02», …</summary>
     public string NumberLabel => (Order + 1).ToString("D2", CultureInfo.InvariantCulture);
 
-    public string StatusLabel => StatusLabels[Status];
+    public string StatusLabel => Loc.T(StatusLabels[Status]);
 
     public IBrush StatusBrush => StatusBrushes[Status];
 
-    /// <summary>Активная сцена ленты: только её текст доступен для правки.</summary>
+    /// <summary>Сцена, с которой открыта текущая сессия редактора.</summary>
     [ObservableProperty]
     private bool _isActive;
 
-    /// <summary>Текст сцены. Изменение активного блока уходит в документ сцены.</summary>
+    /// <summary>Текстовый снимок сцены.</summary>
     public string Text
     {
         get => _text;

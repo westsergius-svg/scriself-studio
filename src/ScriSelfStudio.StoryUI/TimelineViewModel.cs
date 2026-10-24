@@ -12,6 +12,7 @@ using ScriSelfStudio.Contracts.Navigation;
 using ScriSelfStudio.Contracts.Projects;
 using ScriSelfStudio.Core.Model;
 using ScriSelfStudio.Presentation;
+using ScriSelfStudio.Presentation.Localization;
 
 /// <summary>
 /// Экран сюжетных линий по макету: список линий, лента шагов и свойства линии.
@@ -33,6 +34,9 @@ public sealed partial class TimelineViewModel : ViewModelBase, IDisposable
     /// и не меняет, но возвращает при сохранении, чтобы не потерять данные автора.
     /// </summary>
     private IReadOnlyList<Guid> _lineSceneIds = [];
+    private bool _isTimelineScreen;
+    private bool _suppressLineSelection;
+    private string? _savedSignature;
 
     /// <summary>
     /// Номер раскрытого этапа. Идентификатор нового этапа до сохранения пуст, поэтому
@@ -98,6 +102,7 @@ public sealed partial class TimelineViewModel : ViewModelBase, IDisposable
         _navigation = navigation;
         _dialogs = dialogs;
         _navigation.Navigated += OnNavigated;
+        _isTimelineScreen = _navigation.Current == AppScreen.Timeline;
         Refresh();
     }
 
@@ -116,7 +121,7 @@ public sealed partial class TimelineViewModel : ViewModelBase, IDisposable
 
     public bool HasProject => _projects.Current is not null;
 
-    public string ProjectTitle => _projects.Current?.Name ?? "Проект не открыт";
+    public string ProjectTitle => _projects.Current?.Name ?? Loc.T("Проект не открыт");
 
     public bool HasSelection => SelectedLine is not null;
 
@@ -128,7 +133,7 @@ public sealed partial class TimelineViewModel : ViewModelBase, IDisposable
     public string LineHeading => string.IsNullOrWhiteSpace(Draft.Description) ? LineTitle : Draft.Description!;
 
     public string GoalText => string.IsNullOrWhiteSpace(Draft.Goal)
-        ? "Цель не задана"
+        ? Loc.T("Цель не задана")
         : $"Цель: {Draft.Goal}";
 
     public IBrush LineBrush => StoryLabels.BrushFromHex(Draft.ColorHex, StoryLabels.DefaultLineBrush);
@@ -140,17 +145,17 @@ public sealed partial class TimelineViewModel : ViewModelBase, IDisposable
 
     public bool HasSelectedStep => SelectedStep is not null;
 
-    public string SelectedStepNumberText => SelectedStep is { } step ? $"Шаг {step.NumberText}" : string.Empty;
+    public string SelectedStepNumberText => SelectedStep is { } step ? Loc.F("Шаг {0}", step.NumberText) : string.Empty;
 
     public string SelectedStepHeading => SelectedStep?.Header ?? string.Empty;
 
     public string SelectedStepDescriptionText =>
         string.IsNullOrWhiteSpace(SelectedStep?.Description)
-            ? "Описание не задано."
+            ? Loc.T("Описание не задано.")
             : SelectedStep!.Description!;
 
     public string SelectedStepParticipantsText => SelectedStep is not { } step || step.Participants.Count == 0
-        ? "Персонажи не назначены."
+        ? Loc.T("Персонажи не назначены.")
         : string.Join("\n", step.Participants.Select(participant =>
             participant.Character is null
                 ? "персонаж не выбран"
@@ -159,12 +164,12 @@ public sealed partial class TimelineViewModel : ViewModelBase, IDisposable
                     : $"{participant.Character.Name} · {participant.ArcStage.Title}"));
 
     public string SelectedStepScenesText => SelectedStep is not { } step || step.Scenes.Count == 0
-        ? "Сцены не назначены."
+        ? Loc.T("Сцены не назначены.")
         : string.Join(", ", step.Scenes.Select(scene => scene.Label));
 
     public string SelectedStepFinalText => SelectedStep?.IsFinal == true
-        ? "Финальный шаг линии"
-        : "Не финальный шаг";
+        ? Loc.T("Финальный шаг линии")
+        : Loc.T("Не финальный шаг");
 
     public string SelectedStepHint =>
         "Сцены шага назначаются на экране сцены: связь задаётся со стороны сцены.";
@@ -181,7 +186,7 @@ public sealed partial class TimelineViewModel : ViewModelBase, IDisposable
     public bool CanPersist => !string.IsNullOrWhiteSpace(Draft.Name);
 
     public string StepHint => Draft.Steps.Count == 0
-        ? "У линии нет шагов. Добавьте первый шаг."
+        ? Loc.T("У линии нет шагов. Добавьте первый шаг.")
         : "Выберите шаг, чтобы раскрыть его и назначить персонажей.";
 
     /// <summary>Есть ли у линии шаги: подсказка в ленте показывается только при пустой ленте.</summary>
@@ -208,7 +213,18 @@ public sealed partial class TimelineViewModel : ViewModelBase, IDisposable
 
         if (selectedId is { } id && PlotLines.FirstOrDefault(item => item.Id == id) is { } restored)
         {
-            SelectedLine = restored;
+            // Перечитывание списка не должно приниматься за выбор пользователя:
+            // иначе черновик сохранялся бы повторно при каждом Refresh.
+            _suppressLineSelection = true;
+            try
+            {
+                SelectedLine = restored;
+            }
+            finally
+            {
+                _suppressLineSelection = false;
+            }
+
             LoadDraft(restored.Id, selectedStepId);
         }
         else
@@ -216,6 +232,7 @@ public sealed partial class TimelineViewModel : ViewModelBase, IDisposable
             SelectedLine = null;
             Draft = new PlotLineDraft(Guid.Empty);
             SelectedStep = null;
+            _savedSignature = null;
         }
 
         OnPropertyChanged(nameof(HasProject));
@@ -230,9 +247,15 @@ public sealed partial class TimelineViewModel : ViewModelBase, IDisposable
 
     partial void OnSelectedLineChanged(PlotLineListItem? value)
     {
-        if (value is null)
+        if (value is null || _suppressLineSelection)
         {
             return;
+        }
+
+        if (value.Id != Draft.Id)
+        {
+            // Правки прежней линии фиксируем до подмены черновика.
+            _ = FlushDraftAsync();
         }
 
         ClearMessages();
@@ -273,6 +296,7 @@ public sealed partial class TimelineViewModel : ViewModelBase, IDisposable
     [RelayCommand]
     private async Task NewLineAsync(CancellationToken cancellationToken)
     {
+        await FlushDraftAsync(cancellationToken);
         ClearMessages();
         IsHeaderEditing = false;
         SelectedLine = null;
@@ -309,7 +333,7 @@ public sealed partial class TimelineViewModel : ViewModelBase, IDisposable
                 "Удалить линию",
                 $"Удалить «{name}»? Действие нельзя отменить.",
                 "Удалить",
-                "Отмена"))
+                Loc.T("Отмена")))
         {
             return;
         }
@@ -322,7 +346,7 @@ public sealed partial class TimelineViewModel : ViewModelBase, IDisposable
         }
 
         ClearMessages();
-        StatusMessage = $"Линия «{name}» удалена.";
+        StatusMessage = Loc.F("Линия «{0}» удалена.", name);
         if (SelectedLine?.Id == lineId)
         {
             SelectedLine = null;
@@ -339,7 +363,7 @@ public sealed partial class TimelineViewModel : ViewModelBase, IDisposable
     {
         if (!CanPersist)
         {
-            ErrorMessage = "У линии должно быть название.";
+            ErrorMessage = Loc.T("У линии должно быть название.");
             return;
         }
 
@@ -357,7 +381,7 @@ public sealed partial class TimelineViewModel : ViewModelBase, IDisposable
             ?.Id;
 
         ErrorMessage = null;
-        StatusMessage = wasNew ? $"Линия «{savedName}» создана." : null;
+        StatusMessage = wasNew ? Loc.F("Линия «{0}» создана.", savedName) : null;
         IsHeaderEditing = false;
         RefreshTo(savedId);
     }
@@ -559,6 +583,86 @@ public sealed partial class TimelineViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(HasSteps));
     }
 
+    /// <summary>Есть ли правки, которые ещё не записаны в проект.</summary>
+    public bool HasUnsavedDraft => CanPersist
+        && (Draft.IsNew || Signature(BuildDto()) != _savedSignature);
+
+    /// <summary>
+    /// Фоновая фиксация линии без перечитывания выбранной строки: так клик по
+    /// другой линии не теряет текст и не перетягивает выбор обратно.
+    /// </summary>
+    public async Task FlushDraftAsync(CancellationToken cancellationToken = default)
+    {
+        if (!CanPersist)
+        {
+            return;
+        }
+
+        var dto = BuildDto();
+        if (dto.Id != Guid.Empty && Signature(dto) == _savedSignature)
+        {
+            return;
+        }
+
+        var result = await _architecture.SavePlotLineAsync(dto, cancellationToken);
+        if (!result.IsSuccess)
+        {
+            ErrorMessage = result.Error!.SuggestedAction is null
+                ? result.Error.UserMessage
+                : $"{result.Error.UserMessage} {result.Error.SuggestedAction}";
+            return;
+        }
+
+        var saved = result.Value?.PlotLines.FirstOrDefault(line =>
+            dto.Id == Guid.Empty
+                ? string.Equals(line.Name, dto.Name, StringComparison.Ordinal)
+                : line.Id == dto.Id);
+        if (saved is null)
+        {
+            return;
+        }
+
+        UpdateListItem(saved);
+        if (dto.Id != Guid.Empty && Draft.Id == saved.Id)
+        {
+            _savedSignature = Signature(saved);
+        }
+    }
+
+    /// <summary>
+    /// Обновляет строку списка, не трогая выбранную линию: фоновое сохранение
+    /// не должно менять выбор пользователя.
+    /// </summary>
+    private void UpdateListItem(PlotLineDto saved)
+    {
+        var item = new PlotLineListItem(
+            saved.Id,
+            saved.Name,
+            saved.Description,
+            saved.ColorHex,
+            saved.Steps.Count);
+        for (var index = 0; index < PlotLines.Count; index++)
+        {
+            if (PlotLines[index].Id != saved.Id)
+            {
+                continue;
+            }
+
+            if (!ReferenceEquals(PlotLines[index], SelectedLine))
+            {
+                PlotLines[index] = item;
+            }
+
+            return;
+        }
+
+        if (SelectedLine?.Id != saved.Id)
+        {
+            PlotLines.Add(item);
+            OnPropertyChanged(nameof(HasPlotLines));
+        }
+    }
+
     private async Task SaveIfPossibleAsync(CancellationToken cancellationToken)
     {
         if (!HasSelection || !CanPersist)
@@ -571,6 +675,12 @@ public sealed partial class TimelineViewModel : ViewModelBase, IDisposable
 
     private void OnNavigated(object? sender, AppScreen screen)
     {
+        if (_isTimelineScreen && screen != AppScreen.Timeline)
+        {
+            _ = CommitLineCommand.ExecuteAsync(null);
+        }
+
+        _isTimelineScreen = screen == AppScreen.Timeline;
         if (screen == AppScreen.Timeline)
         {
             Refresh();
@@ -670,6 +780,7 @@ public sealed partial class TimelineViewModel : ViewModelBase, IDisposable
         }
 
         Draft = draft;
+        _savedSignature = Signature(BuildDto());
         StatusChoice = StoryLabels.LineStatuses.FirstOrDefault(choice => choice.Value == draft.Status);
         RebuildSwatches();
 
@@ -749,7 +860,7 @@ public sealed partial class TimelineViewModel : ViewModelBase, IDisposable
             .. Draft.Steps.Select(step => new PlotLineStepDto
             {
                 Id = step.Id,
-                Title = string.IsNullOrWhiteSpace(step.Title) ? "Шаг" : step.Title.Trim(),
+                Title = string.IsNullOrWhiteSpace(step.Title) ? Loc.T("Шаг") : step.Title.Trim(),
                 Description = string.IsNullOrWhiteSpace(step.Description) ? null : step.Description.Trim(),
                 IsFinal = step.IsFinal,
                 Icon = step.IconKey,
@@ -768,12 +879,15 @@ public sealed partial class TimelineViewModel : ViewModelBase, IDisposable
         ],
     };
 
+    private static string Signature(PlotLineDto line) =>
+        System.Text.Json.JsonSerializer.Serialize(line);
+
     private async Task ReportAsync(AppError error)
     {
         ErrorMessage = error.SuggestedAction is null
-            ? error.UserMessage
-            : $"{error.UserMessage} {error.SuggestedAction}";
-        await _dialogs.ShowErrorAsync("Ошибка сюжетной линии", ErrorMessage);
+            ? Loc.T(error.UserMessage)
+            : $"{Loc.T(error.UserMessage)} {Loc.T(error.SuggestedAction)}";
+        await _dialogs.ShowErrorAsync(Loc.T("Ошибка сюжетной линии"), ErrorMessage);
     }
 
     private void ClearMessages()

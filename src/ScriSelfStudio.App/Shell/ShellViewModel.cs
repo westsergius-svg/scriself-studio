@@ -19,6 +19,7 @@ using ScriSelfStudio.Core.Model;
 using ScriSelfStudio.EditorUI;
 using ScriSelfStudio.Launcher;
 using ScriSelfStudio.Presentation;
+using ScriSelfStudio.Presentation.Localization;
 using ScriSelfStudio.Presentation.Export;
 using ScriSelfStudio.Presentation.Theme;
 using ScriSelfStudio.StoryUI;
@@ -57,14 +58,10 @@ public sealed partial class ShellViewModel : ViewModelBase, IDisposable
     private DateTimeOffset _lastProjectActivity;
     private bool _isProjectSaving;
 
-    /// <summary>Темы оформления из макета: Studio, Paper, Graphite, Ocean, Forest.</summary>
+    /// <summary>Выбор тем временно отключён: доступна только стандартная тема.</summary>
     public IReadOnlyList<ThemeOption> Themes { get; } =
     [
-        new(AppTheme.Studio, "Studio", "тёмная", ThemeOption.CreateSwatch("#142127")),
-        new(AppTheme.Paper, "Paper", "основная", ThemeOption.CreateSwatch("#F4EEE5")),
-        new(AppTheme.Graphite, "Graphite", "тёмная", ThemeOption.CreateSwatch("#202324")),
-        new(AppTheme.Ocean, "Ocean", "холодная", ThemeOption.CreateSwatch("#10262E")),
-        new(AppTheme.Forest, "Forest", "глубокая", ThemeOption.CreateSwatch("#172520")),
+        new(AppTheme.Starter, "Стандартная", "синяя", ThemeOption.CreateSwatch("#3B8AE5")),
     ];
 
     [ObservableProperty]
@@ -141,18 +138,26 @@ public sealed partial class ShellViewModel : ViewModelBase, IDisposable
         _subscriptions.Add(events.Subscribe<ProjectChanged>(_ =>
         {
             _lastProjectActivity = _clock.UtcNow;
+            OnPropertyChanged(nameof(ProjectCaption));
+            OnPropertyChanged(nameof(AutosaveText));
+            OnPropertyChanged(nameof(IsAutosaveEnabled));
             OnPropertyChanged(nameof(StatusStatsText));
             SaveCommand.NotifyCanExecuteChanged();
+        }));
+        _subscriptions.Add(events.Subscribe<EditorDocumentChanged>(_ =>
+        {
+            OnPropertyChanged(nameof(StatusStatsText));
+            OnPropertyChanged(nameof(BreadcrumbsText));
         }));
         _subscriptions.Add(events.Subscribe<SaveCompleted>(_ =>
         {
             LastSavedAt = _clock.UtcNow;
-            StatusMessage = "Проект сохранён.";
+            StatusMessage = Loc.T("Проект сохранён.");
             SaveCommand.NotifyCanExecuteChanged();
         }));
         _subscriptions.Add(events.Subscribe<SaveFailed>(eventArgs =>
         {
-            StatusMessage = $"Ошибка сохранения: {eventArgs.Error.UserMessage}";
+            StatusMessage = Loc.F("Ошибка сохранения: {0}", eventArgs.Error.UserMessage);
         }));
 
         SyncProjectState();
@@ -183,18 +188,30 @@ public sealed partial class ShellViewModel : ViewModelBase, IDisposable
         set => _editor.IsFullCanvas = value;
     }
 
-    public bool ShowWorkspace => IsProjectOpen && !IsFullCanvas;
+    /// <summary>
+    /// Esc в окне выключает режим «Холст». Команда принадлежит редактору — владельцу
+    /// состояния; оболочка только открывает её окну, чтобы сочетание работало при любом
+    /// фокусе внутри окна, а не только когда фокус в редакторе.
+    /// </summary>
+    public System.Windows.Input.ICommand ExitFullCanvasCommand => _editor.ExitFullCanvasCommand;
+
+    public bool ShowWorkspace => IsProjectOpen
+        && (CurrentScreen != AppScreen.Editor || !IsFullCanvas);
 
         public const double MinPaneWidth = 180;
     public const double MaxPaneWidth = 400;
 
-    public bool ShowScenePanel => ShowWorkspace && CurrentScreen is not (AppScreen.Timeline or AppScreen.Architecture or AppScreen.Characters) && !IsFullCanvas;
+    public bool ShowScenePanel => ShowWorkspace
+        && CurrentScreen == AppScreen.Editor
+        && !IsFullCanvas;
 
-    public bool ShowBookTree => ShowWorkspace && CurrentScreen is not (AppScreen.Timeline or AppScreen.Architecture or AppScreen.Characters) && !IsFullCanvas;
+    public bool ShowBookTree => ShowWorkspace
+        && CurrentScreen == AppScreen.Editor
+        && !IsFullCanvas;
 
-    public bool ShowStatusBar => ShowWorkspace && CurrentScreen != AppScreen.Timeline;
+    public bool ShowStatusBar => ShowWorkspace && CurrentScreen == AppScreen.Editor;
 
-    public bool IsFullCanvasAvailable => ShowWorkspace && CurrentScreen != AppScreen.Timeline;
+    public bool IsFullCanvasAvailable => IsProjectOpen && CurrentScreen == AppScreen.Editor;
 
     public string CurrentThemeName => SelectedTheme?.Title ?? "Тема";
 
@@ -235,6 +252,11 @@ public sealed partial class ShellViewModel : ViewModelBase, IDisposable
     private void RaiseShellState()
     {
         OnPropertyChanged(nameof(ProjectName));
+        OnPropertyChanged(nameof(ProjectCaption));
+        OnPropertyChanged(nameof(CanOpenProjectFolder));
+        OnPropertyChanged(nameof(AutosaveText));
+        OnPropertyChanged(nameof(IsAutosaveEnabled));
+        OpenProjectFolderCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(IsProjectOpen));
         OnPropertyChanged(nameof(ShowWorkspace));
         OnPropertyChanged(nameof(ShowBookTree));
@@ -244,6 +266,9 @@ public sealed partial class ShellViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(StatusStatsText));
         OnPropertyChanged(nameof(IsArchitectureActive));
         OnPropertyChanged(nameof(IsLauncherActive));
+        OnPropertyChanged(nameof(IsMapActive));
+        OnPropertyChanged(nameof(IsCharactersActive));
+        OnPropertyChanged(nameof(IsLinesActive));
         OnPropertyChanged(nameof(IsEditorActive));
         OnPropertyChanged(nameof(IsSettingsActive));
         OnPropertyChanged(nameof(ShowScenePanel));
@@ -269,9 +294,11 @@ public sealed partial class ShellViewModel : ViewModelBase, IDisposable
     }
 
     /// <summary>Строка автосохранения для статус-бара (ТЗ п. 11).</summary>
-    public string AutosaveText => _projects.Current?.Settings.AutoSaveEnabled == true
-        ? "Автосохранение: включено"
-        : "Автосохранение: выключено";
+    public bool IsAutosaveEnabled => _projects.Current?.Settings.AutoSaveEnabled == true;
+
+    public string AutosaveText => IsAutosaveEnabled
+        ? Loc.T("Автосохранение: включено")
+        : Loc.T("Автосохранение: выключено");
 
     /// <summary>Хлебные крошки: книга › глава › сцена либо имя проекта.</summary>
     public string BreadcrumbsText
@@ -282,7 +309,7 @@ public sealed partial class ShellViewModel : ViewModelBase, IDisposable
             var project = _projects.Current;
             if (sceneId is null || project is null)
             {
-                return project?.Name ?? "Проект не открыт";
+                return project?.Name ?? Loc.T("Проект не открыт");
             }
 
             var found = (from series in project.Series
@@ -315,7 +342,7 @@ public sealed partial class ShellViewModel : ViewModelBase, IDisposable
             var scenes = books.Sum(book => book.Chapters.Sum(chapter => chapter.Scenes.Count));
             if (!books.Any())
             {
-                return "Проект пуст";
+                return Loc.T("Проект пуст");
             }
 
             return $"{FormatNumber(words)} {Plural(words, "слово", "слова", "слов")} · " +
@@ -328,6 +355,12 @@ public sealed partial class ShellViewModel : ViewModelBase, IDisposable
 
     public bool IsLauncherActive => CurrentScreen == AppScreen.Launcher;
 
+    public bool IsMapActive => CurrentScreen == AppScreen.Architecture;
+
+    public bool IsCharactersActive => CurrentScreen == AppScreen.Characters;
+
+    public bool IsLinesActive => CurrentScreen == AppScreen.Timeline;
+
     public bool IsEditorActive => CurrentScreen == AppScreen.Editor;
 
     public bool IsSettingsActive => CurrentScreen == AppScreen.Settings;
@@ -335,7 +368,7 @@ public sealed partial class ShellViewModel : ViewModelBase, IDisposable
     public bool IsExportActive => CurrentScreen == AppScreen.Export;
 
     /// <summary>Подпись открытого проекта в шапке (макет: строка справа со стрелкой).</summary>
-    public string ProjectCaption => _projects.Current?.Name ?? "Проект не открыт";
+    public string ProjectCaption => _projects.Current?.Name ?? Loc.T("Проект не открыт");
 
     public bool CanOpenProjectFolder => !string.IsNullOrEmpty(_projects.CurrentFilePath);
 
@@ -372,6 +405,12 @@ public sealed partial class ShellViewModel : ViewModelBase, IDisposable
     private void OpenMap() => _navigation.NavigateTo(AppScreen.Architecture);
 
     [RelayCommand]
+    private void OpenCharacters() => _navigation.NavigateTo(AppScreen.Characters);
+
+    [RelayCommand]
+    private void OpenLines() => _navigation.NavigateTo(AppScreen.Timeline);
+
+    [RelayCommand]
     private void OpenExport() => _navigation.NavigateTo(AppScreen.Export);
 
     [RelayCommand]
@@ -393,9 +432,30 @@ public sealed partial class ShellViewModel : ViewModelBase, IDisposable
 
     private void LoadSavedTheme()
     {
-        var savedTheme = _appSettings.Current.Theme;
-        SelectedTheme = Themes.FirstOrDefault(t => t.Value == savedTheme) ?? Themes[0];
-        _theme.Apply(SelectedTheme.Value);
+        SelectedTheme = Themes[0];
+        _theme.Apply(AppTheme.Starter);
+    }
+
+    /// <summary>Есть ли правки, которые не дошли до проекта и могут потеряться при выходе.</summary>
+    public bool HasPendingEdits =>
+        _editor.IsDirty || SceneContext.HasPendingChanges || _architectureHost.HasPendingChanges;
+
+    /// <summary>
+    /// Фиксирует текст сцены, контекст сцены и черновики вкладок архитектора,
+    /// затем сохраняет проект. Вызывается при закрытии приложения.
+    /// </summary>
+    public async Task FlushPendingEditsAsync(CancellationToken cancellationToken = default)
+    {
+        await _editor.FlushAsync(cancellationToken);
+        await SceneContext.FlushAsync(cancellationToken);
+        await _architectureHost.CommitPendingAsync(cancellationToken);
+
+        // Контекст сцены и карточки правят снимок проекта уже после сохранения
+        // редактора, поэтому финальную запись на диск делаем последней.
+        if (_projects.IsDirty)
+        {
+            await _projects.SaveAsync(cancellationToken);
+        }
     }
 
     /// <summary>Сохранение из верхней строки или по Ctrl+S: сцена сохраняется вместе с проектом.</summary>
@@ -411,7 +471,7 @@ public sealed partial class ShellViewModel : ViewModelBase, IDisposable
 
         var result = await _projects.SaveAsync(cancellationToken);
         // Ошибка отражается событием SaveFailed, строку состояния обновляет оболочка.
-        StatusMessage = result.IsSuccess ? "Проект сохранён." : result.Error?.UserMessage;
+        StatusMessage = result.IsSuccess ? Loc.T("Проект сохранён.") : result.Error?.UserMessage;
         RaiseShellState();
     }
 
@@ -474,7 +534,7 @@ public sealed partial class ShellViewModel : ViewModelBase, IDisposable
     }
 
     private static string FormatNumber(int number)
-        => number.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("ru-RU"));
+        => number.ToString("N0", System.Globalization.CultureInfo.CurrentCulture);
 
     private static string Plural(int number, string one, string few, string many)
     {
@@ -482,14 +542,14 @@ public sealed partial class ShellViewModel : ViewModelBase, IDisposable
         var mod100 = number % 100;
         if (mod100 is >= 11 and <= 14)
         {
-            return many;
+            return Loc.T(many);
         }
 
         return mod10 switch
         {
-            1 => one,
-            >= 2 and <= 4 => few,
-            _ => many,
+            1 => Loc.T(one),
+            >= 2 and <= 4 => Loc.T(few),
+            _ => Loc.T(many),
         };
     }
 

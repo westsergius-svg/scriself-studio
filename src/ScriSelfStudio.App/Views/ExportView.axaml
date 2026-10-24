@@ -1,13 +1,14 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="clr-namespace:ScriSelfStudio.Presentation.Localization;assembly=ScriSelfStudio.Presentation"
              xmlns:export="clr-namespace:ScriSelfStudio.Presentation.Export;assembly=ScriSelfStudio.Presentation"
              x:Class="ScriSelfStudio.App.Views.ExportView"
              x:DataType="export:ExportViewModel">
   <Grid RowDefinitions="Auto,*" Margin="24">
     <!-- Шапка -->
     <StackPanel Grid.Row="0" Margin="0,0,0,20">
-      <TextBlock Text="Экспорт" FontSize="24" FontWeight="Bold" Foreground="{DynamicResource HeadingBrush}" />
-      <TextBlock Text="Выберите формат и настройки для экспорта вашей книги" FontSize="14" Foreground="{DynamicResource SidebarSubTextBrush}" Margin="0,4,0,0" />
+      <TextBlock Text="{loc:Tr 'Экспорт'}" FontSize="24" FontWeight="Bold" Foreground="{DynamicResource HeadingBrush}" />
+      <TextBlock Text="{loc:Tr 'Выберите формат и настройки для экспорта вашей книги'}" FontSize="14" Foreground="{DynamicResource SidebarSubTextBrush}" Margin="0,4,0,0" />
     </StackPanel>
 
     <!-- Сообщения -->
@@ -27,7 +28,7 @@
               BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="1"
               CornerRadius="14" Padding="16" Margin="0,0,16,0">
         <StackPanel Spacing="12">
-          <TextBlock Text="Формат" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource SidebarTextBrush}" Margin="0,0,0,4" />
+          <TextBlock Text="{loc:Tr 'Формат'}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource SidebarTextBrush}" Margin="0,0,0,4" />
           <ListBox ItemsSource="{Binding Formats}" SelectedItem="{Binding SelectedFormat}"
                    Background="Transparent" BorderThickness="0">
             <ListBox.ItemTemplate>
@@ -55,40 +56,27 @@
                 BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="1"
                 CornerRadius="14" Padding="24" Margin="0,0,16,0">
           <StackPanel Spacing="20">
-            <TextBlock Text="Настройки экспорта (DOCX)" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource HeadingBrush}" />
-
-            <!-- Диапазон -->
-            <StackPanel Spacing="10">
-              <TextBlock Text="Диапазон" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource SidebarTextBrush}" />
-              <RadioButton Content="Вся книга" IsChecked="True" GroupName="RangeGroup" />
-              <RadioButton Content="Текущая книга" GroupName="RangeGroup" />
-              <RadioButton Content="Текущая глава" GroupName="RangeGroup" />
-              <StackPanel Orientation="Horizontal" Spacing="12">
-                <RadioButton Content="Выбранные сцены" GroupName="RangeGroup" VerticalAlignment="Center" />
-                <ComboBox PlaceholderText="Выберите сцены..." Width="180" Height="32" IsEnabled="False" />
-              </StackPanel>
-            </StackPanel>
-
-            <Rectangle Height="1" Fill="{DynamicResource SurfaceBorderBrush}" Margin="0,4" />
+            <TextBlock Text="{Binding SettingsHeader}"
+                       FontSize="16" FontWeight="Bold" Foreground="{DynamicResource HeadingBrush}" />
 
             <!-- Оформление -->
             <StackPanel Spacing="12">
-              <TextBlock Text="Оформление" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource SidebarTextBrush}" />
+              <TextBlock Text="{loc:Tr 'Оформление'}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource SidebarTextBrush}" />
               <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,*">
                 <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,8,8">
-                  <TextBlock Text="Стиль документа" FontSize="12" Foreground="{DynamicResource SidebarSubTextBrush}" Margin="0,0,0,4" />
+                  <TextBlock Text="{loc:Tr 'Стиль документа'}" FontSize="12" Foreground="{DynamicResource SidebarSubTextBrush}" Margin="0,0,0,4" />
                   <ComboBox ItemsSource="{Binding DocumentStyles}" SelectedItem="{Binding SelectedDocumentStyle}" HorizontalAlignment="Stretch" />
                 </StackPanel>
                 <StackPanel Grid.Row="0" Grid.Column="1" Margin="8,0,0,8">
-                  <TextBlock Text="Размер шрифта" FontSize="12" Foreground="{DynamicResource SidebarSubTextBrush}" Margin="0,0,0,4" />
+                  <TextBlock Text="{loc:Tr 'Размер шрифта'}" FontSize="12" Foreground="{DynamicResource SidebarSubTextBrush}" Margin="0,0,0,4" />
                   <ComboBox ItemsSource="{Binding FontSizes}" SelectedItem="{Binding SelectedFontSize}" HorizontalAlignment="Stretch" />
                 </StackPanel>
                 <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,8,8,0">
-                  <TextBlock Text="Шрифт" FontSize="12" Foreground="{DynamicResource SidebarSubTextBrush}" Margin="0,0,0,4" />
+                  <TextBlock Text="{loc:Tr 'Шрифт'}" FontSize="12" Foreground="{DynamicResource SidebarSubTextBrush}" Margin="0,0,0,4" />
                   <ComboBox ItemsSource="{Binding Fonts}" SelectedItem="{Binding SelectedFont}" HorizontalAlignment="Stretch" />
                 </StackPanel>
                 <StackPanel Grid.Row="1" Grid.Column="1" Margin="8,8,0,0">
-                  <TextBlock Text="Межстрочный интервал" FontSize="12" Foreground="{DynamicResource SidebarSubTextBrush}" Margin="0,0,0,4" />
+                  <TextBlock Text="{loc:Tr 'Межстрочный интервал'}" FontSize="12" Foreground="{DynamicResource SidebarSubTextBrush}" Margin="0,0,0,4" />
                   <ComboBox ItemsSource="{Binding LineSpacings}" SelectedItem="{Binding SelectedLineSpacing}" HorizontalAlignment="Stretch" />
                 </StackPanel>
               </Grid>
@@ -98,20 +86,18 @@
 
             <!-- Опции -->
             <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,*">
-              <CheckBox Grid.Row="0" Grid.Column="0" Content="Включить титульный лист" IsChecked="{Binding IncludeTitlePage}" Margin="0,4" />
-              <CheckBox Grid.Row="0" Grid.Column="1" Content="Нумерация страниц" IsChecked="{Binding PageNumbering}" Margin="0,4" />
-              <CheckBox Grid.Row="1" Grid.Column="0" Content="Содержание" IsChecked="{Binding TableOfContents}" Margin="0,4" />
-              <CheckBox Grid.Row="1" Grid.Column="1" Content="Сноски и примечания" IsChecked="{Binding Footnotes}" Margin="0,4" />
-              <CheckBox Grid.Row="2" Grid.Column="0" Content="Сохранить форматирование" IsChecked="{Binding PreserveFormatting}" Margin="0,4" />
+              <CheckBox Grid.Row="0" Grid.Column="0" Content="{loc:Tr 'Включить титульный лист'}" IsChecked="{Binding IncludeTitlePage}" Margin="0,4" />
+              <CheckBox Grid.Row="0" Grid.Column="1" Content="{loc:Tr 'Нумерация страниц'}" IsChecked="{Binding PageNumbering}" Margin="0,4" />
+              <CheckBox Grid.Row="1" Grid.Column="0" Content="{loc:Tr 'Содержание'}" IsChecked="{Binding TableOfContents}" Margin="0,4" />
+              <CheckBox Grid.Row="2" Grid.Column="0" Content="{loc:Tr 'Сохранить форматирование'}" IsChecked="{Binding PreserveFormatting}" Margin="0,4" />
             </Grid>
 
             <Rectangle Height="1" Fill="{DynamicResource SurfaceBorderBrush}" Margin="0,4" />
 
             <!-- Кнопки действий -->
-            <Grid ColumnDefinitions="Auto,*,Auto,Auto" Margin="0,8,0,0">
-              <Button Grid.Column="0" Content="Сохранить как шаблон..." Command="{Binding SaveTemplateCommand}" Padding="12,8" />
-              <Button Grid.Column="2" Content="👁 Предпросмотр" Command="{Binding PreviewCommand}" Padding="12,8" Margin="0,0,8,0" />
-              <Button Grid.Column="3" Content="📥 Экспортировать" Command="{Binding ExportCommand}" Padding="16,8" Background="#4F6D46" Foreground="White" FontWeight="Bold" />
+            <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,8,0,0">
+              <Button Grid.Column="1" Content="{loc:Tr '👁 Предпросмотр'}" Command="{Binding PreviewCommand}" Padding="12,8" Margin="0,0,8,0" />
+              <Button Grid.Column="2" Content="{loc:Tr '📥 Экспортировать'}" Command="{Binding ExportCommand}" Padding="16,8" Background="#4F6D46" Foreground="White" FontWeight="Bold" />
             </Grid>
           </StackPanel>
         </Border>
@@ -122,7 +108,7 @@
               BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="1"
               CornerRadius="14" Padding="20">
         <Grid RowDefinitions="Auto,*">
-          <TextBlock Grid.Row="0" Text="Предварительный просмотр" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource SidebarTextBrush}" Margin="0,0,0,16" />
+          <TextBlock Grid.Row="0" Text="{loc:Tr 'Предварительный просмотр'}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource SidebarTextBrush}" Margin="0,0,0,16" />
           <Border Grid.Row="1" Background="White" CornerRadius="8" Padding="24" BoxShadow="0 4 12 #15000000">
             <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" HorizontalAlignment="Stretch">
               <!-- Заголовок книги -->

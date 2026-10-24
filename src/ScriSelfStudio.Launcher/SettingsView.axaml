@@ -1,267 +1,225 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="clr-namespace:ScriSelfStudio.Presentation.Localization;assembly=ScriSelfStudio.Presentation"
              xmlns:launcher="clr-namespace:ScriSelfStudio.Launcher"
              x:Class="ScriSelfStudio.Launcher.SettingsView"
              x:DataType="launcher:SettingsViewModel">
   <Grid RowDefinitions="Auto,*" Margin="24">
-    <!-- Шапка -->
     <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,20">
       <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
-        <Button Command="{Binding GoBackCommand}" Content="← Назад" Padding="12,6" CornerRadius="8" />
-        <TextBlock Text="⚙ Настройки" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource HeadingBrush}" VerticalAlignment="Center" />
+        <Button Command="{Binding GoBackCommand}" Content="{loc:Tr '← Назад'}" Padding="12,6" CornerRadius="8" />
+        <TextBlock Text="{loc:Tr '⚙ Настройки'}" FontSize="22" FontWeight="Bold"
+                   Foreground="{DynamicResource HeadingBrush}" VerticalAlignment="Center" />
       </StackPanel>
-
-      <TextBox Grid.Column="2" Watermark="🔍 Поиск настроек..." Width="240" Height="34" CornerRadius="8" VerticalAlignment="Center" />
+      <TextBox Grid.Column="2" Text="{Binding SearchQuery, Mode=TwoWay}"
+               PlaceholderText="{loc:Tr '🔍 Поиск настроек...'}" Width="240" Height="34"
+               CornerRadius="8" VerticalAlignment="Center" />
     </Grid>
 
-    <!-- Главный трёхколоночный контент -->
     <Grid Grid.Row="1" ColumnDefinitions="220,*,340">
-
-      <!-- 1. ЛЕВОЕ МЕНЮ КАТЕГОРИЙ -->
       <Border Grid.Column="0" Background="{DynamicResource SurfaceCardBrush}"
               BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="1"
               CornerRadius="14" Padding="8" Margin="0,0,16,0">
-        <StackPanel Spacing="2">
-          <Border Background="{DynamicResource SurfaceSelectedBrush}" CornerRadius="8" Padding="12,10">
-            <TextBlock Text="⚙ Основные" FontWeight="Bold" Foreground="{DynamicResource HeadingBrush}" />
-          </Border>
-          <Border CornerRadius="8" Padding="12,10">
-            <TextBlock Text="🎨 Внешний вид" Foreground="{DynamicResource SidebarTextBrush}" />
-          </Border>
-          <Border CornerRadius="8" Padding="12,10">
-            <TextBlock Text="✏️ Редактор" Foreground="{DynamicResource SidebarTextBrush}" />
-          </Border>
-          <Border CornerRadius="8" Padding="12,10">
-            <TextBlock Text="⌨️ Сочетания клавиш" Foreground="{DynamicResource SidebarTextBrush}" />
-          </Border>
-          <Border CornerRadius="8" Padding="12,10">
-            <TextBlock Text="💾 Сохранение" Foreground="{DynamicResource SidebarTextBrush}" />
-          </Border>
-          <Border CornerRadius="8" Padding="12,10">
-            <TextBlock Text="📁 Проекты" Foreground="{DynamicResource SidebarTextBrush}" />
-          </Border>
-          <Border CornerRadius="8" Padding="12,10">
-            <TextBlock Text="🗺 Карта книги" Foreground="{DynamicResource SidebarTextBrush}" />
-          </Border>
-          <Border CornerRadius="8" Padding="12,10">
-            <TextBlock Text="👤 Персонажи" Foreground="{DynamicResource SidebarTextBrush}" />
-          </Border>
-          <Border CornerRadius="8" Padding="12,10">
-            <TextBlock Text="📥 Экспорт" Foreground="{DynamicResource SidebarTextBrush}" />
-          </Border>
-          <Border CornerRadius="8" Padding="12,10">
-            <TextBlock Text="🛠 Сервис" Foreground="{DynamicResource SidebarTextBrush}" />
-          </Border>
-          <Border CornerRadius="8" Padding="12,10">
-            <TextBlock Text="ℹ️ О программе" Foreground="{DynamicResource SidebarTextBrush}" />
-          </Border>
-        </StackPanel>
+        <ListBox ItemsSource="{Binding VisibleSections}"
+                 SelectedItem="{Binding SelectedSection, Mode=TwoWay}"
+                 Background="Transparent" BorderThickness="0">
+          <ListBox.ItemContainerTheme>
+            <ControlTheme TargetType="ListBoxItem">
+              <Setter Property="Padding" Value="0" />
+              <Setter Property="Margin" Value="0,2" />
+              <Setter Property="Background" Value="Transparent" />
+              <Setter Property="BorderThickness" Value="0" />
+              <Setter Property="Template">
+                <ControlTemplate>
+                  <Border CornerRadius="8" Padding="12,10" Background="{TemplateBinding Background}">
+                    <ContentPresenter Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}" />
+                  </Border>
+                </ControlTemplate>
+              </Setter>
+            </ControlTheme>
+          </ListBox.ItemContainerTheme>
+          <ListBox.ItemTemplate>
+            <DataTemplate DataType="launcher:SettingsSectionOption">
+              <StackPanel Spacing="2">
+                <TextBlock Text="{Binding Title}" FontWeight="SemiBold"
+                           Foreground="{DynamicResource HeadingBrush}" />
+                <TextBlock Text="{Binding Description}" FontSize="11"
+                           Foreground="{DynamicResource SidebarSubTextBrush}" TextWrapping="Wrap" />
+              </StackPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
       </Border>
 
-      <!-- 2. СРЕДНЯЯ КОЛОНКА ОСНОВНЫХ НАСТРОЕК -->
-      <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+      <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Disabled"
+                    VerticalScrollBarVisibility="Auto">
         <Border Background="{DynamicResource SurfaceCardBrush}"
                 BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="1"
                 CornerRadius="14" Padding="24" Margin="0,0,16,0">
           <StackPanel Spacing="20">
             <StackPanel>
-              <TextBlock Text="Основные настройки" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource HeadingBrush}" />
-              <TextBlock Text="Общие параметры программы и поведения" FontSize="13" Foreground="{DynamicResource SidebarSubTextBrush}" Margin="0,2,0,0" />
+              <TextBlock Text="{Binding SelectedSection.Title}" FontSize="20" FontWeight="Bold"
+                         Foreground="{DynamicResource HeadingBrush}" />
+              <TextBlock Text="{loc:Tr 'Изменения применяются автоматически и сохраняются.'}"
+                         FontSize="13" Foreground="{DynamicResource SidebarSubTextBrush}"
+                         Margin="0,2,0,0" />
             </StackPanel>
 
-            <!-- Сообщения -->
-            <Border IsVisible="{Binding HasError}" Background="#FEE2E2" BorderBrush="#EF4444" BorderThickness="1" CornerRadius="6" Padding="12">
+            <Border IsVisible="{Binding HasError}" Background="#FEE2E2" BorderBrush="#EF4444"
+                    BorderThickness="1" CornerRadius="6" Padding="12">
               <TextBlock Text="{Binding ErrorMessage}" Foreground="#991B1B" TextWrapping="Wrap" />
             </Border>
-            <Border IsVisible="{Binding HasStatus}" Background="#ECFDF5" BorderBrush="#10B981" BorderThickness="1" CornerRadius="6" Padding="12">
+            <Border IsVisible="{Binding HasStatus}" Background="#ECFDF5" BorderBrush="#10B981"
+                    BorderThickness="1" CornerRadius="6" Padding="12">
               <TextBlock Text="{Binding StatusMessage}" Foreground="#065F46" TextWrapping="Wrap" />
             </Border>
 
-            <!-- Язык интерфейса и При запуске -->
-            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto">
-              <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,8,12">
-                <TextBlock Text="Язык интерфейса" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,6" />
-                <ComboBox ItemsSource="{Binding Languages}" SelectedItem="{Binding SelectedLanguage}" HorizontalAlignment="Stretch">
+            <StackPanel IsVisible="{Binding IsGeneralSection}" Spacing="18">
+              <StackPanel Spacing="6">
+                <TextBlock Text="{loc:Tr 'Региональный формат'}" FontSize="14" FontWeight="Bold"
+                           Foreground="{DynamicResource HeadingBrush}" />
+                <ComboBox ItemsSource="{Binding Languages}" SelectedItem="{Binding SelectedLanguage}"
+                          HorizontalAlignment="Stretch">
                   <ComboBox.ItemTemplate>
                     <DataTemplate DataType="launcher:LanguageOption">
                       <TextBlock Text="{Binding Title}" />
                     </DataTemplate>
                   </ComboBox.ItemTemplate>
                 </ComboBox>
+                <TextBlock Text="{loc:Tr 'Язык применяется сразу ко всему интерфейсу.'}"
+                           FontSize="12" Foreground="{DynamicResource SidebarSubTextBrush}"
+                           TextWrapping="Wrap" />
               </StackPanel>
 
-              <StackPanel Grid.Row="0" Grid.Column="1" Margin="8,0,0,12">
-                <TextBlock Text="При запуске" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,6" />
-                <Border Background="{DynamicResource SurfaceFieldBrush}" CornerRadius="6" Padding="12,8"><TextBlock Text="Открывать последний проект" /></Border>
+              <Rectangle Height="1" Fill="{DynamicResource SurfaceBorderBrush}" />
+
+              <StackPanel Spacing="8">
+                <TextBlock Text="{loc:Tr 'При запуске'}" FontSize="14" FontWeight="Bold"
+                           Foreground="{DynamicResource HeadingBrush}" />
+                <CheckBox Content="{loc:Tr 'Открывать последний проект автоматически'}"
+                          IsChecked="{Binding OpenLastProjectOnStartup}" />
+                <CheckBox Content="{loc:Tr 'Спрашивать о восстановлении проекта'}"
+                          IsChecked="{Binding CheckRecoveryOnStartup}" />
+                <CheckBox Content="{loc:Tr 'Проверять обновления на сайте при запуске'}"
+                          IsChecked="{Binding CheckForUpdatesOnStartup}" />
+                <TextBlock Text="{loc:Tr 'Если проверка восстановления выключена, снимок восстановления останется на диске.'}"
+                           FontSize="12" Foreground="{DynamicResource SidebarSubTextBrush}"
+                           TextWrapping="Wrap" />
               </StackPanel>
-            </Grid>
-
-            <Rectangle Height="1" Fill="{DynamicResource SurfaceBorderBrush}" />
-
-            <!-- Интерфейс -->
-            <StackPanel Spacing="12">
-              <TextBlock Text="Интерфейс" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource HeadingBrush}" />
-              <StackPanel Margin="0,0,0,4">
-                <TextBlock Text="Размер интерфейса" FontSize="12" Foreground="{DynamicResource SidebarSubTextBrush}" Margin="0,0,0,4" />
-                <Border Background="{DynamicResource SurfaceFieldBrush}" CornerRadius="6" Padding="12,8"><TextBlock Text="Автоматически (рекомендуется)" /></Border>
-              </StackPanel>
-
-              <Grid ColumnDefinitions="*,*">
-                <Border Grid.Column="0" Margin="0,2"><TextBlock Text="✓ Показывать панель инструментов" Foreground="{DynamicResource SidebarTextBrush}" /></Border>
-                <Border Grid.Column="1" Margin="0,2"><TextBlock Text="✓ Показывать строку состояния" Foreground="{DynamicResource SidebarTextBrush}" /></Border>
-              </Grid>
-              <Border Margin="0,2"><TextBlock Text="◦ Компактный вид панелей" Foreground="{DynamicResource SidebarSubTextBrush}" /></Border>
             </StackPanel>
 
-            <Rectangle Height="1" Fill="{DynamicResource SurfaceBorderBrush}" />
-
-            <!-- Автосохранение -->
-            <StackPanel Spacing="12">
-              <TextBlock Text="Автосохранение" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource HeadingBrush}" />
-              <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto">
-                <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,8,0">
-                  <TextBlock Text="Интервал автосохранения" FontSize="12" Foreground="{DynamicResource SidebarSubTextBrush}" Margin="0,0,0,4" />
-                  <StackPanel Orientation="Horizontal" Spacing="8">
-                    <CheckBox Content="Включено" IsChecked="{Binding AutoSaveEnabled}" IsEnabled="{Binding CanEditProjectSettings}" VerticalAlignment="Center" />
-                    <NumericUpDown Value="{Binding AutoSaveIntervalSeconds}" Minimum="{Binding MinAutoSaveIntervalSeconds}" Maximum="{Binding MaxAutoSaveIntervalSeconds}" IsEnabled="{Binding CanEditProjectSettings}" Width="120" />
-                  </StackPanel>
-                </StackPanel>
-
-                <StackPanel Grid.Row="0" Grid.Column="1" Margin="8,0,0,0">
-                  <TextBlock Text="Сохранять резервную копию" FontSize="12" Foreground="{DynamicResource SidebarSubTextBrush}" Margin="0,0,0,4" />
-                  <StackPanel Orientation="Horizontal" Spacing="8">
-                    <CheckBox Content="Копии при сохранении" IsChecked="{Binding BackupsEnabled}" IsEnabled="{Binding CanEditProjectSettings}" VerticalAlignment="Center" />
-                    <TextBlock Text="Одна резервная копия" VerticalAlignment="Center" TextWrapping="Wrap" />
-                  </StackPanel>
-                </StackPanel>
-              </Grid>
+            <StackPanel IsVisible="{Binding IsAppearanceSection}" Spacing="12">
+              <TextBlock Text="{loc:Tr 'Тема оформления'}" FontSize="14" FontWeight="Bold"
+                         Foreground="{DynamicResource HeadingBrush}" />
+              <Border Background="{DynamicResource SurfaceFieldBrush}"
+                      BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="1"
+                      CornerRadius="8" Padding="12,9">
+                <TextBlock Text="{Binding SelectedTheme.Title}" />
+              </Border>
+              <TextBlock Text="{loc:Tr 'Выбор тем временно недоступен: приложение использует стандартную тему.'}"
+                         FontSize="12" Foreground="{DynamicResource SidebarSubTextBrush}"
+                         TextWrapping="Wrap" />
             </StackPanel>
 
-            <Rectangle Height="1" Fill="{DynamicResource SurfaceBorderBrush}" />
-
-            <!-- Проверка правописания -->
-            <StackPanel Spacing="12">
-              <TextBlock Text="Проверка правописания" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource HeadingBrush}" />
-              <Grid ColumnDefinitions="*,*">
-                <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                  <TextBlock Text="Язык проверки" FontSize="12" Foreground="{DynamicResource SidebarSubTextBrush}" Margin="0,0,0,4" />
-                  <Border Background="{DynamicResource SurfaceFieldBrush}" CornerRadius="6" Padding="12,8"><TextBlock Text="Русский" /></Border>
-                </StackPanel>
-
-                <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Bottom" Spacing="6">
-                  <Border Margin="0,2"><TextBlock Text="✓ Автоматически проверять" Foreground="{DynamicResource SidebarTextBrush}" /></Border>
-                  <Border Margin="0,2"><TextBlock Text="✓ Подсвечивать ошибки" Foreground="{DynamicResource SidebarTextBrush}" /></Border>
-                </StackPanel>
-              </Grid>
-            </StackPanel>
-
-            <Rectangle Height="1" Fill="{DynamicResource SurfaceBorderBrush}" />
-
-            <!-- Уведомления -->
-            <StackPanel Spacing="10">
-              <TextBlock Text="Уведомления" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource HeadingBrush}" />
-              <Border Margin="0,2"><TextBlock Text="✓ Показывать уведомления о важных событиях" Foreground="{DynamicResource SidebarTextBrush}" /></Border>
-              <Border Margin="0,2"><TextBlock Text="✓ Показывать подсказки и советы" Foreground="{DynamicResource SidebarTextBrush}" /></Border>
-            </StackPanel>
-          </StackPanel>
-        </Border>
-      </ScrollViewer>
-
-      <!-- 3. ПРАВАЯ КОЛОНКА ТЕМ И ПРЕДПРОСМОТРА -->
-      <Border Grid.Column="2" Background="{DynamicResource SurfaceCardBrush}"
-              BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="1"
-              CornerRadius="14" Padding="20">
-        <StackPanel Spacing="18">
-          <!-- Тема оформления -->
-          <StackPanel Spacing="8">
-            <TextBlock Text="Тема оформления" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource SidebarTextBrush}" />
-            <Grid ColumnDefinitions="*,Auto">
-              <ComboBox Grid.Column="0" ItemsSource="{Binding Themes}" SelectedItem="{Binding SelectedTheme}" HorizontalAlignment="Stretch">
+            <StackPanel IsVisible="{Binding IsEditorSection}" Spacing="14">
+              <TextBlock Text="{loc:Tr 'Шрифт текста в редакторе'}" FontSize="14" FontWeight="Bold"
+                         Foreground="{DynamicResource HeadingBrush}" />
+              <ComboBox ItemsSource="{Binding Fonts}" SelectedItem="{Binding SelectedFont}"
+                        IsEnabled="{Binding CanEditProjectSettings}" HorizontalAlignment="Stretch">
                 <ComboBox.ItemTemplate>
-                  <DataTemplate DataType="launcher:ThemeOption">
+                  <DataTemplate DataType="launcher:FontOption">
                     <TextBlock Text="{Binding Title}" />
                   </DataTemplate>
                 </ComboBox.ItemTemplate>
               </ComboBox>
-              <Border Grid.Column="1" Margin="8,0,0,0" Height="32" Width="32" CornerRadius="6" Background="{DynamicResource SurfaceFieldBrush}">
-                <TextBlock Text="⚙" HorizontalAlignment="Center" VerticalAlignment="Center" />
-              </Border>
-            </Grid>
-          </StackPanel>
-
-          <!-- Макет предварительного окна -->
-          <Border Background="{DynamicResource SurfaceCanvasBrush}" BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="1" CornerRadius="10" Padding="12" Height="140">
-            <Grid RowDefinitions="Auto,*">
-              <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="6" Margin="0,0,0,8">
-                <Ellipse Width="8" Height="8" Fill="#EF4444" />
-                <Ellipse Width="8" Height="8" Fill="#F59E0B" />
-                <Ellipse Width="8" Height="8" Fill="#10B981" />
-                <TextBlock Text="ScriSelf Studio" FontSize="10" Foreground="{DynamicResource SidebarSubTextBrush}" Margin="8,0,0,0" />
+              <StackPanel Spacing="6">
+                <TextBlock Text="{Binding FontSizeLabel}"
+                           FontSize="12" Foreground="{DynamicResource SidebarSubTextBrush}" />
+                <NumericUpDown Value="{Binding FontSize}" Minimum="{Binding MinFontSize}"
+                               Maximum="{Binding MaxFontSize}" IsEnabled="{Binding CanEditProjectSettings}"
+                               HorizontalAlignment="Stretch" />
               </StackPanel>
-
-              <Border Grid.Row="1" Background="White" CornerRadius="6" Padding="12">
-                <StackPanel Spacing="4">
-                  <TextBlock Text="Пример текста" FontSize="12" FontWeight="Bold" FontFamily="{Binding SelectedFont.Value}" />
-                  <TextBlock Text="Это пример того, как может выглядеть интерфейс в выбранной теме оформления." FontSize="10" Foreground="#6B7280" TextWrapping="Wrap" />
-                </StackPanel>
-              </Border>
-            </Grid>
-          </Border>
-
-          <!-- Цветовая схема -->
-          <StackPanel Spacing="8">
-            <TextBlock Text="Цветовая схема" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource SidebarTextBrush}" />
-            <WrapPanel Orientation="Horizontal">
-              <Ellipse Width="24" Height="24" Fill="#F4EEE5" Stroke="#D6CBBA" StrokeThickness="2" Margin="0,0,8,0" />
-              <Ellipse Width="24" Height="24" Fill="#E2E8F0" Stroke="Transparent" Margin="0,0,8,0" />
-              <Ellipse Width="24" Height="24" Fill="#68D391" Stroke="Transparent" Margin="0,0,8,0" />
-              <Ellipse Width="24" Height="24" Fill="#6366F1" Stroke="Transparent" Margin="0,0,8,0" />
-              <Ellipse Width="24" Height="24" Fill="#EC4899" Stroke="Transparent" Margin="0,0,8,0" />
-              <Ellipse Width="24" Height="24" Fill="#1F2937" Stroke="Transparent" Margin="0,0,8,0" />
-            </WrapPanel>
-          </StackPanel>
-
-          <!-- Шрифты -->
-          <StackPanel Spacing="10">
-            <Grid ColumnDefinitions="*,100">
-              <StackPanel Grid.Column="0" Margin="0,0,6,0">
-                <TextBlock Text="Шрифт интерфейса" FontSize="11" Foreground="{DynamicResource SidebarSubTextBrush}" Margin="0,0,0,4" />
-                <Border Background="{DynamicResource SurfaceFieldBrush}" CornerRadius="6" Padding="12,8"><TextBlock Text="Segoe UI" /></Border>
-              </StackPanel>
-              <StackPanel Grid.Column="1">
-                <TextBlock Text="Размер" FontSize="11" Foreground="{DynamicResource SidebarSubTextBrush}" Margin="0,0,0,4" />
-                <Border Background="{DynamicResource SurfaceFieldBrush}" CornerRadius="6" Padding="12,8"><TextBlock Text="14" /></Border>
-              </StackPanel>
-            </Grid>
-
-            <Grid ColumnDefinitions="*,100">
-              <StackPanel Grid.Column="0" Margin="0,0,6,0">
-                <TextBlock Text="Шрифт текста в редакторе" FontSize="11" Foreground="{DynamicResource SidebarSubTextBrush}" Margin="0,0,0,4" />
-                <ComboBox ItemsSource="{Binding Fonts}" SelectedItem="{Binding SelectedFont}" IsEnabled="{Binding CanEditProjectSettings}" HorizontalAlignment="Stretch">
-                  <ComboBox.ItemTemplate>
-                    <DataTemplate DataType="launcher:FontOption">
-                      <TextBlock Text="{Binding Title}" />
-                    </DataTemplate>
-                  </ComboBox.ItemTemplate>
-                </ComboBox>
-              </StackPanel>
-              <StackPanel Grid.Column="1">
-                <TextBlock Text="Размер" FontSize="11" Foreground="{DynamicResource SidebarSubTextBrush}" Margin="0,0,0,4" />
-                <NumericUpDown Value="{Binding FontSize}" Minimum="{Binding MinFontSize}" Maximum="{Binding MaxFontSize}" IsEnabled="{Binding CanEditProjectSettings}" HorizontalAlignment="Stretch" />
-              </StackPanel>
-            </Grid>
-          </StackPanel>
-
-          <!-- Предпросмотр текстурного блока -->
-          <Border Background="{DynamicResource SurfaceCanvasBrush}" BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="1" CornerRadius="10" Padding="14">
-            <StackPanel Spacing="6">
-              <TextBlock Text="Предпросмотр" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource SidebarSubTextBrush}" />
-              <TextBlock Text="Заголовок 1" FontSize="15" FontWeight="Bold" FontFamily="{Binding SelectedFont.Value}" Foreground="{DynamicResource HeadingBrush}" />
-              <TextBlock Text="Это пример текста для предварительного просмотра. Вы можете выбрать шрифт, размер и цветовую схему, чтобы настроить удобный для вас внешний вид." FontSize="12" FontFamily="{Binding SelectedFont.Value}" Foreground="{DynamicResource SidebarTextBrush}" TextWrapping="Wrap" />
+              <TextBlock IsVisible="{Binding !CanEditProjectSettings}"
+                         Text="{loc:Tr 'Откройте проект, чтобы изменить шрифт и размер текста.'}"
+                         FontSize="12" Foreground="{DynamicResource SidebarSubTextBrush}"
+                         TextWrapping="Wrap" />
             </StackPanel>
-          </Border>
-        </StackPanel>
-      </Border>
+
+            <StackPanel IsVisible="{Binding IsSavingSection}" Spacing="14">
+              <TextBlock Text="{loc:Tr 'Автосохранение проекта'}" FontSize="14" FontWeight="Bold"
+                         Foreground="{DynamicResource HeadingBrush}" />
+              <CheckBox Content="{loc:Tr 'Включить автосохранение'}"
+                        IsChecked="{Binding AutoSaveEnabled}"
+                        IsEnabled="{Binding CanEditProjectSettings}" />
+              <StackPanel Spacing="6">
+                <TextBlock Text="{Binding AutoSaveIntervalLabel}"
+                           FontSize="12" Foreground="{DynamicResource SidebarSubTextBrush}" />
+                <NumericUpDown Value="{Binding AutoSaveIntervalSeconds}"
+                               Minimum="{Binding MinAutoSaveIntervalSeconds}"
+                               Maximum="{Binding MaxAutoSaveIntervalSeconds}"
+                               IsEnabled="{Binding CanEditAutoSaveInterval}"
+                               HorizontalAlignment="Stretch" />
+              </StackPanel>
+              <Rectangle Height="1" Fill="{DynamicResource SurfaceBorderBrush}" />
+              <CheckBox Content="{loc:Tr 'Создавать резервную копию при сохранении'}"
+                        IsChecked="{Binding BackupsEnabled}"
+                        IsEnabled="{Binding CanEditProjectSettings}" />
+              <TextBlock Text="{loc:Tr 'При следующем обычном сохранении будет перезаписан файл .bak проекта.'}"
+                         FontSize="12" Foreground="{DynamicResource SidebarSubTextBrush}"
+                         TextWrapping="Wrap" />
+              <TextBlock IsVisible="{Binding !CanEditProjectSettings}"
+                         Text="{loc:Tr 'Откройте проект, чтобы настроить автосохранение и резервные копии.'}"
+                         FontSize="12" Foreground="{DynamicResource SidebarSubTextBrush}"
+                         TextWrapping="Wrap" />
+            </StackPanel>
+
+            <TextBlock IsVisible="{Binding !HasVisibleSections}"
+                       Text="{loc:Tr 'По запросу ничего не найдено.'}" Foreground="{DynamicResource SidebarSubTextBrush}" />
+          </StackPanel>
+        </Border>
+      </ScrollViewer>
+
+      <ScrollViewer Grid.Column="2" HorizontalScrollBarVisibility="Disabled"
+                    VerticalScrollBarVisibility="Auto">
+        <Border Background="{DynamicResource SurfaceCardBrush}"
+                BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="1"
+                CornerRadius="14" Padding="20">
+          <StackPanel Spacing="16">
+            <StackPanel Spacing="4">
+              <TextBlock Text="{loc:Tr 'Предпросмотр'}" FontSize="14" FontWeight="Bold"
+                         Foreground="{DynamicResource HeadingBrush}" />
+              <TextBlock Text="{Binding SelectedTheme.Title}" FontSize="12"
+                         Foreground="{DynamicResource SidebarSubTextBrush}" />
+            </StackPanel>
+            <Border Background="{DynamicResource SurfaceCanvasBrush}"
+                    BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="1"
+                    CornerRadius="10" Padding="12">
+              <StackPanel Spacing="10">
+                <Border Background="{DynamicResource SurfaceChromeBrush}" CornerRadius="6" Padding="8">
+                  <TextBlock Text="ScriSelf Studio" FontSize="12" FontWeight="SemiBold"
+                             Foreground="{DynamicResource HeadingBrush}" />
+                </Border>
+                <Border Background="{DynamicResource SurfaceCardBrush}"
+                        BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="1"
+                        CornerRadius="6" Padding="12">
+                  <StackPanel Spacing="6">
+                    <TextBlock Text="{loc:Tr 'Текст рукописи'}" FontWeight="Bold"
+                               FontFamily="{Binding SelectedFont.Value}"
+                               Foreground="{DynamicResource HeadingBrush}" />
+                    <TextBlock Text="{loc:Tr 'Выбранный шрифт применяется к тексту открытого проекта.'}"
+                               FontFamily="{Binding SelectedFont.Value}"
+                               Foreground="{DynamicResource SidebarTextBrush}" TextWrapping="Wrap" />
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+            </Border>
+            <TextBlock Text="{loc:Tr 'Шрифт и размер настраиваются отдельно для каждого проекта.'}"
+                       FontSize="12" Foreground="{DynamicResource SidebarSubTextBrush}"
+                       TextWrapping="Wrap" />
+          </StackPanel>
+        </Border>
+      </ScrollViewer>
     </Grid>
   </Grid>
 </UserControl>

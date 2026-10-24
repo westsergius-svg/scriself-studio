@@ -47,11 +47,34 @@ public sealed class AppPreferences
     /// «Персонажи») выполнены в кремовой светлой палитре, поэтому приложение
     /// должно открываться именно так.
     /// </summary>
-    public AppTheme Theme { get; set; } = AppTheme.Paper;
+    public AppTheme Theme { get; set; } = AppTheme.Starter;
 
     public string Language { get; set; } = "ru-RU";
 
+    public bool OpenLastProjectOnStartup { get; set; }
+
     public bool CheckRecoveryOnStartup { get; set; } = true;
+
+    /// <summary>Проверять наличие новой сборки на сайте при каждом запуске.</summary>
+    public bool CheckForUpdatesOnStartup { get; set; } = true;
+
+    /// <summary>Логин Яндекса для облачного хранилища (если автор подключил Диск).</summary>
+    public string? YandexDiskLogin { get; set; }
+
+    /// <summary>
+    /// Пароль приложения Яндекса, зашифрованный средствами Windows (DPAPI).
+    /// В файле настроек открытый пароль не хранится.
+    /// </summary>
+    public string? YandexDiskProtectedPassword { get; set; }
+
+    /// <summary>Последний выбранный провайдер облака: YandexDisk или GoogleDrive.</summary>
+    public string CloudProvider { get; set; } = "YandexDisk";
+
+    /// <summary>Email подключённого аккаунта Google Drive.</summary>
+    public string? GoogleDriveAccountEmail { get; set; }
+
+    /// <summary>Refresh-токен Google Drive, зашифрованный средствами Windows (DPAPI).</summary>
+    public string? GoogleDriveProtectedRefreshToken { get; set; }
 
     // Setter обязателен: генератор System.Text.Json не заполняет коллекции
     // только для чтения, и список последних проектов терялся бы при загрузке

@@ -1,6 +1,7 @@
 namespace ScriSelfStudio.StoryUI;
 
 using CommunityToolkit.Mvvm.ComponentModel;
+using ScriSelfStudio.Presentation.Localization;
 
 /// <summary>
 /// Поле карточки для табличной раскладки: подпись и двусторонняя привязка к черновику.
@@ -17,13 +18,16 @@ public sealed class CardField : ObservableObject
         Action<string?> set,
         bool multiline = false)
     {
-        Label = label;
+        _label = label;
         _get = get;
         _set = set;
         Multiline = multiline;
     }
 
-    public string Label { get; }
+    private readonly string _label;
+
+    /// <summary>Подпись поля переводится при отображении.</summary>
+    public string Label => Loc.T(_label);
 
     public bool Multiline { get; }
 
@@ -48,4 +52,17 @@ public sealed class CardField : ObservableObject
 }
 
 /// <summary>Раздел карточки персонажа с набором полей.</summary>
-public sealed record CardSection(string Title, IReadOnlyList<CardField> Fields);
+public sealed record CardSection
+{
+    private readonly string _title;
+
+    public CardSection(string title, IReadOnlyList<CardField> fields)
+    {
+        _title = title;
+        Fields = fields;
+    }
+
+    public string Title => Loc.T(_title);
+
+    public IReadOnlyList<CardField> Fields { get; }
+}

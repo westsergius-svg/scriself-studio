@@ -1,5 +1,8 @@
 namespace ScriSelfStudio.IntegrationTests;
 
+using System.IO.Compression;
+using System.Text;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.DependencyInjection;
 using ScriSelfStudio.App.Composition;
 using ScriSelfStudio.Contracts.Books;
@@ -10,7 +13,46 @@ using ScriSelfStudio.TestSupport;
 public sealed class ExportTests
 {
     [Fact]
-    public async Task Export_writes_manuscript_and_rejects_fake_document_formats()
+    public void Docx_export_starts_each_scene_on_new_page()
+    {
+        using var workspace = new TempWorkspace();
+        var output = workspace.FilePath("Сцены.docx");
+        var manuscript = new ExportManuscript(
+            "Книга",
+            string.Empty,
+            [
+                new ExportBook(
+                    "Книга",
+                    [
+                        new ExportChapter(
+                            "Глава",
+                            [
+                                new ExportScene(
+                                    "Сцена 1",
+                                    [new ExportParagraph(ExportBlockKind.Paragraph, [new ExportRun("Текст 1")])]),
+                                new ExportScene(
+                                    "Сцена 2",
+                                    [new ExportParagraph(ExportBlockKind.Paragraph, [new ExportRun("Текст 2")])]),
+                            ]),
+                    ]),
+            ]);
+
+        DocxExportWriter.Write(
+            manuscript,
+            output,
+            new ExportOptions("Georgia", 12, 1.15, IncludeTitlePage: false, TableOfContents: false, PageNumbering: false));
+
+        using var archive = ZipFile.OpenRead(output);
+        var documentEntry = archive.GetEntry("word/document.xml");
+        Assert.NotNull(documentEntry);
+        using var reader = new StreamReader(documentEntry.Open(), Encoding.UTF8);
+        var xml = reader.ReadToEnd();
+        Assert.Single(Regex.Matches(xml, "<w:br w:type=\"page\""));
+        Assert.True(xml.IndexOf("Текст 1", StringComparison.Ordinal) < xml.IndexOf("Текст 2", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Export_writes_manuscript_in_every_supported_format()
     {
         using var workspace = new TempWorkspace();
         using var provider = ScriSelfStudioServices.Build(workspace.Root, useAvaloniaDialogs: false);
@@ -45,16 +87,36 @@ public sealed class ExportTests
         Assert.Equal(SampleProjects.SceneText, export.PreviewTextExcerpt);
         await export.ExportCommand.ExecuteAsync(null);
         Assert.False(export.HasError, export.ErrorMessage);
-        Assert.Contains(SampleProjects.SceneText, await File.ReadAllTextAsync(output));
+        var txt = await File.ReadAllTextAsync(output);
+        Assert.Contains("Первая строка рукописи.", txt);
+        Assert.Contains("Вторая строка с «ёжиком» и emoji 🚀.", txt);
 
-        foreach (var format in export.Formats.Where(format => format.Key is "DOCX" or "PDF" or "EPUB"))
+        foreach (var format in export.Formats)
         {
             dialogs.ExportPath = workspace.FilePath("Книга." + format.Extension);
             export.SelectedFormat = format;
             await export.ExportCommand.ExecuteAsync(null);
-            Assert.True(export.HasError);
-            Assert.False(File.Exists(dialogs.ExportPath));
-            Assert.False(export.HasStatus);
+            Assert.False(export.HasError, $"{format.Key}: {export.ErrorMessage}");
+            Assert.True(export.HasStatus, format.Key);
+            Assert.True(File.Exists(dialogs.ExportPath), format.Key);
+
+            var bytes = await File.ReadAllBytesAsync(dialogs.ExportPath);
+            Assert.NotEmpty(bytes);
+            if (format.Key == "PDF")
+            {
+                Assert.Equal("%PDF", Encoding.ASCII.GetString(bytes, 0, 4));
+            }
+            else if (format.Key is "DOCX" or "EPUB")
+            {
+                using var archive = ZipFile.OpenRead(dialogs.ExportPath);
+                Assert.NotEmpty(archive.Entries);
+                var documentEntry = archive.Entries.FirstOrDefault(entry =>
+                    entry.FullName == (format.Key == "DOCX" ? "word/document.xml" : "OEBPS/chapter001.xhtml"));
+                Assert.NotNull(documentEntry);
+                using var reader = new StreamReader(documentEntry.Open(), Encoding.UTF8);
+                var xml = await reader.ReadToEndAsync();
+                Assert.Contains("Первая строка рукописи.", xml);
+            }
         }
     }
 }

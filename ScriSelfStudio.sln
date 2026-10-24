@@ -43,17 +43,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ScriSelfStudio.TestSupport"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ScriSelfStudio.StoryUI", "src\ScriSelfStudio.StoryUI\ScriSelfStudio.StoryUI.csproj", "{CE3EECA4-7CA7-48DC-BDC9-80AB017B6066}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "artifacts", "artifacts", "{EC550FDC-B7D6-4528-BDA3-DE01B18D4359}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "probe", "artifacts\probe\probe.csproj", "{CCD841FD-9F24-48DA-AFD0-600BBCFA3414}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
-	EndGlobalSection
-	GlobalSection(SolutionProperties) = preSolution
-		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{62FFEB84-C33D-44F3-BDD5-C0897E64F547}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
@@ -128,10 +121,9 @@ Global
 		{CE3EECA4-7CA7-48DC-BDC9-80AB017B6066}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{CE3EECA4-7CA7-48DC-BDC9-80AB017B6066}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{CE3EECA4-7CA7-48DC-BDC9-80AB017B6066}.Release|Any CPU.Build.0 = Release|Any CPU
-		{CCD841FD-9F24-48DA-AFD0-600BBCFA3414}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{CCD841FD-9F24-48DA-AFD0-600BBCFA3414}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{CCD841FD-9F24-48DA-AFD0-600BBCFA3414}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{CCD841FD-9F24-48DA-AFD0-600BBCFA3414}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{62FFEB84-C33D-44F3-BDD5-C0897E64F547} = {C105ECBA-0D2C-4D49-8EDD-C9C01A9CC2A4}
@@ -152,6 +144,5 @@ Global
 		{ECCA88F7-F6C0-43D1-B4D7-FCBB7FB6B8AC} = {5F4AF639-2157-4953-8063-0094F7AA122B}
 		{874322FE-E7F7-41D3-AD78-131627C47867} = {5F4AF639-2157-4953-8063-0094F7AA122B}
 		{CE3EECA4-7CA7-48DC-BDC9-80AB017B6066} = {C105ECBA-0D2C-4D49-8EDD-C9C01A9CC2A4}
-		{CCD841FD-9F24-48DA-AFD0-600BBCFA3414} = {EC550FDC-B7D6-4528-BDA3-DE01B18D4359}
 	EndGlobalSection
 EndGlobal

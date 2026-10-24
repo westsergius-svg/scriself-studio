@@ -7,6 +7,7 @@ using Avalonia.Platform.Storage;
 using ScriSelfStudio.App.Views;
 using ScriSelfStudio.Contracts.Dialogs;
 using ScriSelfStudio.Presentation.Dialogs;
+using ScriSelfStudio.Presentation.Localization;
 
 /// <summary>
 /// Диалоги файлов и подтверждений на средствах Avalonia (ТЗ п. 14).
@@ -15,9 +16,15 @@ public sealed class AvaloniaFileDialogService : IFileDialogService
 {
     private const string ProjectExtension = "scri";
 
-    private static readonly FilePickerFileType ProjectFileType = new("Проект ScriSelf Studio")
+    private static readonly FilePickerFileType ProjectFileType = new(Loc.T("Проект ScriSelf Studio"))
     {
         Patterns = ["*.scri"],
+        MimeTypes = ["application/x-scriself-project"],
+    };
+
+    private static readonly FilePickerFileType OpenProjectFileType = new(Loc.T("Проекты и резервные копии ScriSelf Studio"))
+    {
+        Patterns = ["*.scri", "*.bak", "*.backup"],
         MimeTypes = ["application/x-scriself-project"],
     };
 
@@ -31,9 +38,9 @@ public sealed class AvaloniaFileDialogService : IFileDialogService
 
         var files = await window.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = "Открыть проект",
+            Title = Loc.T("Открыть проект"),
             AllowMultiple = false,
-            FileTypeFilter = [ProjectFileType],
+            FileTypeFilter = [OpenProjectFileType],
             SuggestedStartLocation = await GetStartFolderAsync(suggestedDirectory),
         });
 
@@ -50,7 +57,7 @@ public sealed class AvaloniaFileDialogService : IFileDialogService
 
         var file = await window.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
-            Title = "Создать проект",
+            Title = Loc.T("Создать проект"),
             SuggestedFileName = suggestedFileName,
             DefaultExtension = ProjectExtension,
             ShowOverwritePrompt = true,
@@ -77,11 +84,32 @@ public sealed class AvaloniaFileDialogService : IFileDialogService
 
         var file = await window.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
-            Title = "Экспорт рукописи",
+            Title = Loc.T("Экспорт рукописи"),
             SuggestedFileName = suggestedFileName,
             DefaultExtension = ext,
             ShowOverwritePrompt = true,
             FileTypeChoices = [filter],
+            SuggestedStartLocation = await GetStartFolderAsync(suggestedDirectory),
+        });
+
+        return file?.TryGetLocalPath();
+    }
+
+    public async Task<string?> PickCloudDownloadPathAsync(string suggestedFileName, string? suggestedDirectory, CancellationToken cancellationToken = default)
+    {
+        var window = MainWindow;
+        if (window is null)
+        {
+            return null;
+        }
+
+        var file = await window.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = Loc.T("Скачать проект из облака"),
+            SuggestedFileName = suggestedFileName,
+            DefaultExtension = ProjectExtension,
+            ShowOverwritePrompt = true,
+            FileTypeChoices = [ProjectFileType],
             SuggestedStartLocation = await GetStartFolderAsync(suggestedDirectory),
         });
 
@@ -108,7 +136,7 @@ public sealed class AvaloniaFileDialogService : IFileDialogService
     }
 
     public async Task ShowErrorAsync(string title, string message, CancellationToken cancellationToken = default) =>
-        await ShowDialogAsync(title, message, "Понятно", string.Empty, isConfirm: false, _ => { });
+        await ShowDialogAsync(title, message, Loc.T("Понятно"), string.Empty, isConfirm: false, _ => { });
 
     public async Task<string?> PromptAsync(
         string title,

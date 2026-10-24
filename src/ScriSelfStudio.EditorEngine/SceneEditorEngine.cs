@@ -265,6 +265,14 @@ public sealed class SceneEditorEngine : IEditorEngine
         return Result<TextFormat>.Success(DocumentEditor.GetFormatting(document!, start, end).Flags);
     }
 
+    public Result<SceneDocumentDto> GetDocumentSnapshot()
+    {
+        var open = EnsureOpen(out _);
+        return open.IsSuccess
+            ? Result<SceneDocumentDto>.Success(Snapshot())
+            : Result<SceneDocumentDto>.Failure(open.Error!);
+    }
+
     public Result<BlockStyleDto> GetBlockStyleAt(TextPosition position)
     {
         var open = EnsureOpen(out var document);
@@ -285,10 +293,16 @@ public sealed class SceneEditorEngine : IEditorEngine
             Kind = block.Kind,
             Alignment = block.Alignment,
             IndentLevel = block.IndentLevel,
+            ListMarker = block.ListMarker,
         });
     }
 
-    public Result ApplyBlockStyle(TextRange range, BlockKind? kind = null, TextAlignment? alignment = null, int? indentLevel = null)
+    public Result ApplyBlockStyle(
+        TextRange range,
+        BlockKind? kind = null,
+        TextAlignment? alignment = null,
+        int? indentLevel = null,
+        ListMarkerKind? listMarker = null)
     {
         var open = EnsureOpen(out var document);
         if (!open.IsSuccess)
@@ -296,7 +310,7 @@ public sealed class SceneEditorEngine : IEditorEngine
             return open;
         }
 
-        if (kind is null && alignment is null && indentLevel is null)
+        if (kind is null && alignment is null && indentLevel is null && listMarker is null)
         {
             return Result.Success;
         }
@@ -330,6 +344,11 @@ public sealed class SceneEditorEngine : IEditorEngine
             if (indentLevel is not null)
             {
                 block.IndentLevel = indentLevel.Value;
+            }
+
+            if (listMarker is not null)
+            {
+                block.ListMarker = listMarker.Value;
             }
         }
 
@@ -380,8 +399,8 @@ public sealed class SceneEditorEngine : IEditorEngine
     }
 
     /// <summary>
-    /// Заменяет документ сцены плоским текстом: строки становятся абзацами.
-    /// История отмены движка не затрагивается: её ведёт элемент ввода (ТЗ п. 22).
+    /// Replaces the plain text while retaining formatting outside the edited range.
+    /// Text input keeps its own undo history (ТЗ п. 22).
     /// </summary>
     public Result SetPlainText(string text)
     {
@@ -391,44 +410,77 @@ public sealed class SceneEditorEngine : IEditorEngine
             return open;
         }
 
-        var rebuilt = CreatePlainDocument(text);
-        if (DocumentEditor.IsEquivalent(document!, rebuilt))
+        text = text.Replace("\r\n", "\n").Replace('\r', '\n');
+        var currentText = document!.ToPlainText();
+        if (currentText == text)
         {
             return Result.Success;
         }
 
-        document!.Blocks.Clear();
-        foreach (var block in rebuilt.Blocks)
+        var prefixLength = 0;
+        var maxPrefix = Math.Min(currentText.Length, text.Length);
+        while (prefixLength < maxPrefix && currentText[prefixLength] == text[prefixLength])
         {
-            document.Blocks.Add(block);
+            prefixLength++;
         }
+
+        while (SplitsSurrogatePair(currentText, prefixLength) || SplitsSurrogatePair(text, prefixLength))
+        {
+            prefixLength--;
+        }
+
+        var suffixLength = 0;
+        while (suffixLength < currentText.Length - prefixLength
+            && suffixLength < text.Length - prefixLength
+            && currentText[currentText.Length - suffixLength - 1] == text[text.Length - suffixLength - 1])
+        {
+            suffixLength++;
+        }
+
+        while (SplitsSurrogatePair(currentText, currentText.Length - suffixLength)
+            || SplitsSurrogatePair(text, text.Length - suffixLength))
+        {
+            suffixLength--;
+        }
+
+        DocumentEditor.ReplaceText(
+            document!,
+            prefixLength,
+            currentText.Length - prefixLength - suffixLength,
+            text.Substring(prefixLength, text.Length - prefixLength - suffixLength));
 
         PublishDocumentChanged();
         return Result.Success;
     }
 
-    /// <summary>Строит документ из простого текста: перевод строки разделяет абзацы.</summary>
-    private static RichDocument CreatePlainDocument(string text)
+    public Result ReplaceDocument(RichDocument document)
     {
-        var document = new RichDocument();
-        foreach (var line in text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n'))
+        ArgumentNullException.ThrowIfNull(document);
+        var open = EnsureOpen(out var current);
+        if (!open.IsSuccess)
         {
-            var block = new TextBlock();
-            if (line.Length > 0)
-            {
-                block.Spans.Add(new TextSpan { Text = line });
-            }
-
-            document.Blocks.Add(block);
+            return open;
         }
 
-        if (document.Blocks.Count == 0)
+        var replacement = document.Clone();
+        DocumentEditor.Normalize(replacement);
+        if (DocumentEditor.IsEquivalent(current!, replacement))
         {
-            document.Blocks.Add(new TextBlock());
+            return Result.Success;
         }
 
-        return document;
+        _document = replacement;
+        _undo.Clear();
+        _redo.Clear();
+        PublishDocumentChanged();
+        return Result.Success;
     }
+
+    private static bool SplitsSurrogatePair(string value, int offset) =>
+        offset > 0
+        && offset < value.Length
+        && char.IsHighSurrogate(value[offset - 1])
+        && char.IsLowSurrogate(value[offset]);
     public Result<SearchResult> Search(string query, SearchOptions? options = null)
     {
         var open = EnsureOpen(out var document);

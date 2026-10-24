@@ -12,6 +12,9 @@ public interface IFileDialogService
 
     Task<string?> PickExportFileToSaveAsync(string suggestedFileName, string extension, string fileTypeName, string? suggestedDirectory, CancellationToken cancellationToken = default);
 
+    /// <summary>Выбор места для файла, скачанного из облака.</summary>
+    Task<string?> PickCloudDownloadPathAsync(string suggestedFileName, string? suggestedDirectory, CancellationToken cancellationToken = default);
+
     Task<bool> ConfirmAsync(string title, string message, string confirmText, string cancelText, CancellationToken cancellationToken = default);
 
     /// <summary>

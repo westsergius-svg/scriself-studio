@@ -6,17 +6,37 @@ using Microsoft.Extensions.DependencyInjection;
 using ScriSelfStudio.App.Shell;
 using ScriSelfStudio.App.Views;
 using ScriSelfStudio.Contracts.Books;
+using ScriSelfStudio.Contracts.Cloud;
 using ScriSelfStudio.Contracts.Navigation;
 using ScriSelfStudio.Contracts.Projects;
 using ScriSelfStudio.Contracts.Settings;
 using ScriSelfStudio.Contracts.Storage;
 using ScriSelfStudio.Launcher;
+using ScriSelfStudio.Core.Updates;
 using ScriSelfStudio.TestSupport;
 
 namespace ScriSelfStudio.UiSmokeTests;
 
 public sealed class LauncherViewTests
 {
+    [AvaloniaFact]
+    public async Task Cloud_panel_switches_to_google_drive_form()
+    {
+        using var workspace = new TempWorkspace();
+        using var provider = ServiceProviderFactory.Create(workspace.Root);
+        var launcher = provider.GetRequiredService<LauncherViewModel>();
+        await launcher.InitializeAsync();
+
+        launcher.SelectedCloudProvider = launcher.CloudProviders
+            .Single(cloudProvider => cloudProvider.Kind == CloudProviderKind.GoogleDrive);
+
+        Assert.True(launcher.IsGoogleCloud);
+        Assert.False(launcher.IsYandexCloud);
+        Assert.True(launcher.ShowGoogleConnectForm);
+        Assert.False(launcher.ShowYandexConnectForm);
+        Assert.Contains("Google Drive", launcher.CloudProviderTitle);
+    }
+
     /// <summary>
     /// Создаёт проект отдельным контейнером: файл нужен на диске до открытия,
     /// чтобы сценарий шёл через настоящий путь «открыть существующий проект».
@@ -53,6 +73,33 @@ public sealed class LauncherViewTests
         Assert.All(buttons, button => Assert.NotNull(button.Command));
 
         window.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task Startup_check_offers_a_new_version_from_the_update_channel()
+    {
+        using var workspace = new TempWorkspace();
+        var dialogs = new StubFileDialogService { ConfirmResult = false };
+        var updates = new FakeUpdateService
+        {
+            CurrentVersion = "1.0.0",
+            Latest = new UpdateInfo(
+                [1, 1, 0],
+                "1.1.0",
+                "ScriSelfStudio-Setup-1.1.0.exe",
+                "https://example.test/updates/ScriSelfStudio-Setup-1.1.0.exe",
+                string.Empty,
+                "manifest"),
+        };
+        using var provider = ServiceProviderFactory.Create(workspace.Root, dialogs, updates);
+        var launcher = provider.GetRequiredService<LauncherViewModel>();
+        await launcher.InitializeAsync();
+
+        await launcher.CheckForUpdatesOnStartupAsync();
+
+        Assert.Equal(1, updates.Checks);
+        Assert.Single(dialogs.Confirmations);
+        Assert.Contains("1.1.0", dialogs.Confirmations[0]);
     }
 
     [AvaloniaFact]
@@ -441,6 +488,24 @@ public sealed class LauncherViewTests
         Assert.Empty(launcher.RecentProjects);
         Assert.Empty(launcher.VisibleProjects);
         Assert.DoesNotContain(settings.Current.RecentProjects, entry => entry.FilePath == projectPath);
+    }
+
+    [AvaloniaFact]
+    public async Task Remove_selected_project_button_uses_the_selected_card()
+    {
+        using var workspace = new TempWorkspace();
+        var projectPath = workspace.FilePath("Выбранный.scri");
+        var dialogs = new StubFileDialogService { CreatePath = projectPath };
+        using var provider = ServiceProviderFactory.Create(workspace.Root, dialogs);
+        var launcher = provider.GetRequiredService<LauncherViewModel>();
+        await launcher.InitializeAsync();
+        await launcher.CreateProjectCommand.ExecuteAsync(null);
+
+        Assert.NotNull(launcher.SelectedProject);
+        await launcher.RemoveSelectedProjectCommand.ExecuteAsync(null);
+
+        Assert.Empty(launcher.RecentProjects);
+        Assert.True(File.Exists(projectPath));
     }
 
     [AvaloniaFact]

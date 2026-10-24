@@ -15,13 +15,29 @@ using ScriSelfStudio.Contracts.Projects;
 using ScriSelfStudio.Core;
 using ScriSelfStudio.Core.Events;
 using ScriSelfStudio.Core.Model;
+using ScriSelfStudio.Core.Text;
 using ScriSelfStudio.Presentation;
+using ScriSelfStudio.Presentation.Localization;
+
+public sealed record EditorPreviewRun(
+    string Text,
+    string? FontFamily,
+    double? FontSize,
+    bool IsBold,
+    bool IsItalic,
+    bool IsUnderline,
+    bool IsStrikethrough,
+    string? Foreground);
+
+public sealed record EditorPreviewBlock(
+    IReadOnlyList<EditorPreviewRun> Runs,
+    ScriSelfStudio.Core.Text.TextAlignment Alignment,
+    BlockKind Kind);
 
 /// <summary>
 /// Экран «Редактор» (ТЗ п. 11, 24, 27): сплошная лента главы, разделённая на сцены.
-/// Текст правится обычным текстовым полем — собственного движка ввода у приложения
-/// нет, поэтому работают штатные сочетания клавиш Windows (Ctrl+Z, Ctrl+A, …).
-/// Модель документа и запись в проект остаются за <see cref="IEditorEngine"/>.
+/// The rich-text view edits the combined ribbon while <see cref="IEditorEngine"/>
+/// and the project service keep each scene document separate for persistence.
 /// </summary>
 public sealed partial class EditorViewModel : ViewModelBase, IDisposable
 {
@@ -34,14 +50,23 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
     private readonly ISystemClock _clock;
     private readonly List<IDisposable> _subscriptions = [];
     private readonly DispatcherTimer _autosaveTimer;
+    private readonly Dictionary<Guid, RichDocument> _sceneDocuments = [];
+    private readonly Dictionary<Guid, RichDocument> _persistedSceneDocuments = [];
+    private readonly Dictionary<Guid, long> _sceneRevisions = [];
+    private readonly HashSet<Guid> _pendingSceneDocuments = [];
 
     private bool _suspendTextSync;
+    private bool _suppressRibbonRefresh;
+    private bool _ribbonRefreshPending;
     private Guid? _loadedSceneId;
+    private int _ribbonCaretLine = 1;
     private DateTimeOffset _lastActivity;
     private string _text = string.Empty;
     private string? _appliedFontFamily;
     private double _appliedFontSize;
     private SceneBlockViewModel? _activeBlock;
+    private int _selectionStart;
+    private int _selectionEnd;
 
     [ObservableProperty]
     private string _sceneTitle = string.Empty;
@@ -79,11 +104,69 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
     [NotifyPropertyChangedFor(nameof(CanvasPaperMargin))]
     private bool _isFullCanvas;
 
-    /// <summary>
-    /// Лента главы: по блоку на сцену, в порядке следования. Текст пишется внутри
-    /// блока, активная сцена подсвечивается.
-    /// </summary>
+    /// <summary>Упорядоченные сцены главы, отображаемые как единый поток текста.</summary>
     public ObservableCollection<SceneBlockViewModel> Blocks { get; } = [];
+
+    public ObservableCollection<EditorPreviewBlock> PreviewBlocks { get; } = [];
+
+    public RichDocument RibbonDocument => RichDocumentAdapter.ToRibbonDocument(
+        Blocks.Select(block => _sceneDocuments.TryGetValue(block.SceneId, out var document)
+            ? document
+            : RichDocument.CreateEmpty()));
+
+    public string CurrentCaretSceneTitle
+    {
+        get
+        {
+            var scene = GetSceneAtCaretLine(_ribbonCaretLine) ?? LocateScene(_engine.SceneId)?.Scene;
+            if (scene is null)
+            {
+                return string.Empty;
+            }
+
+            return scene.Title.StartsWith("Сцена ", StringComparison.CurrentCultureIgnoreCase)
+                ? scene.Title
+                : $"Сцена {scene.Title}";
+        }
+    }
+
+    public IReadOnlyList<string> FontFamilies { get; } =
+        ["Georgia", "Inter", "Arial", "Times New Roman", "Consolas"];
+
+    public IReadOnlyList<string> FontSizes { get; } =
+        ["10", "11", "12", "14", "16", "18", "20", "24", "28", "32", "36"];
+
+    [ObservableProperty]
+    private string _selectedFormattingFontFamily = "Georgia";
+
+    [ObservableProperty]
+    private string _selectedFormattingFontSize = "14";
+
+    [ObservableProperty]
+    private bool _isBold;
+
+    [ObservableProperty]
+    private bool _isItalic;
+
+    [ObservableProperty]
+    private bool _isUnderline;
+
+    [ObservableProperty]
+    private bool _isStrikethrough;
+
+    public bool HasTextSelection => _selectionStart != _selectionEnd;
+
+    public void SetRibbonCaretLine(int line)
+    {
+        var nextLine = Math.Max(1, line);
+        if (_ribbonCaretLine == nextLine)
+        {
+            return;
+        }
+
+        _ribbonCaretLine = nextLine;
+        OnPropertyChanged(nameof(CurrentCaretSceneTitle));
+    }
 
     public EditorViewModel(
         IEditorEngine engine,
@@ -112,8 +195,10 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
         _subscriptions.Add(events.Subscribe<EditorDocumentChanged>(OnDocumentChanged));
         _subscriptions.Add(events.Subscribe<ProjectClosed>(_ => OnProjectClosed()));
         _subscriptions.Add(events.Subscribe<SaveCompleted>(_ => RefreshEditorFont()));
-        _subscriptions.Add(events.Subscribe<SceneChanged>(_ => RebuildRibbon()));
+        _subscriptions.Add(events.Subscribe<SceneChanged>(_ => OnSceneChanged()));
         _subscriptions.Add(events.Subscribe<ProjectOpened>(_ => RebuildRibbon()));
+        _subscriptions.Add(events.Subscribe<EditorDocumentChanged>(_ => RefreshFormattedPreview()));
+        _navigation.Navigated += OnNavigated;
 
         if (_engine.SceneId is { } existingScene)
         {
@@ -122,6 +207,7 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
             SyncTextFromEngine();
             RebuildRibbon();
             StartAutosave();
+            RefreshFormattedPreview();
         }
     }
 
@@ -130,7 +216,11 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
 
     public bool IsSceneOpen => _engine.SceneId is not null;
 
-    public bool IsDirty => _engine.IsDirty;
+    public bool IsDirty => _engine.IsDirty || _pendingSceneDocuments.Count > 0;
+
+    public bool CanUndo => _engine.CanUndo;
+
+    public bool CanRedo => _engine.CanRedo;
 
     public bool HasError => !string.IsNullOrEmpty(ErrorMessage);
 
@@ -152,7 +242,7 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
     /// <summary>Номер открытой сцены в главе (с единицы).</summary>
     public int SceneNumber { get; private set; }
 
-    public string SceneMarkerText => IsSceneOpen ? $"СЦЕНА {SceneNumber}" : string.Empty;
+    public string SceneMarkerText => IsSceneOpen ? Loc.F("СЦЕНА {0}", SceneNumber) : string.Empty;
 
     public string PreviousSceneLabel { get; private set; } = string.Empty;
 
@@ -163,9 +253,9 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
     public bool CanNextScene { get; private set; }
 
     /// <summary>Слов в открытой сцене для статус-бара: «Слов: 482» (макет).</summary>
-    public string WordsLabel => $"Слов: {FormatNumber(_engine.Statistics.Words)}";
+    public string WordsLabel => Loc.F("Слов: {0}", FormatNumber(_engine.Statistics.Words));
 
-    public string CharactersLabel => $"Символов: {FormatNumber(_engine.Statistics.Characters)}";
+    public string CharactersLabel => Loc.F("Символов: {0}", FormatNumber(_engine.Statistics.Characters));
 
     public string ReadingTimeLabel
     {
@@ -174,17 +264,16 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
             var words = _engine.Statistics.Words;
             if (words <= 0)
             {
-                return "~0 мин. чтения";
+                return Loc.T("~0 мин. чтения");
             }
 
             var minutes = (int)Math.Ceiling(words / 200.0);
-            return $"~{minutes} мин. чтения";
+            return Loc.F("~{0} мин. чтения", minutes);
         }
     }
 
     /// <summary>
-    /// Текст активной сцены. Свойство оставлено публичным: сценарии и тесты
-    /// наполняют документ напрямую, минуя текстовое поле.
+    /// Текст активной сцены. The editor control synchronizes user input through this property.
     /// </summary>
     public string Text
     {
@@ -203,8 +292,171 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
         }
     }
 
+    public void SynchronizeRichDocument(RichDocument document)
+    {
+        var plainText = document.ToPlainText().Replace("\r\n", "\n").Replace('\r', '\n');
+        _suspendTextSync = true;
+        try
+        {
+            Text = plainText;
+        }
+        finally
+        {
+            _suspendTextSync = false;
+        }
+
+        var result = _engine.ReplaceDocument(document);
+        if (!result.IsSuccess)
+        {
+            ReportInPlace(result.Error!);
+            return;
+        }
+
+        _activeBlock?.SetTextSilently(Text);
+        UpdateActiveRibbonDocument();
+        ErrorMessage = null;
+        RefreshFormattedPreview();
+        RefreshState();
+    }
+
+    public bool SynchronizeRibbonDocument(RichDocument document)
+    {
+        if (Blocks.Count == 0)
+        {
+            return false;
+        }
+
+        IReadOnlyList<RichDocument> sceneDocuments;
+        try
+        {
+            sceneDocuments = RichDocumentAdapter.SplitRibbonDocument(document, Blocks.Count);
+        }
+        catch (InvalidDataException error)
+        {
+            ReportRichEditorError(error.Message);
+            return false;
+        }
+
+        for (var index = 0; index < Blocks.Count; index++)
+        {
+            var scene = Blocks[index];
+            var sceneDocument = sceneDocuments[index];
+            _sceneDocuments[scene.SceneId] = sceneDocument.Clone();
+            scene.SetTextSilently(sceneDocument.ToPlainText());
+
+            if (scene.SceneId == _engine.SceneId)
+            {
+                SynchronizeRichDocument(sceneDocument);
+            }
+            else if (_persistedSceneDocuments.TryGetValue(scene.SceneId, out var persisted)
+                && AreDocumentsEquivalent(persisted, sceneDocument))
+            {
+                _pendingSceneDocuments.Remove(scene.SceneId);
+            }
+            else
+            {
+                _pendingSceneDocuments.Add(scene.SceneId);
+            }
+        }
+
+        _lastActivity = _clock.UtcNow;
+        RefreshState();
+        return true;
+    }
+
+    public void ReportRichEditorError(string message) => ErrorMessage = message;
+
     [RelayCommand]
     private void ToggleFullCanvas() => IsFullCanvas = !IsFullCanvas;
+
+    /// <summary>
+    /// Выход из режима «Холст» по Esc. Команда доступна только внутри режима, поэтому
+    /// вне него Esc не перехватывается и работает как обычно в текстовом поле.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(IsFullCanvas))]
+    private void ExitFullCanvas() => IsFullCanvas = false;
+
+    [RelayCommand(CanExecute = nameof(CanUndo))]
+    private void Undo()
+    {
+        var result = _engine.Undo();
+        if (!result.IsSuccess)
+        {
+            ReportInPlace(result.Error!);
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanRedo))]
+    private void Redo()
+    {
+        var result = _engine.Redo();
+        if (!result.IsSuccess)
+        {
+            ReportInPlace(result.Error!);
+        }
+    }
+
+    public void SetEditorSelection(int start, int end)
+    {
+        _selectionStart = Math.Clamp(start, 0, Text.Length);
+        _selectionEnd = Math.Clamp(end, 0, Text.Length);
+        OnPropertyChanged(nameof(HasTextSelection));
+        RefreshFormattingState();
+    }
+
+    [RelayCommand]
+    private void ToggleBold() => ToggleFormatting(TextFormat.Bold);
+
+    [RelayCommand]
+    private void ToggleItalic() => ToggleFormatting(TextFormat.Italic);
+
+    [RelayCommand]
+    private void ToggleUnderline() => ToggleFormatting(TextFormat.Underline);
+
+    [RelayCommand]
+    private void ToggleStrikethrough() => ToggleFormatting(TextFormat.Strikethrough);
+
+    [RelayCommand]
+    private void ApplyForeground(string? colorHex)
+    {
+        if (string.IsNullOrWhiteSpace(colorHex))
+        {
+            return;
+        }
+
+        ApplyStyle(foreground: TextColor.Parse(colorHex));
+    }
+
+    [RelayCommand]
+    private void AlignLeft() => ApplyBlockStyle(alignment: TextAlignment.Left);
+
+    [RelayCommand]
+    private void AlignCenter() => ApplyBlockStyle(alignment: TextAlignment.Center);
+
+    [RelayCommand]
+    private void AlignRight() => ApplyBlockStyle(alignment: TextAlignment.Right);
+
+    [RelayCommand]
+    private void ApplyBulletList() => ApplyBlockStyle(kind: BlockKind.BulletListItem);
+
+    [RelayCommand]
+    private void ApplyNumberedList() => ApplyBlockStyle(kind: BlockKind.NumberedListItem);
+
+    public void ApplySelectedFontFamily() => ApplyStyle(
+        fontFamily: SelectedFormattingFontFamily,
+        changeFontFamily: true);
+
+    public void ApplySelectedFontSize()
+    {
+        if (double.TryParse(
+                SelectedFormattingFontSize,
+                System.Globalization.NumberStyles.Number,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out var fontSize))
+        {
+            ApplyStyle(fontSize: fontSize, changeFontSize: true);
+        }
+    }
 
     /// <summary>Открывает сцену в редакторе: используется лентой при переходе между блоками.</summary>
     [RelayCommand]
@@ -217,7 +469,7 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
     [RelayCommand(CanExecute = nameof(IsSceneOpen))]
     private async Task CloseSceneAsync(CancellationToken cancellationToken)
     {
-        if (_engine.IsDirty)
+        if (IsDirty)
         {
             var save = await _dialogs.ConfirmAsync(
                 "Несохранённые изменения",
@@ -229,7 +481,7 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
             if (save)
             {
                 await SaveCoreAsync(cancellationToken, silent: false);
-                if (_engine.IsDirty)
+                if (IsDirty || HasError)
                 {
                     return;
                 }
@@ -267,15 +519,72 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
         await SaveCoreAsync(CancellationToken.None, silent: true);
     }
 
+    /// <summary>
+    /// Фиксирует текст сцены и сохраняет проект без сообщений в интерфейсе.
+    /// Вызывается при закрытии приложения, когда потеря фокуса уже не срабатывает.
+    /// </summary>
+    public Task FlushAsync(CancellationToken cancellationToken = default) =>
+        SaveCoreAsync(cancellationToken, silent: true);
+
     public void Dispose()
     {
         _autosaveTimer.Stop();
+        _navigation.Navigated -= OnNavigated;
         foreach (var subscription in _subscriptions)
         {
             subscription.Dispose();
         }
 
         _subscriptions.Clear();
+    }
+
+    /// <summary>
+    /// Открывает сцену из дерева книги. Перед переключением сохраняет все
+    /// несохранённые документы ленты, иначе текст предыдущей сцены терялся.
+    /// </summary>
+    public async Task<bool> OpenSceneFromBookAsync(Guid sceneId, CancellationToken cancellationToken = default)
+    {
+        if (_engine.SceneId == sceneId)
+        {
+            _navigation.NavigateTo(AppScreen.Editor);
+            return true;
+        }
+
+        if (IsDirty)
+        {
+            var committed = await CommitRibbonDocumentsAsync(cancellationToken);
+            if (!committed)
+            {
+                return false;
+            }
+        }
+
+        var opened = await _engine.OpenSceneAsync(sceneId, cancellationToken);
+        if (!opened.IsSuccess)
+        {
+            ReportInPlace(opened.Error!);
+            return false;
+        }
+
+        _navigation.NavigateTo(AppScreen.Editor);
+        return true;
+    }
+
+    /// <summary>
+    /// Уход с экрана редактора фиксирует текст текущей сцены. Автосохранение
+    /// проекта пишет снимок на диск по настройкам, а commit сохраняет текст в модели.
+    /// </summary>
+    private void OnNavigated(object? sender, AppScreen screen)
+    {
+        if (screen == AppScreen.Editor)
+        {
+            return;
+        }
+
+        if (IsDirty)
+        {
+            _ = SaveCoreAsync(CancellationToken.None, silent: true);
+        }
     }
 
     private async Task OpenNeighborAsync(int delta, CancellationToken cancellationToken)
@@ -286,12 +595,11 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        if (_engine.IsDirty)
+        if (IsDirty)
         {
-            var committed = await _engine.CommitAsync(cancellationToken);
-            if (!committed.IsSuccess)
+            var committed = await CommitRibbonDocumentsAsync(cancellationToken);
+            if (!committed)
             {
-                ReportInPlace(committed.Error!);
                 return;
             }
         }
@@ -311,12 +619,11 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        if (_engine.IsDirty)
+        if (IsDirty)
         {
-            var committed = await _engine.CommitAsync(CancellationToken.None);
-            if (!committed.IsSuccess)
+            var committed = await CommitRibbonDocumentsAsync(CancellationToken.None);
+            if (!committed)
             {
-                ReportInPlace(committed.Error!);
                 return;
             }
         }
@@ -351,7 +658,131 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
 
         _lastActivity = _clock.UtcNow;
         _activeBlock?.SetTextSilently(value);
+        UpdateActiveRibbonDocument();
         RefreshState();
+    }
+
+    private void UpdateActiveRibbonDocument()
+    {
+        if (_engine.SceneId is not { } sceneId)
+        {
+            return;
+        }
+
+        var snapshot = _engine.GetDocumentSnapshot();
+        if (!snapshot.IsSuccess)
+        {
+            ReportInPlace(snapshot.Error!);
+            return;
+        }
+
+        _sceneDocuments[sceneId] = snapshot.Require().Document.Clone();
+        OnPropertyChanged(nameof(RibbonDocument));
+    }
+
+    private void ToggleFormatting(TextFormat format)
+    {
+        var result = _engine.ApplyFormatting(CurrentTextRange, format);
+        if (!result.IsSuccess)
+        {
+            ReportInPlace(result.Error!);
+            return;
+        }
+
+        ErrorMessage = null;
+        RefreshFormattingState();
+        RefreshFormattedPreview();
+        RefreshState();
+    }
+
+    private void ApplyStyle(
+        string? fontFamily = null,
+        bool changeFontFamily = false,
+        double? fontSize = null,
+        bool changeFontSize = false,
+        TextColor? foreground = null)
+    {
+        var result = _engine.ApplyStyle(
+            CurrentTextRange,
+            fontFamily: fontFamily,
+            changeFontFamily: changeFontFamily,
+            fontSize: fontSize,
+            changeFontSize: changeFontSize,
+            foreground: foreground);
+        if (!result.IsSuccess)
+        {
+            ReportInPlace(result.Error!);
+            return;
+        }
+
+        ErrorMessage = null;
+        RefreshFormattingState();
+        RefreshFormattedPreview();
+        RefreshState();
+    }
+
+    private void ApplyBlockStyle(BlockKind? kind = null, TextAlignment? alignment = null)
+    {
+        var result = _engine.ApplyBlockStyle(CurrentTextRange, kind, alignment);
+        if (!result.IsSuccess)
+        {
+            ReportInPlace(result.Error!);
+            return;
+        }
+
+        ErrorMessage = null;
+        RefreshFormattedPreview();
+        RefreshState();
+    }
+
+    private TextRange CurrentTextRange => new(
+        new TextPosition(Math.Min(_selectionStart, _selectionEnd)),
+        new TextPosition(Math.Max(_selectionStart, _selectionEnd)));
+
+    private void RefreshFormattingState()
+    {
+        var result = _engine.GetFormatting(CurrentTextRange);
+        var flags = result.IsSuccess ? result.Require() : TextFormat.None;
+        IsBold = flags.HasFlag(TextFormat.Bold);
+        IsItalic = flags.HasFlag(TextFormat.Italic);
+        IsUnderline = flags.HasFlag(TextFormat.Underline);
+        IsStrikethrough = flags.HasFlag(TextFormat.Strikethrough);
+    }
+
+    private void RefreshFormattedPreview()
+    {
+        PreviewBlocks.Clear();
+        var result = _engine.GetDocumentSnapshot();
+        if (!result.IsSuccess)
+        {
+            return;
+        }
+
+        var blocks = result.Require().Document.Blocks;
+        foreach (var block in blocks)
+        {
+            var runs = new List<EditorPreviewRun>();
+            foreach (var span in block.Spans)
+            {
+                if (span.Text.Length == 0)
+                {
+                    continue;
+                }
+
+                var style = span.Style;
+                runs.Add(new EditorPreviewRun(
+                    span.Text,
+                    style.FontFamily,
+                    style.FontSize,
+                    style.Flags.HasFlag(TextFormat.Bold),
+                    style.Flags.HasFlag(TextFormat.Italic),
+                    style.Flags.HasFlag(TextFormat.Underline),
+                    style.Flags.HasFlag(TextFormat.Strikethrough),
+                    style.Foreground.IsSet ? style.Foreground.ToHex() : null));
+            }
+
+            PreviewBlocks.Add(new EditorPreviewBlock(runs, block.Alignment, block.Kind));
+        }
     }
 
     private void SyncTextFromEngine()
@@ -360,6 +791,11 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
         Text = _engine.PlainText;
         _suspendTextSync = false;
         _activeBlock?.SetTextSilently(Text);
+        _selectionStart = Math.Clamp(_selectionStart, 0, Text.Length);
+        _selectionEnd = Math.Clamp(_selectionEnd, 0, Text.Length);
+        OnPropertyChanged(nameof(HasTextSelection));
+        RefreshFormattingState();
+        RefreshFormattedPreview();
         RefreshState();
     }
 
@@ -370,20 +806,43 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
         var located = LocateScene(activeId);
 
         Blocks.Clear();
+        _sceneDocuments.Clear();
+        _persistedSceneDocuments.Clear();
+        _sceneRevisions.Clear();
+        _pendingSceneDocuments.Clear();
+        _ribbonRefreshPending = false;
         _activeBlock = null;
+        _ribbonCaretLine = 1;
         HasChapter = located is not null;
         ChapterTitle = located?.Chapter.Title ?? string.Empty;
+        OnPropertyChanged(nameof(CurrentCaretSceneTitle));
 
         if (located is not { } place)
         {
+            OnPropertyChanged(nameof(RibbonDocument));
             return;
         }
 
         foreach (var scene in place.Chapter.Scenes.OrderBy(scene => scene.Order))
         {
             var document = _projects.GetSceneDocument(scene.Id);
-            var text = document.IsSuccess ? document.Require().Document.ToPlainText() : string.Empty;
-            var block = new SceneBlockViewModel(scene.Id, scene.Order, scene.Title, scene.Status, text, OnBlockTextChanged)
+            if (!document.IsSuccess)
+            {
+                ReportInPlace(document.Error!);
+                continue;
+            }
+
+            var snapshot = document.Require();
+            _sceneRevisions[scene.Id] = snapshot.Revision;
+            _persistedSceneDocuments[scene.Id] = snapshot.Document.Clone();
+            _sceneDocuments[scene.Id] = snapshot.Document.Clone();
+            var block = new SceneBlockViewModel(
+                scene.Id,
+                scene.Order,
+                scene.Title,
+                scene.Status,
+                snapshot.Document.ToPlainText(),
+                OnBlockTextChanged)
             {
                 IsActive = scene.Id == activeId,
             };
@@ -394,6 +853,30 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
 
             Blocks.Add(block);
         }
+
+        if (activeId is { } currentId && _sceneDocuments.ContainsKey(currentId))
+        {
+            var currentDocument = _engine.GetDocumentSnapshot();
+            if (currentDocument.IsSuccess)
+            {
+                _sceneDocuments[currentId] = currentDocument.Require().Document.Clone();
+                var persisted = _persistedSceneDocuments[currentId];
+                if (!AreDocumentsEquivalent(persisted, _sceneDocuments[currentId]))
+                {
+                    _pendingSceneDocuments.Add(currentId);
+                }
+
+                _activeBlock?.SetTextSilently(_sceneDocuments[currentId].ToPlainText());
+            }
+            else
+            {
+                ReportInPlace(currentDocument.Error!);
+            }
+        }
+
+        OnPropertyChanged(nameof(RibbonDocument));
+        OnPropertyChanged(nameof(CurrentCaretSceneTitle));
+        RefreshState();
     }
 
     private void LoadSceneMetadata(Guid sceneId)
@@ -411,10 +894,83 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
         _suspendTextSync = false;
         SceneTitle = string.Empty;
         Blocks.Clear();
+        _sceneDocuments.Clear();
+        _persistedSceneDocuments.Clear();
+        _sceneRevisions.Clear();
+        _pendingSceneDocuments.Clear();
         _activeBlock = null;
         HasChapter = false;
         ChapterTitle = string.Empty;
+        OnPropertyChanged(nameof(RibbonDocument));
+        OnPropertyChanged(nameof(CurrentCaretSceneTitle));
         RefreshState();
+    }
+
+    private void OnSceneChanged()
+    {
+        if (_suppressRibbonRefresh)
+        {
+            return;
+        }
+
+        if (IsDirty)
+        {
+            _ribbonRefreshPending = true;
+            return;
+        }
+
+        RebuildRibbon();
+    }
+
+    private SceneDto? GetSceneAtCaretLine(int caretLine)
+    {
+        var line = 1;
+        for (var index = 0; index < Blocks.Count; index++)
+        {
+            var block = Blocks[index];
+            var scene = LocateScene(block.SceneId)?.Scene;
+            if (caretLine <= line)
+            {
+                return scene;
+            }
+
+            // Заголовок сцены занимает первую строку её блока в ленте.
+            line++;
+            var document = _sceneDocuments.GetValueOrDefault(block.SceneId);
+            var textLines = document is null
+                ? 1
+                : Math.Max(1, document.Blocks.Sum(textBlock =>
+                    Math.Max(1, CountHardLines(string.Concat(textBlock.Spans.Select(span => span.Text))))));
+
+            if (caretLine <= line + textLines - 1)
+            {
+                return scene;
+            }
+
+            line += textLines;
+            if (index < Blocks.Count - 1)
+            {
+                // Разделитель относится к следующей сцене: курсор на линии
+                // разрыва должен показывать уже новую сцену.
+                line++;
+            }
+        }
+
+        return Blocks.Count > 0 ? LocateScene(Blocks[^1].SceneId)?.Scene : null;
+    }
+
+    private static int CountHardLines(string text)
+    {
+        var lines = 1;
+        foreach (var character in text)
+        {
+            if (character == '\n')
+            {
+                lines++;
+            }
+        }
+
+        return lines;
     }
 
     private void OnDocumentChanged(EditorDocumentChanged change)
@@ -445,7 +1001,7 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
         }
 
         var settings = _projects.Current?.Settings;
-        if (settings is not { AutoSaveEnabled: true } || !_engine.IsDirty)
+        if (settings is not { AutoSaveEnabled: true } || !IsDirty)
         {
             return;
         }
@@ -467,12 +1023,11 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
         }
 
         ClearMessages();
-        if (_engine.IsDirty)
+        if (IsDirty)
         {
-            var committed = await _engine.CommitAsync(cancellationToken);
-            if (!committed.IsSuccess)
+            var committed = await CommitRibbonDocumentsAsync(cancellationToken);
+            if (!committed)
             {
-                await ReportAsync(committed.Error!, silent);
                 return;
             }
         }
@@ -490,14 +1045,114 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
             StatusMessage = "Глава сохранена.";
         }
 
+        if (_ribbonRefreshPending)
+        {
+            _ribbonRefreshPending = false;
+            RebuildRibbon();
+        }
+
         RefreshState();
+    }
+
+    private async Task<bool> CommitRibbonDocumentsAsync(CancellationToken cancellationToken)
+    {
+        _suppressRibbonRefresh = true;
+        try
+        {
+            foreach (var scene in Blocks)
+            {
+                if (!_pendingSceneDocuments.Contains(scene.SceneId)
+                    || scene.SceneId == _engine.SceneId)
+                {
+                    continue;
+                }
+
+                var request = new UpdateSceneDocumentRequest
+                {
+                    SceneId = scene.SceneId,
+                    BaseRevision = _sceneRevisions[scene.SceneId],
+                    Document = _sceneDocuments[scene.SceneId].Clone(),
+                };
+                var updated = await _projects.UpdateSceneDocumentAsync(request, cancellationToken);
+                if (!updated.IsSuccess)
+                {
+                    ReportInPlace(updated.Error!);
+                    return false;
+                }
+
+                var result = updated.Require();
+                _sceneRevisions[scene.SceneId] = result.Revision;
+                _persistedSceneDocuments[scene.SceneId] = result.Document.Clone();
+                _pendingSceneDocuments.Remove(scene.SceneId);
+            }
+
+            if (_engine.IsDirty)
+            {
+                var committed = await _engine.CommitAsync(cancellationToken);
+                if (!committed.IsSuccess)
+                {
+                    ReportInPlace(committed.Error!);
+                    return false;
+                }
+
+                var result = committed.Require();
+                _sceneRevisions[result.SceneId] = result.Revision;
+                _persistedSceneDocuments[result.SceneId] = result.Document.Clone();
+                _sceneDocuments[result.SceneId] = result.Document.Clone();
+                _pendingSceneDocuments.Remove(result.SceneId);
+            }
+
+            RefreshState();
+            return true;
+        }
+        finally
+        {
+            _suppressRibbonRefresh = false;
+        }
+    }
+
+    private static bool AreDocumentsEquivalent(RichDocument left, RichDocument right)
+    {
+        if (left.SchemaVersion != right.SchemaVersion || left.Blocks.Count != right.Blocks.Count)
+        {
+            return false;
+        }
+
+        for (var blockIndex = 0; blockIndex < left.Blocks.Count; blockIndex++)
+        {
+            var leftBlock = left.Blocks[blockIndex];
+            var rightBlock = right.Blocks[blockIndex];
+            if (leftBlock.Kind != rightBlock.Kind
+                || leftBlock.Alignment != rightBlock.Alignment
+                || leftBlock.IndentLevel != rightBlock.IndentLevel
+                || leftBlock.ListMarker != rightBlock.ListMarker
+                || leftBlock.Spans.Count != rightBlock.Spans.Count)
+            {
+                return false;
+            }
+
+            for (var spanIndex = 0; spanIndex < leftBlock.Spans.Count; spanIndex++)
+            {
+                var leftSpan = leftBlock.Spans[spanIndex];
+                var rightSpan = rightBlock.Spans[spanIndex];
+                if (leftSpan.Text != rightSpan.Text || leftSpan.Style != rightSpan.Style)
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
 
     private void RefreshState()
     {
         RefreshEditorFont();
+        RefreshFormattingState();
         OnPropertyChanged(nameof(IsSceneOpen));
         OnPropertyChanged(nameof(IsDirty));
+        OnPropertyChanged(nameof(CanUndo));
+        OnPropertyChanged(nameof(CanRedo));
         OnPropertyChanged(nameof(WordsLabel));
         OnPropertyChanged(nameof(CharactersLabel));
         OnPropertyChanged(nameof(ReadingTimeLabel));
@@ -506,6 +1161,8 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
         CloseSceneCommand.NotifyCanExecuteChanged();
         PreviousSceneCommand.NotifyCanExecuteChanged();
         NextSceneCommand.NotifyCanExecuteChanged();
+        UndoCommand.NotifyCanExecuteChanged();
+        RedoCommand.NotifyCanExecuteChanged();
     }
 
     /// <summary>

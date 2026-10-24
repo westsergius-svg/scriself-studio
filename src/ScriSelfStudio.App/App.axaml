@@ -1,5 +1,6 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="clr-namespace:ScriSelfStudio.Presentation.Localization;assembly=ScriSelfStudio.Presentation"
              xmlns:arch="clr-namespace:ScriSelfStudio.ArchitectureUI;assembly=ScriSelfStudio.ArchitectureUI"
              xmlns:editor="clr-namespace:ScriSelfStudio.EditorUI;assembly=ScriSelfStudio.EditorUI"
              xmlns:launcher="clr-namespace:ScriSelfStudio.Launcher;assembly=ScriSelfStudio.Launcher"
@@ -49,30 +50,102 @@
     </DataTemplate>
 
     <DataTemplate DataType="shell:BookTreeViewModel">
-      <Border Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource PanelBorderBrush}" BorderThickness="0,0,1,0" Padding="8">
+      <Border Background="{DynamicResource SurfaceCanvasBrush}"
+              BorderBrush="{DynamicResource SurfaceBorderBrush}"
+              BorderThickness="0,0,1,0" Padding="8,10">
         <DockPanel>
-          <TextBlock DockPanel.Dock="Top" Text="Книга" FontWeight="Bold" Margin="8,4,8,8" />
-          <ListBox Classes="chapterList" ItemsSource="{Binding Chapters}" Background="Transparent">
-            <ListBox.ItemTemplate>
-              <DataTemplate DataType="shell:ChapterNode">
-                <StackPanel Spacing="4">
-                  <TextBlock Text="{Binding Title}" FontWeight="SemiBold" Margin="4,2" />
-                  <ListBox ItemsSource="{Binding Scenes}" Background="Transparent" BorderThickness="0">
-                    <ListBox.ItemTemplate>
-                      <DataTemplate DataType="shell:SceneNode">
-                        <Button Classes="sceneRow" Command="{Binding OpenCommand}" HorizontalAlignment="Stretch">
-                          <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Grid.Column="0" Text="{Binding Title}" />
-                            <TextBlock Grid.Column="1" Text="{Binding Words}" FontSize="11" Foreground="{DynamicResource SidebarSubTextBrush}" />
-                          </Grid>
-                        </Button>
-                      </DataTemplate>
-                    </ListBox.ItemTemplate>
-                  </ListBox>
-                </StackPanel>
-              </DataTemplate>
-            </ListBox.ItemTemplate>
-          </ListBox>
+          <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="8,2,6,12">
+            <TextBlock Text="{loc:Tr 'Проект'}" FontSize="14" FontWeight="SemiBold"
+                       Foreground="{DynamicResource HeadingBrush}" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="1" Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets"
+                       FontSize="11" Foreground="{DynamicResource SidebarSubTextBrush}"
+                       VerticalAlignment="Center" />
+          </Grid>
+          <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                        VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding Series}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="shell:SeriesNode">
+                  <StackPanel>
+                    <Button Classes="treeNode seriesNode" Command="{Binding ToggleExpandedCommand}">
+                      <Grid ColumnDefinitions="14,16,*" ColumnSpacing="4">
+                        <TextBlock Grid.Column="0" Classes="treeChevron"
+                                   Text="{Binding Chevron}" />
+                        <Path Grid.Column="1" Classes="treeFolder"
+                              Data="M1.5,4.5 V3 A1.5,1.5 0 0 1 3,1.5 H7 L8.8,3.5 H15 A1.5,1.5 0 0 1 16.5,5 V12.5 A1.5,1.5 0 0 1 15,14 H3 A1.5,1.5 0 0 1 1.5,12.5 Z" />
+                        <TextBlock Grid.Column="2" Text="{Binding DisplayTitle}"
+                                   TextTrimming="CharacterEllipsis" />
+                      </Grid>
+                    </Button>
+                    <ItemsControl ItemsSource="{Binding Books}" IsVisible="{Binding IsExpanded}"
+                                  Margin="14,0,0,0">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="shell:BookNode">
+                          <StackPanel>
+                            <Button Classes="treeNode bookNode" Command="{Binding ToggleCommand}">
+                              <Grid ColumnDefinitions="14,16,*" ColumnSpacing="4">
+                                <TextBlock Grid.Column="0" Classes="treeChevron"
+                                           Text="{Binding Chevron}" />
+                                <Path Grid.Column="1" Classes="treeFolder"
+                                      Data="M1.5,4.5 V3 A1.5,1.5 0 0 1 3,1.5 H7 L8.8,3.5 H15 A1.5,1.5 0 0 1 16.5,5 V12.5 A1.5,1.5 0 0 1 15,14 H3 A1.5,1.5 0 0 1 1.5,12.5 Z" />
+                                <TextBlock Grid.Column="2" Text="{Binding DisplayTitle}"
+                                           TextTrimming="CharacterEllipsis" />
+                              </Grid>
+                            </Button>
+                            <ItemsControl ItemsSource="{Binding Chapters}" IsVisible="{Binding IsExpanded}"
+                                          Margin="14,0,0,0">
+                              <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="shell:ChapterNode">
+                                  <StackPanel>
+                                    <Border Classes="chapterRow" Background="Transparent">
+                                      <Grid ColumnDefinitions="*,24">
+                                        <Button Grid.Column="0" Classes="treeNode chapterNode"
+                                                Command="{Binding ToggleExpandedCommand}">
+                                          <Grid ColumnDefinitions="14,16,*" ColumnSpacing="4">
+                                            <TextBlock Grid.Column="0" Classes="treeChevron"
+                                                       Text="{Binding Chevron}" />
+                                            <Path Grid.Column="1" Classes="treeFolder"
+                                                  Data="M1.5,4.5 V3 A1.5,1.5 0 0 1 3,1.5 H7 L8.8,3.5 H15 A1.5,1.5 0 0 1 16.5,5 V12.5 A1.5,1.5 0 0 1 15,14 H3 A1.5,1.5 0 0 1 1.5,12.5 Z" />
+                                            <TextBlock Grid.Column="2" Text="{Binding DisplayTitle}"
+                                                       TextTrimming="CharacterEllipsis" />
+                                          </Grid>
+                                        </Button>
+                                        <Button Grid.Column="1" Classes="chapterAdd"
+                                                Command="{Binding AddSceneCommand}"
+                                                ToolTip.Tip="{loc:Tr 'Добавить сцену'}">
+                                          <TextBlock Text="&#xE710;" />
+                                        </Button>
+                                      </Grid>
+                                    </Border>
+                                    <ItemsControl ItemsSource="{Binding Scenes}" IsVisible="{Binding IsExpanded}"
+                                                  Margin="14,0,0,0">
+                                      <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="shell:SceneNode">
+                                          <Button Classes="sceneRow" Command="{Binding OpenCommand}"
+                                                  Background="{Binding RowBackground}">
+                                            <Grid ColumnDefinitions="16,*" ColumnSpacing="4">
+                                              <Path Grid.Column="0" Classes="treeDocument"
+                                                    Data="M3,1.5 H9 L13,5.5 V14 H3 Z M9,1.5 V5.5 H13" />
+                                              <TextBlock Grid.Column="1" Text="{Binding DisplayTitle}"
+                                                         TextTrimming="CharacterEllipsis" />
+                                            </Grid>
+                                          </Button>
+                                        </DataTemplate>
+                                      </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                  </StackPanel>
+                                </DataTemplate>
+                              </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                          </StackPanel>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
         </DockPanel>
       </Border>
     </DataTemplate>

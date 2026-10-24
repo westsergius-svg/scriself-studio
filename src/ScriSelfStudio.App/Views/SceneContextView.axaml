@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="clr-namespace:ScriSelfStudio.Presentation.Localization;assembly=ScriSelfStudio.Presentation"
              xmlns:shell="clr-namespace:ScriSelfStudio.App.Shell"
              xmlns:model="clr-namespace:ScriSelfStudio.Core.Model;assembly=ScriSelfStudio.Core"
              x:Class="ScriSelfStudio.App.Views.SceneContextView"
@@ -31,19 +32,28 @@
       <Setter Property="CornerRadius" Value="6" />
       <Setter Property="Padding" Value="8,3" />
     </Style>
+    <Style Selector="Button.panelChip">
+      <Setter Property="Background" Value="{DynamicResource SurfaceSelectedBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource SurfaceSelectedBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Padding" Value="8,3" />
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+    </Style>
   </UserControl.Styles>
 
   <Border Background="{DynamicResource PanelBrush}"
-          BorderBrush="{DynamicResource PanelBorderBrush}" BorderThickness="1,0,0,0">
+          BorderBrush="{DynamicResource PanelBorderBrush}" BorderThickness="1,0,0,0"
+          PointerPressed="OnPanelPointerPressed">
     <ScrollViewer>
       <StackPanel>
-        <TextBlock Margin="16" Classes="muted" Text="Сцена не открыта." IsVisible="{Binding !HasScene}" />
+        <TextBlock Margin="16" Classes="muted" Text="{loc:Tr 'Сцена не открыта.'}" IsVisible="{Binding !HasScene}" />
 
         <StackPanel Margin="16" Spacing="14" IsVisible="{Binding HasScene}">
           <!-- Заголовок панели -->
           <StackPanel Spacing="6">
             <Border Classes="panelChip" HorizontalAlignment="Left">
-              <TextBlock Text="Сцена" FontSize="11" FontWeight="SemiBold"
+              <TextBlock Text="{loc:Tr 'Сцена'}" FontSize="11" FontWeight="SemiBold"
                          Foreground="{DynamicResource ActiveAccentBrush}" />
             </Border>
             <TextBlock Classes="cardHeading" Text="{Binding SceneTitle}" TextWrapping="Wrap" />
@@ -59,69 +69,84 @@
 
           <!-- Кратко -->
           <StackPanel Spacing="6">
-            <TextBlock Classes="panelLabel" Text="КРАТКО" />
+            <TextBlock Classes="panelLabel" Text="{loc:Tr 'КРАТКО'}" />
             <Border Classes="panelField">
-            <TextBox Classes="panelField" Text="{Binding Summary, Mode=TwoWay}" MinHeight="70" Watermark="О чём сцена…" />
+            <TextBox Classes="panelField" Text="{Binding Summary, Mode=TwoWay}" MinHeight="70" PlaceholderText="{loc:Tr 'О чём сцена…'}" />
           </Border>
           </StackPanel>
 
           <!-- Статус -->
           <StackPanel Spacing="6">
-            <TextBlock Classes="panelLabel" Text="СТАТУС" />
+            <TextBlock Classes="panelLabel" Text="{loc:Tr 'СТАТУС'}" />
             <WrapPanel>
-              <Button Classes="statusBtn" Classes.active="{Binding IsStatusIdea}" Content="Идея" Margin="0,0,6,6"
+              <Button Classes="statusBtn" Classes.active="{Binding IsStatusIdea}" Content="{loc:Tr 'Идея'}" Margin="0,0,6,6"
                       Command="{Binding SetStatusCommand}" CommandParameter="{x:Static model:SceneStatus.Idea}" />
-              <Button Classes="statusBtn" Classes.active="{Binding IsStatusDraft}" Content="Черновик" Margin="0,0,6,6"
+              <Button Classes="statusBtn" Classes.active="{Binding IsStatusDraft}" Content="{loc:Tr 'Черновик'}" Margin="0,0,6,6"
                       Command="{Binding SetStatusCommand}" CommandParameter="{x:Static model:SceneStatus.Draft}" />
-              <Button Classes="statusBtn" Classes.active="{Binding IsStatusRevised}" Content="В работе" Margin="0,0,6,6"
+              <Button Classes="statusBtn" Classes.active="{Binding IsStatusRevised}" Content="{loc:Tr 'В работе'}" Margin="0,0,6,6"
                       Command="{Binding SetStatusCommand}" CommandParameter="{x:Static model:SceneStatus.Revised}" />
-              <Button Classes="statusBtn" Classes.active="{Binding IsStatusFinal}" Content="Готово" Margin="0,0,6,6"
+              <Button Classes="statusBtn" Classes.active="{Binding IsStatusFinal}" Content="{loc:Tr 'Готово'}" Margin="0,0,6,6"
                       Command="{Binding SetStatusCommand}" CommandParameter="{x:Static model:SceneStatus.Final}" />
             </WrapPanel>
           </StackPanel>
 
           <!-- Ключевые сюжетные линии -->
           <StackPanel Spacing="8">
-            <TextBlock Classes="panelLabel" Text="КЛЮЧЕВЫЕ СЮЖЕТНЫЕ ЛИНИИ" />
+            <TextBlock Classes="panelLabel" Text="{loc:Tr 'КЛЮЧЕВЫЕ СЮЖЕТНЫЕ ЛИНИИ'}" />
             <ItemsControl ItemsSource="{Binding AssignedSteps}">
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="shell:SceneStepEntry">
-                  <Border Classes="panelChip" Margin="0,0,0,5" HorizontalAlignment="Left">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                      <Ellipse Width="9" Height="9" VerticalAlignment="Center" Fill="{Binding Brush}" />
-                      <TextBlock Text="{Binding Label}" FontSize="12" VerticalAlignment="Center" />
-                      <Button Classes="tool" Padding="2" Command="{Binding RemoveCommand}"
-                              ToolTip.Tip="Снять шаг со сцены">
+                  <StackPanel Spacing="4" Margin="0,0,0,5">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <Button Classes="panelChip descriptionToggle" Grid.Column="0"
+                              Command="{Binding ToggleDescriptionCommand}"
+                              ToolTip.Tip="{loc:Tr 'Показать описание этапа'}">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                          <Ellipse Width="9" Height="9" VerticalAlignment="Center" Fill="{Binding Brush}" />
+                          <TextBlock Text="{Binding Label}" FontSize="12" VerticalAlignment="Center" />
+                        </StackPanel>
+                      </Button>
+                      <Button Classes="tool" Grid.Column="1" Padding="2" Margin="4,0,0,0"
+                              Command="{Binding RemoveCommand}" ToolTip.Tip="{loc:Tr 'Снять шаг со сцены'}">
                         <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE711;" FontSize="10" />
                       </Button>
+                    </Grid>
+                    <StackPanel Margin="8,0,4,4" Spacing="3"
+                                IsVisible="{Binding IsDescriptionExpanded}">
+                      <TextBlock Classes="muted" FontSize="10" Text="{Binding StepHeading}" />
+                      <TextBlock Text="{Binding StepDescriptionText}" FontSize="12" TextWrapping="Wrap" />
+                      <StackPanel IsVisible="{Binding HasLineDescription}" Spacing="2">
+                        <TextBlock Classes="muted" FontSize="10" Text="{Binding LineHeading}" />
+                        <TextBlock Text="{Binding LineDescription}" FontSize="12" TextWrapping="Wrap" />
+                      </StackPanel>
                     </StackPanel>
-                  </Border>
+                  </StackPanel>
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
 
             <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap"
-                       Text="Сцена не привязана к шагам линий. Выберите линию и шаг ниже."
+                       Text="{loc:Tr 'Сцена не привязана к шагам линий. Выберите линию и шаг ниже.'}"
                        IsVisible="{Binding !HasAssignedSteps}" />
             <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap"
-                       Text="У проекта нет линий с шагами. Создайте линию на экране «Сюжетные линии»."
+                       Text="{loc:Tr 'У проекта нет линий с шагами. Создайте линию на экране «Сюжетные линии».'}"
                        IsVisible="{Binding !HasLineOptions}" />
 
             <StackPanel Spacing="6" IsVisible="{Binding HasLineOptions}">
               <ComboBox HorizontalAlignment="Stretch" MinHeight="32"
                         ItemsSource="{Binding LineOptions}"
                         SelectedItem="{Binding SelectedLineOption, Mode=TwoWay}"
-                        ToolTip.Tip="Сюжетная линия" />
+                        ToolTip.Tip="{loc:Tr 'Сюжетная линия'}" />
               <ComboBox HorizontalAlignment="Stretch" MinHeight="32"
                         ItemsSource="{Binding StepOptions}"
                         SelectedItem="{Binding SelectedStepOption, Mode=TwoWay}"
                         IsVisible="{Binding HasStepOptions}"
-                        ToolTip.Tip="Шаг линии" />
+                        ToolTip.Tip="{loc:Tr 'Шаг линии'}" />
               <Button Classes="accentBtn" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                       Command="{Binding AddStepCommand}" IsEnabled="{Binding CanAddStep}">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                   <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE710;" FontSize="12" VerticalAlignment="Center" />
-                  <TextBlock Text="Добавить шаг" VerticalAlignment="Center" />
+                  <TextBlock Text="{loc:Tr 'Добавить шаг'}" VerticalAlignment="Center" />
                 </StackPanel>
               </Button>
             </StackPanel>
@@ -129,9 +154,9 @@
 
           <!-- Персонажи -->
           <StackPanel Spacing="8">
-            <TextBlock Classes="panelLabel" Text="ПЕРСОНАЖИ" />
+            <TextBlock Classes="panelLabel" Text="{loc:Tr 'ПЕРСОНАЖИ'}" />
             <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap"
-                       Text="Персонажи не упомянуты. Добавьте участника шага, привязанного к сцене."
+                       Text="{loc:Tr 'Персонажи не упомянуты. Добавьте участника шага, привязанного к сцене.'}"
                        IsVisible="{Binding !HasCharacters}" />
             <ItemsControl ItemsSource="{Binding Characters}" IsVisible="{Binding HasCharacters}">
               <ItemsControl.ItemTemplate>
@@ -140,14 +165,18 @@
                     <Border Classes="avatar" Width="34" Height="34" CornerRadius="17">
                       <TextBlock Classes="avatarLetter" FontSize="16" Text="{Binding Initial}" />
                     </Border>
-                    <StackPanel Grid.Column="1" Spacing="3" Margin="10,0,0,0" VerticalAlignment="Center">
+                    <StackPanel Grid.Column="1" Spacing="4" Margin="10,0,0,0">
                       <StackPanel Orientation="Horizontal" Spacing="6">
                         <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" />
                         <TextBlock Classes="muted" Text="{Binding RoleLabel}" VerticalAlignment="Center" />
                       </StackPanel>
-                      <Border Classes="panelChip" HorizontalAlignment="Left" IsVisible="{Binding HasStep}">
+                      <Button Classes="panelChip descriptionToggle" HorizontalAlignment="Left"
+                              IsVisible="{Binding HasStep}" Command="{Binding ToggleDescriptionCommand}"
+                              ToolTip.Tip="{loc:Tr 'Показать описание этапа'}">
                         <TextBlock Text="{Binding StepLabel}" FontSize="11" />
-                      </Border>
+                      </Button>
+                      <TextBlock Text="{Binding StepDescriptionText}" FontSize="12" TextWrapping="Wrap"
+                                 IsVisible="{Binding IsDescriptionExpanded}" />
                     </StackPanel>
                   </Grid>
                 </DataTemplate>
@@ -155,15 +184,15 @@
             </ItemsControl>
 
             <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap"
-                       Text="Сначала привяжите сцену к шагу линии — персонаж войдёт через участника шага."
+                       Text="{loc:Tr 'Сначала привяжите сцену к шагу линии — персонаж войдёт через участника шага.'}"
                        IsVisible="{Binding !CanAddCharacter}" />
             <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding CanAddCharacter}">
               <ComboBox Grid.Column="0" HorizontalAlignment="Stretch" MinHeight="32"
                         ItemsSource="{Binding CharacterOptions}"
                         SelectedItem="{Binding SelectedCharacterOption, Mode=TwoWay}"
-                        PlaceholderText="Персонаж" ToolTip.Tip="Персонаж проекта" />
+                        PlaceholderText="{loc:Tr 'Персонаж'}" ToolTip.Tip="{loc:Tr 'Персонаж проекта'}" />
               <Button Grid.Column="1" Classes="tool" Margin="6,0,0,0"
-                      Command="{Binding AddCharacterCommand}" ToolTip.Tip="Добавить персонажа в сцену">
+                      Command="{Binding AddCharacterCommand}" ToolTip.Tip="{loc:Tr 'Добавить персонажа в сцену'}">
                 <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE710;" FontSize="12" />
               </Button>
             </Grid>
@@ -171,9 +200,9 @@
 
           <!-- Заметки -->
           <StackPanel Spacing="6">
-            <TextBlock Classes="panelLabel" Text="ЗАМЕТКИ" />
+            <TextBlock Classes="panelLabel" Text="{loc:Tr 'ЗАМЕТКИ'}" />
             <Border Classes="panelField">
-            <TextBox Classes="panelField" Text="{Binding Notes, Mode=TwoWay}" MinHeight="60" Watermark="Заметки по сцене…" />
+            <TextBox Classes="panelField" Text="{Binding Notes, Mode=TwoWay}" MinHeight="60" PlaceholderText="{loc:Tr 'Заметки по сцене…'}" />
           </Border>
           </StackPanel>
 
@@ -182,14 +211,14 @@
                   Command="{Binding UpdateMetaCommand}">
             <StackPanel Orientation="Horizontal" Spacing="8">
               <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE74E;" FontSize="12" VerticalAlignment="Center" />
-              <TextBlock Text="Сохранить" VerticalAlignment="Center" />
+              <TextBlock Text="{loc:Tr 'Сохранить'}" VerticalAlignment="Center" />
             </StackPanel>
           </Button>
           <Button Classes="tool" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                   Command="{Binding OpenPlannerCommand}">
             <StackPanel Orientation="Horizontal" Spacing="8">
               <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE8FD;" FontSize="12" VerticalAlignment="Center" />
-              <TextBlock Text="Открыть в планировщике" VerticalAlignment="Center" />
+              <TextBlock Text="{loc:Tr 'Открыть в планировщике'}" VerticalAlignment="Center" />
             </StackPanel>
           </Button>
         </StackPanel>

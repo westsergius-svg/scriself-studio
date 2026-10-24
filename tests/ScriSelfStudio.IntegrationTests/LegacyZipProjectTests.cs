@@ -53,6 +53,39 @@ public sealed class LegacyZipProjectTests
     }
 
     [Fact]
+    public async Task Chapter_level_text_from_legacy_files_is_not_lost()
+    {
+        using var workspace = new TempWorkspace();
+        var path = workspace.FilePath("Курс.scri");
+        const string ChapterText = "1.1. Зачем это писателю\nВы придумали событие. Оно даже интересное.";
+        WriteChapterTextProject(path, ChapterText);
+
+        using (var provider = ScriSelfStudioServices.Build(workspace.Root, useAvaloniaDialogs: false))
+        {
+            var projects = provider.GetRequiredService<IProjectService>();
+            var opened = await projects.OpenAsync(path);
+            Assert.True(opened.IsSuccess, opened.Error?.UserMessage);
+
+            var scene = opened.Require().Series[0].Books[0].Chapters[0].Scenes[0];
+            Assert.Equal(ChapterText, projects.GetSceneDocument(scene.Id).Require().Document.ToPlainText());
+            Assert.Equal(WordCounting.Count(ChapterText), scene.Words);
+        }
+
+        using (var provider = ScriSelfStudioServices.Build(workspace.Root, useAvaloniaDialogs: false))
+        {
+            var projects = provider.GetRequiredService<IProjectService>();
+            Assert.True((await projects.OpenAsync(path)).IsSuccess);
+            Assert.True((await projects.SaveAsync()).IsSuccess);
+        }
+
+        // Текст главы уже перенесён в сцену: в файле он не должен лежать ещё и в `chapterText`.
+        var content = ReadZipContent(path);
+        var chapter = (JsonObject)content["chapters"]!.AsArray()[0]!;
+        Assert.Equal(string.Empty, chapter["chapterText"]!.GetValue<string>());
+        Assert.Equal(ChapterText, chapter["scenes"]!.AsArray()[0]!["text"]!.GetValue<string>());
+    }
+
+    [Fact]
     public async Task Characters_and_plotline_stages_survive_a_zip_round_trip()
     {
         using var workspace = new TempWorkspace();
@@ -586,6 +619,55 @@ public sealed class LegacyZipProjectTests
         using var archive = ZipFile.Open(path, ZipArchiveMode.Create);
         WriteEntry(archive, "manifest.json", manifest);
         WriteEntry(archive, "content.json", content);
+    }
+
+    /// <summary>
+    /// Старый файл, где текст хранится не в сцене, а в поле главы <c>chapterText</c>
+    /// (так выглядит, например, «курс.scri» из старых сборок).
+    /// </summary>
+    private static void WriteChapterTextProject(string path, string chapterText)
+    {
+        var manifest = new JsonObject
+        {
+            ["format"] = "scri",
+            ["version"] = 1,
+            ["name"] = "Курс",
+        };
+
+        var content = new JsonObject
+        {
+            ["book"] = new JsonObject { ["title"] = "Курс", ["synopsis"] = string.Empty },
+            ["chapters"] = new JsonArray
+            {
+                new JsonObject
+                {
+                    ["id"] = "chapter_001",
+                    ["title"] = "Глава 1",
+                    ["chapterText"] = chapterText,
+                    ["scenes"] = new JsonArray
+                    {
+                        new JsonObject
+                        {
+                            ["id"] = "scene_001",
+                            ["title"] = "Сцена 1",
+                            ["text"] = string.Empty,
+                        },
+                    },
+                },
+            },
+        };
+
+        using var archive = ZipFile.Open(path, ZipArchiveMode.Create);
+        WriteEntry(archive, "manifest.json", manifest);
+        WriteEntry(archive, "content.json", content);
+    }
+
+    private static JsonObject ReadZipContent(string path)
+    {
+        using var archive = ZipFile.OpenRead(path);
+        var entry = archive.GetEntry("content.json")!;
+        using var reader = new StreamReader(entry.Open(), Encoding.UTF8);
+        return (JsonObject)JsonNode.Parse(reader.ReadToEnd())!;
     }
 
     private static void WriteEntry(ZipArchive archive, string entryName, JsonObject payload)

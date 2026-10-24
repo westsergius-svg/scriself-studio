@@ -7,6 +7,8 @@ using Microsoft.Extensions.DependencyInjection;
 using ScriSelfStudio.App.Views;
 using ScriSelfStudio.Contracts.Navigation;
 using ScriSelfStudio.Contracts.Projects;
+using ScriSelfStudio.Contracts.Settings;
+using ScriSelfStudio.Contracts.Storage;
 using ScriSelfStudio.Core.Model;
 using ScriSelfStudio.EditorUI;
 using ScriSelfStudio.Launcher;
@@ -46,16 +48,16 @@ public sealed class SettingsViewTests
         Assert.Single(buttons);
         Assert.All(buttons, button => Assert.NotNull(button.Command));
 
-        // Состав экрана: тема, язык, шрифт, размер, автосохранение, резервные копии (ТЗ п. 27).
-        Assert.Equal(3, settingsView.GetVisualDescendants().OfType<ComboBox>().Count());
+        // Состав экрана: язык, шрифт, размер, автосохранение, резервные копии (ТЗ п. 27).
+        Assert.Equal(2, settingsView.GetVisualDescendants().OfType<ComboBox>().Count());
         Assert.Equal(2, settingsView.GetVisualDescendants().OfType<NumericUpDown>().Count());
-        Assert.Equal(2, settingsView.GetVisualDescendants().OfType<CheckBox>().Count());
+        Assert.Equal(5, settingsView.GetVisualDescendants().OfType<CheckBox>().Count());
 
         window.Close();
     }
 
     [AvaloniaFact]
-    public async Task Theme_change_is_saved_and_survives_restart()
+    public async Task Standard_theme_is_the_only_available_option()
     {
         using var workspace = new TempWorkspace();
         using (var provider = ServiceProviderFactory.Create(workspace.Root, new StubFileDialogService()))
@@ -65,13 +67,9 @@ public sealed class SettingsViewTests
 
             var settings = provider.GetRequiredService<SettingsViewModel>();
             settings.Load();
-            settings.SelectedTheme = settings.Themes.Single(option => option.Value == AppTheme.Forest);
-
-        // Значение меняется так же, как это делает пользователь в списке: без вызова ApplyAsync.
-        await settings.PendingApply!;
-
-            Assert.False(settings.HasError);
-            Assert.True(settings.HasStatus);
+            Assert.Single(settings.Themes);
+            Assert.Equal(AppTheme.Starter, settings.Themes[0].Value);
+            Assert.Equal("Стандартная", settings.SelectedTheme.Title);
         }
 
         // Новый запуск с тем же каталогом настроек: тема прочитана из файла (ТЗ п. 36).
@@ -81,7 +79,8 @@ public sealed class SettingsViewTests
         var restartedSettings = restarted.GetRequiredService<SettingsViewModel>();
         restartedSettings.Load();
 
-        Assert.Equal(AppTheme.Forest, restartedSettings.SelectedTheme.Value);
+        Assert.Single(restartedSettings.Themes);
+        Assert.Equal(AppTheme.Starter, restartedSettings.SelectedTheme.Value);
     }
 
     [AvaloniaFact]
@@ -168,6 +167,105 @@ public sealed class SettingsViewTests
         Assert.Single(dialogs.Errors);
         var projects = provider.GetRequiredService<IProjectService>();
         Assert.Equal(16d, projects.Current!.Settings.FontSize);
+    }
+
+    [Fact]
+    public void Search_filters_settings_sections_and_recovers_after_no_matches()
+    {
+        using var workspace = new TempWorkspace();
+        using var provider = ServiceProviderFactory.Create(workspace.Root, new StubFileDialogService());
+        var settings = provider.GetRequiredService<SettingsViewModel>();
+
+        settings.SearchQuery = "тема";
+
+        var section = Assert.Single(settings.VisibleSections);
+        Assert.Equal(SettingsSection.Appearance, section.Section);
+        Assert.Same(section, settings.SelectedSection);
+
+        settings.SearchQuery = "нет такой настройки";
+
+        Assert.Empty(settings.VisibleSections);
+        Assert.False(settings.HasVisibleSections);
+        Assert.Null(settings.SelectedSection);
+
+        settings.SearchQuery = string.Empty;
+
+        Assert.Equal(4, settings.VisibleSections.Count);
+        Assert.True(settings.HasVisibleSections);
+        Assert.Equal(SettingsSection.General, settings.SelectedSection!.Section);
+    }
+
+    [AvaloniaFact]
+    public async Task Last_project_opens_only_when_preference_is_enabled()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        using var workspace = new TempWorkspace();
+        var projectPath = workspace.FilePath("Последний.scri");
+        var dialogs = new StubFileDialogService { CreatePath = projectPath };
+        using (var provider = ServiceProviderFactory.Create(workspace.Root, dialogs))
+        {
+            var launcher = provider.GetRequiredService<LauncherViewModel>();
+            await launcher.InitializeAsync(cancellationToken);
+            await launcher.CreateProjectCommand.ExecuteAsync(null);
+            Assert.NotNull(provider.GetRequiredService<IProjectService>().Current);
+            Assert.True((await provider.GetRequiredService<IProjectService>()
+                .CloseAsync(discardChanges: true, cancellationToken)).IsSuccess);
+
+            var preferences = provider.GetRequiredService<IAppSettingsService>();
+            Assert.True((await preferences.UpdateAsync(
+                value => value.OpenLastProjectOnStartup = true,
+                cancellationToken)).IsSuccess);
+        }
+
+        using var restarted = ServiceProviderFactory.Create(workspace.Root, new StubFileDialogService());
+        var restartedLauncher = restarted.GetRequiredService<LauncherViewModel>();
+        await restartedLauncher.InitializeAsync(cancellationToken);
+        Assert.Null(restarted.GetRequiredService<IProjectService>().Current);
+
+        await restartedLauncher.OpenLastProjectAsync(cancellationToken);
+
+        Assert.Equal(projectPath, restarted.GetRequiredService<IProjectService>().Current!.FilePath);
+    }
+
+    [AvaloniaFact]
+    public Task Recovery_prompt_is_shown_when_enabled() =>
+        VerifyRecoveryPromptPreferenceAsync(checkRecovery: true, expectPrompt: true);
+
+    [AvaloniaFact]
+    public Task Recovery_prompt_is_skipped_when_disabled() =>
+        VerifyRecoveryPromptPreferenceAsync(checkRecovery: false, expectPrompt: false);
+
+    private static async Task VerifyRecoveryPromptPreferenceAsync(bool checkRecovery, bool expectPrompt)
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        using var workspace = new TempWorkspace();
+        var projectPath = workspace.FilePath("Восстановление.scri");
+        var dialogs = new StubFileDialogService { CreatePath = projectPath };
+        using var provider = ServiceProviderFactory.Create(workspace.Root, dialogs);
+
+        var launcher = provider.GetRequiredService<LauncherViewModel>();
+        await launcher.InitializeAsync(cancellationToken);
+        await launcher.CreateProjectCommand.ExecuteAsync(null);
+
+        var store = provider.GetRequiredService<IProjectStore>();
+        var loaded = await store.LoadAsync(projectPath, cancellationToken);
+        Assert.True(loaded.IsSuccess, loaded.Error?.TechnicalDetails);
+        var recoveryStore = provider.GetRequiredService<IProjectRecoveryStore>();
+        Assert.True((await recoveryStore.WriteAsync(loaded.Require().Project, projectPath, cancellationToken)).IsSuccess);
+
+        var preferences = provider.GetRequiredService<IAppSettingsService>();
+        Assert.True((await preferences.UpdateAsync(
+            value => value.CheckRecoveryOnStartup = checkRecovery,
+            cancellationToken)).IsSuccess);
+        Assert.True((await provider.GetRequiredService<IProjectService>()
+            .CloseAsync(discardChanges: true, cancellationToken)).IsSuccess);
+
+        await launcher.OpenProjectFromCommandLineAsync(projectPath, cancellationToken);
+
+        Assert.Equal(expectPrompt, dialogs.Confirmations.Any(message => message.StartsWith("Найдено восстановление:", StringComparison.Ordinal)));
+        var recovery = await recoveryStore.FindAsync(projectPath, cancellationToken);
+        Assert.True(recovery.IsSuccess);
+        Assert.Equal(!expectPrompt, recovery.Require() is not null);
     }
 
 }

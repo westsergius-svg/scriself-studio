@@ -3,8 +3,8 @@ namespace ScriSelfStudio.Presentation.Localization;
 using System.Globalization;
 
 /// <summary>
-/// Применение выбранного языка к форматам даты и чисел (ТЗ п. 27).
-/// Перевод строк интерфейса — отдельный этап: строки сейчас русские.
+/// Применение выбранного языка к форматам даты и чисел, а также к строкам
+/// интерфейса (ТЗ п. 27). Русский остаётся языком по умолчанию.
 /// </summary>
 public interface ICultureService
 {
@@ -30,7 +30,10 @@ public sealed class CultureService : ICultureService
             var culture = CultureInfo.GetCultureInfo(language);
             CultureInfo.DefaultThreadCurrentCulture = culture;
             CultureInfo.DefaultThreadCurrentUICulture = culture;
+            CultureInfo.CurrentCulture = culture;
+            CultureInfo.CurrentUICulture = culture;
             Current = language;
+            LocalizationManager.Instance.SetLanguage(language);
         }
         catch (CultureNotFoundException)
         {

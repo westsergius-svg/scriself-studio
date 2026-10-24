@@ -17,6 +17,9 @@ public sealed class NullFileDialogService : IFileDialogService
     public Task<string?> PickExportFileToSaveAsync(string suggestedFileName, string extension, string fileTypeName, string? suggestedDirectory, CancellationToken cancellationToken = default) =>
         Task.FromResult<string?>(null);
 
+    public Task<string?> PickCloudDownloadPathAsync(string suggestedFileName, string? suggestedDirectory, CancellationToken cancellationToken = default) =>
+        Task.FromResult<string?>(null);
+
     public Task<bool> ConfirmAsync(string title, string message, string confirmText, string cancelText, CancellationToken cancellationToken = default) =>
         Task.FromResult(false);
 

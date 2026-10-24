@@ -1,6 +1,8 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="clr-namespace:ScriSelfStudio.Presentation.Localization;assembly=ScriSelfStudio.Presentation"
              xmlns:launcher="clr-namespace:ScriSelfStudio.Launcher"
+             xmlns:cloud="using:ScriSelfStudio.Contracts.Cloud"
              x:Class="ScriSelfStudio.Launcher.LauncherView"
              x:DataType="launcher:LauncherViewModel">
   <UserControl.Styles>
@@ -190,6 +192,55 @@
       <Setter Property="HorizontalAlignment" Value="Stretch" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
     </Style>
+
+    <!-- QR страницы «Спасибо»: квадрат целиком — кнопка-ссылка на сайт автора. -->
+    <Style Selector="Button.qrTile">
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="Padding" Value="14" />
+      <Setter Property="Background" Value="{DynamicResource SurfaceFieldBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="Button.qrTile:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+    </Style>
+
+    <!-- Раздел «Облако»: панель поверх лаунчера. -->
+    <Style Selector="Border.cloudOverlay">
+      <Setter Property="Background" Value="#99000000" />
+    </Style>
+    <Style Selector="Border.cloudDialog">
+      <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="16" />
+      <Setter Property="Padding" Value="24" />
+      <Setter Property="MaxWidth" Value="760" />
+      <Setter Property="MaxHeight" Value="640" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBlock.cloudTitle">
+      <Setter Property="FontFamily" Value="Georgia" />
+      <Setter Property="FontSize" Value="24" />
+      <Setter Property="Foreground" Value="{DynamicResource HeadingBrush}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBox.cloudField">
+      <Setter Property="CornerRadius" Value="9" />
+      <Setter Property="Padding" Value="10,8" />
+      <Setter Property="Background" Value="{DynamicResource SurfaceFieldBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="ListBox.cloudFiles">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="0" />
+    </Style>
   </UserControl.Styles>
 
   <Grid ColumnDefinitions="228,*,336" Background="{DynamicResource SurfaceCanvasBrush}">
@@ -203,38 +254,56 @@
           <Button Classes="railItem active" Command="{Binding ShowProjectsCommand}">
             <Grid ColumnDefinitions="24,*,Auto">
               <TextBlock Grid.Column="0" Classes="railGlyph" Text="&#xE736;" />
-              <TextBlock Grid.Column="1" Classes="railLabel" Text="Мои проекты" />
+              <TextBlock Grid.Column="1" Classes="railLabel" Text="{loc:Tr 'Мои проекты'}" />
               <TextBlock Grid.Column="2" Classes="railCount" Text="{Binding ProjectCount}" />
             </Grid>
           </Button>
           <Button Classes="railItem" Command="{Binding ShowComingSoonCommand}" CommandParameter="Шаблоны">
             <Grid ColumnDefinitions="24,*">
               <TextBlock Grid.Column="0" Classes="railGlyph" Text="&#xE8FD;" />
-              <TextBlock Grid.Column="1" Classes="railLabel" Text="Шаблоны" />
+              <TextBlock Grid.Column="1" Classes="railLabel" Text="{loc:Tr 'Шаблоны'}" />
             </Grid>
           </Button>
-          <Button Classes="railItem" Command="{Binding ShowComingSoonCommand}" CommandParameter="Облако">
+          <Button Classes="railItem" Command="{Binding OpenCloudCommand}">
             <Grid ColumnDefinitions="24,*">
               <TextBlock Grid.Column="0" Classes="railGlyph" Text="&#xE753;" />
-              <TextBlock Grid.Column="1" Classes="railLabel" Text="Облако" />
+              <TextBlock Grid.Column="1" Classes="railLabel" Text="{loc:Tr 'Облако'}" />
             </Grid>
           </Button>
-          <Button Classes="railItem" Command="{Binding ShowComingSoonCommand}" CommandParameter="Блог">
+          <!-- Блог живёт на сайте автора: кнопка открывает страницу в браузере. -->
+          <Button Classes="railItem"
+                  Command="{Binding OpenLinkCommand}"
+                  CommandParameter="{x:Static launcher:LauncherViewModel.BlogUrl}"
+                  ToolTip.Tip="{loc:Tr 'Открыть блог в браузере'}">
             <Grid ColumnDefinitions="24,*">
               <TextBlock Grid.Column="0" Classes="railGlyph" Text="&#xE8BD;" />
-              <TextBlock Grid.Column="1" Classes="railLabel" Text="Блог" />
+              <TextBlock Grid.Column="1" Classes="railLabel" Text="{loc:Tr 'Блог'}" />
+            </Grid>
+          </Button>
+          <Button Classes="railItem"
+                  Command="{Binding OpenLinkCommand}"
+                  CommandParameter="{x:Static launcher:LauncherViewModel.VkUrl}"
+                  ToolTip.Tip="{loc:Tr 'Открыть сообщество ВКонтакте'}">
+            <Grid ColumnDefinitions="24,*">
+              <TextBlock Grid.Column="0" Classes="railGlyph" Text="VK"
+                         FontFamily="Segoe UI" FontWeight="Bold" FontSize="12" />
+              <TextBlock Grid.Column="1" Classes="railLabel" Text="{loc:Tr 'Мы в ВК'}" />
             </Grid>
           </Button>
           <Button Classes="railItem" Command="{Binding OpenSettingsCommand}">
             <Grid ColumnDefinitions="24,*">
               <TextBlock Grid.Column="0" Classes="railGlyph" Text="&#xE713;" />
-              <TextBlock Grid.Column="1" Classes="railLabel" Text="Настройки" />
+              <TextBlock Grid.Column="1" Classes="railLabel" Text="{loc:Tr 'Настройки'}" />
             </Grid>
           </Button>
         </StackPanel>
 
-        <StackPanel Grid.Row="2" Margin="18,0">
+        <StackPanel Grid.Row="2" Margin="18,0" Spacing="10">
           <Rectangle Height="2" Fill="{DynamicResource SurfaceBorderBrush}" />
+          <TextBlock Classes="muted" Text="{Binding AppVersionText}" TextWrapping="Wrap" />
+          <Button Classes="hollow" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                  Command="{Binding CheckForUpdatesCommand}" Content="{loc:Tr 'Проверить обновления'}"
+                  ToolTip.Tip="{loc:Tr 'Проверка новой сборки на сайте Scriborium'}" />
         </StackPanel>
       </Grid>
     </Border>
@@ -243,22 +312,22 @@
     <Border Grid.Column="1" Classes="panel" Margin="20,20,16,20">
       <Grid RowDefinitions="Auto,Auto,*">
         <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="10">
-          <TextBlock Grid.Column="0" Classes="launcherTitle" Text="Мои проекты" />
+          <TextBlock Grid.Column="0" Classes="launcherTitle" Text="{loc:Tr 'Мои проекты'}" />
           <TextBox Grid.Column="1" Classes="search"
-                   Watermark="Поиск по проектам…"
+                   PlaceholderText="{loc:Tr 'Поиск по проектам…'}"
                    Text="{Binding ProjectSearchQuery}">
             <TextBox.InnerLeftContent>
               <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE721;" Margin="2,0,6,0"
                          VerticalAlignment="Center" Foreground="{DynamicResource MutedBrush}" />
             </TextBox.InnerLeftContent>
           </TextBox>
-          <Button Grid.Column="2" Classes="hollow" Command="{Binding OpenProjectCommand}" Content="Открыть проект" />
-          <Button Grid.Column="3" Classes="hollow" Command="{Binding CloseProjectCommand}" Content="Закрыть проект"
-                  IsVisible="{Binding IsProjectOpen}" ToolTip.Tip="Сохранить и закрыть текущий проект" />
+          <Button Grid.Column="2" Classes="hollow" Command="{Binding OpenProjectCommand}" Content="{loc:Tr 'Открыть проект'}" />
+          <Button Grid.Column="3" Classes="hollow" Command="{Binding CloseProjectCommand}" Content="{loc:Tr 'Закрыть проект'}"
+                  IsVisible="{Binding IsProjectOpen}" ToolTip.Tip="{loc:Tr 'Сохранить и закрыть текущий проект'}" />
           <Button Grid.Column="4" Classes="accentBtn" Command="{Binding CreateProjectCommand}">
             <StackPanel Orientation="Horizontal" Spacing="8">
               <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE710;" VerticalAlignment="Center" />
-              <TextBlock Text="Новый проект" VerticalAlignment="Center" />
+              <TextBlock Text="{loc:Tr 'Новый проект'}" VerticalAlignment="Center" />
             </StackPanel>
           </Button>
         </Grid>
@@ -290,18 +359,20 @@
                           Command="{Binding OpenCommand}" CommandParameter="{Binding}">
                     <StackPanel Orientation="Horizontal" Spacing="7">
                       <Path Classes="playIcon" Data="M0,0 L0,10 L9,5 Z" />
-                      <TextBlock Text="Открыть" VerticalAlignment="Center" />
+                      <TextBlock Text="{loc:Tr 'Открыть'}" VerticalAlignment="Center" />
                     </StackPanel>
                   </Button>
                   <Button Grid.Column="3" Classes="cardMore"
                           Command="{Binding SelectCommand}" CommandParameter="{Binding}"
-                          ToolTip.Tip="Ещё">
+                          ToolTip.Tip="{loc:Tr 'Ещё'}">
                     <TextBlock Text="…" FontSize="18" VerticalAlignment="Center" HorizontalAlignment="Center" />
                     <Button.Flyout>
                       <MenuFlyout>
-                        <MenuItem Header="Продолжить работу" Command="{Binding OpenCommand}" CommandParameter="{Binding}" />
-                        <MenuItem Header="Открыть папку проекта" Command="{Binding FolderCommand}" />
-                        <MenuItem Header="Убрать из списка" Command="{Binding RemoveCommand}" />
+                        <MenuItem Header="{loc:Tr 'Продолжить работу'}" Command="{Binding OpenCommand}" CommandParameter="{Binding}" />
+                        <MenuItem Header="{loc:Tr 'Открыть папку проекта'}" Command="{Binding FolderCommand}"
+                                  CommandParameter="{Binding}" />
+                        <MenuItem Header="{loc:Tr 'Убрать из списка'}" Command="{Binding RemoveCommand}"
+                                  CommandParameter="{Binding}" />
                       </MenuFlyout>
                     </Button.Flyout>
                   </Button>
@@ -312,9 +383,9 @@
 
           <StackPanel IsVisible="{Binding !HasVisibleProjects}" Spacing="12" Margin="0,24" HorizontalAlignment="Center">
             <TextBlock Classes="muted" HorizontalAlignment="Center"
-                       Text="Проектов пока нет или ничего не найдено по запросу." />
+                       Text="{loc:Tr 'Проектов пока нет или ничего не найдено по запросу.'}" />
             <Button Classes="accentBtn" HorizontalAlignment="Center"
-                    Command="{Binding CreateProjectCommand}" Content="Создать проект" />
+                    Command="{Binding CreateProjectCommand}" Content="{loc:Tr 'Создать проект'}" />
           </StackPanel>
         </Grid>
       </Grid>
@@ -322,104 +393,237 @@
 
     <!-- Справа: «Контекст проекта» выбранной карточки (макет). -->
     <Border Grid.Column="2" Classes="panel" Margin="0,20,20,20">
-      <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-        <StackPanel Spacing="16">
-          <StackPanel Orientation="Horizontal" Spacing="9">
-            <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="15" Text="&#xE736;"
-                       Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
-            <TextBlock Classes="panelTitle" Text="Контекст проекта" />
-          </StackPanel>
-
-          <StackPanel Spacing="14" IsVisible="{Binding HasSelectedProject}">
-            <Border Classes="cardField" Padding="14">
-              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                <Border Grid.Column="0" Classes="cover" Width="52" Height="52"
-                        Background="{Binding SelectedProject.CoverFill}">
-                  <TextBlock Classes="coverLetter" FontSize="20"
-                             Text="{Binding SelectedProject.Monogram}"
-                             Foreground="{Binding SelectedProject.CoverInk}" />
-                </Border>
-                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3">
-                  <TextBlock Text="{Binding SelectedProject.Name}" FontSize="15" FontWeight="SemiBold"
-                             Foreground="{DynamicResource HeadingBrush}" TextTrimming="CharacterEllipsis" />
-                  <TextBlock Classes="muted" Text="{Binding SelectedProject.SummaryText}" />
-                </StackPanel>
-              </Grid>
-            </Border>
-
-            <TextBlock Text="{Binding SelectedProject.DescriptionText}" TextWrapping="Wrap"
-                       Foreground="{DynamicResource SidebarTextBrush}" />
-
-            <Rectangle Height="1" Fill="{DynamicResource SurfaceBorderBrush}" />
-
-            <StackPanel Spacing="6">
-              <Border Classes="statRow">
-                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
-                  <TextBlock Grid.Column="0" FontFamily="Segoe MDL2 Assets" Text="&#xE8A5;"
-                             Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
-                  <TextBlock Grid.Column="1" Text="Главы" VerticalAlignment="Center" />
-                  <TextBlock Grid.Column="2" Text="{Binding SelectedProject.ChapterCount}"
-                             FontWeight="SemiBold" VerticalAlignment="Center" />
-                </Grid>
-              </Border>
-              <Border Classes="statRow">
-                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
-                  <TextBlock Grid.Column="0" FontFamily="Segoe MDL2 Assets" Text="&#xE7C3;"
-                             Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
-                  <TextBlock Grid.Column="1" Text="Сцены" VerticalAlignment="Center" />
-                  <TextBlock Grid.Column="2" Text="{Binding SelectedProject.SceneCount}"
-                             FontWeight="SemiBold" VerticalAlignment="Center" />
-                </Grid>
-              </Border>
-              <Border Classes="statRow">
-                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
-                  <TextBlock Grid.Column="0" FontFamily="Segoe MDL2 Assets" Text="&#xE902;"
-                             Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
-                  <TextBlock Grid.Column="1" Text="Персонажи" VerticalAlignment="Center" />
-                  <TextBlock Grid.Column="2" Text="{Binding SelectedProject.CharacterCount}"
-                             FontWeight="SemiBold" VerticalAlignment="Center" />
-                </Grid>
-              </Border>
-              <Border Classes="statRow">
-                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
-                  <TextBlock Grid.Column="0" FontFamily="Segoe MDL2 Assets" Text="&#xE8EC;"
-                             Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
-                  <TextBlock Grid.Column="1" Text="Сюжетные линии" VerticalAlignment="Center" />
-                  <TextBlock Grid.Column="2" Text="{Binding SelectedProject.PlotLineCount}"
-                             FontWeight="SemiBold" VerticalAlignment="Center" />
-                </Grid>
-              </Border>
-            </StackPanel>
-
-            <Rectangle Height="1" Fill="{DynamicResource SurfaceBorderBrush}" />
-
-            <StackPanel Spacing="9">
-              <Button Classes="accentBtn wide" Command="{Binding OpenSelectedProjectCommand}">
-                <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
-                  <Path Classes="playIcon" Data="M0,0 L0,10 L9,5 Z" />
-                  <TextBlock Text="Продолжить работу" VerticalAlignment="Center" />
-                </StackPanel>
-              </Button>
-              <Button Classes="hollow wide" Command="{Binding OpenSelectedFolderCommand}" Content="Открыть папку проекта" />
-              <Button Classes="hollow wide" Command="{Binding ShowComingSoonCommand}" CommandParameter="Экспорт" Content="Экспорт" />
-              <Button Classes="hollow wide" Command="{Binding RemoveSelectedProjectCommand}" Content="Убрать из списка" />
-            </StackPanel>
-
-            <Rectangle Height="1" Fill="{DynamicResource SurfaceBorderBrush}" />
-
-            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
-              <TextBlock Grid.Column="0" FontFamily="Georgia" FontSize="34" Margin="0,-8,0,0"
-                         Text="&#x201C;" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Top" />
-              <TextBlock Grid.Column="1" Classes="cardQuote" VerticalAlignment="Center"
-                         Text="Хорошая история начинается с идеи, а с первого слова." />
-            </Grid>
-          </StackPanel>
-
-          <TextBlock Classes="muted" TextWrapping="Wrap"
-                     IsVisible="{Binding !HasSelectedProject}"
-                     Text="Выберите проект в списке, чтобы увидеть его контекст." />
+      <!-- QR «Спасибо» закреплён у нижнего края панели: он виден и без прокрутки,
+           и тогда, когда проект ещё не выбран. -->
+      <Grid RowDefinitions="Auto,*,Auto">
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="9">
+          <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="15" Text="&#xE736;"
+                     Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+          <TextBlock Classes="panelTitle" Text="{loc:Tr 'Контекст проекта'}" />
         </StackPanel>
-      </ScrollViewer>
+
+        <ScrollViewer Grid.Row="1" Margin="0,14,0,0"
+                      HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+          <StackPanel Spacing="16">
+            <StackPanel Spacing="14" IsVisible="{Binding HasSelectedProject}">
+              <Border Classes="cardField" Padding="14">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                  <Border Grid.Column="0" Classes="cover" Width="52" Height="52"
+                          Background="{Binding SelectedProject.CoverFill}">
+                    <TextBlock Classes="coverLetter" FontSize="20"
+                               Text="{Binding SelectedProject.Monogram}"
+                               Foreground="{Binding SelectedProject.CoverInk}" />
+                  </Border>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3">
+                    <TextBlock Text="{Binding SelectedProject.Name}" FontSize="15" FontWeight="SemiBold"
+                               Foreground="{DynamicResource HeadingBrush}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Classes="muted" Text="{Binding SelectedProject.SummaryText}" />
+                  </StackPanel>
+                </Grid>
+              </Border>
+
+              <TextBlock Text="{Binding SelectedProject.DescriptionText}" TextWrapping="Wrap"
+                         Foreground="{DynamicResource SidebarTextBrush}" />
+
+              <Rectangle Height="1" Fill="{DynamicResource SurfaceBorderBrush}" />
+
+              <StackPanel Spacing="6">
+                <Border Classes="statRow">
+                  <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                    <TextBlock Grid.Column="0" FontFamily="Segoe MDL2 Assets" Text="&#xE8A5;"
+                               Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" Text="{loc:Tr 'Главы'}" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="2" Text="{Binding SelectedProject.ChapterCount}"
+                               FontWeight="SemiBold" VerticalAlignment="Center" />
+                  </Grid>
+                </Border>
+                <Border Classes="statRow">
+                  <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                    <TextBlock Grid.Column="0" FontFamily="Segoe MDL2 Assets" Text="&#xE7C3;"
+                               Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" Text="{loc:Tr 'Сцены'}" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="2" Text="{Binding SelectedProject.SceneCount}"
+                               FontWeight="SemiBold" VerticalAlignment="Center" />
+                  </Grid>
+                </Border>
+                <Border Classes="statRow">
+                  <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                    <TextBlock Grid.Column="0" FontFamily="Segoe MDL2 Assets" Text="&#xE902;"
+                               Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" Text="{loc:Tr 'Персонажи'}" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="2" Text="{Binding SelectedProject.CharacterCount}"
+                               FontWeight="SemiBold" VerticalAlignment="Center" />
+                  </Grid>
+                </Border>
+                <Border Classes="statRow">
+                  <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                    <TextBlock Grid.Column="0" FontFamily="Segoe MDL2 Assets" Text="&#xE8EC;"
+                               Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" Text="{loc:Tr 'Сюжетные линии'}" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="2" Text="{Binding SelectedProject.PlotLineCount}"
+                               FontWeight="SemiBold" VerticalAlignment="Center" />
+                  </Grid>
+                </Border>
+              </StackPanel>
+
+              <Rectangle Height="1" Fill="{DynamicResource SurfaceBorderBrush}" />
+
+              <StackPanel Spacing="9">
+                <Button Classes="accentBtn wide" Command="{Binding OpenSelectedProjectCommand}">
+                  <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                    <Path Classes="playIcon" Data="M0,0 L0,10 L9,5 Z" />
+                    <TextBlock Text="{loc:Tr 'Продолжить работу'}" VerticalAlignment="Center" />
+                  </StackPanel>
+                </Button>
+                <Button Classes="hollow wide" Command="{Binding OpenSelectedFolderCommand}" Content="{loc:Tr 'Открыть папку проекта'}" />
+                <Button Classes="hollow wide" Command="{Binding OpenExportCommand}" Content="{loc:Tr 'Экспорт'}" />
+                <Button Classes="hollow wide" Command="{Binding RemoveSelectedProjectCommand}" Content="{loc:Tr 'Убрать из списка'}" />
+              </StackPanel>
+            </StackPanel>
+
+            <TextBlock Classes="muted" TextWrapping="Wrap"
+                       IsVisible="{Binding !HasSelectedProject}"
+                       Text="{loc:Tr 'Выберите проект в списке, чтобы увидеть его контекст.'}" />
+          </StackPanel>
+        </ScrollViewer>
+
+        <StackPanel Grid.Row="2" Spacing="12" Margin="0,14,0,0">
+          <Rectangle Height="1" Fill="{DynamicResource SurfaceBorderBrush}" />
+          <Button Classes="qrTile"
+                  Command="{Binding OpenLinkCommand}"
+                  CommandParameter="{x:Static launcher:LauncherViewModel.ThanksUrl}"
+                  ToolTip.Tip="{loc:Tr 'Сказать спасибо автору: scriborium.ru/spasibo.html'}">
+            <StackPanel Spacing="8">
+              <Image Width="160" Height="160" Stretch="Uniform"
+                     Source="avares://ScriSelfStudio.Launcher/Assets/qr-spasibo.png" />
+              <TextBlock Classes="muted" HorizontalAlignment="Center" Text="{loc:Tr 'Сказать спасибо автору'}" />
+            </StackPanel>
+          </Button>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- Облако: Яндекс.Диск или Google Drive. Панель открывается кнопкой в левом меню. -->
+    <Border Grid.ColumnSpan="3" Classes="cloudOverlay" IsVisible="{Binding IsCloudOpen}" ZIndex="10">
+      <Border Classes="cloudDialog">
+        <Grid RowDefinitions="Auto,*" RowSpacing="16">
+          <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="12">
+            <StackPanel Grid.Column="0" Spacing="3">
+              <TextBlock Classes="cloudTitle" Text="{Binding CloudProviderTitle}" />
+              <TextBlock Classes="muted" TextWrapping="Wrap"
+                         Text="{Binding CloudProviderDescription}" />
+            </StackPanel>
+            <Button Grid.Column="1" Classes="hollow" VerticalAlignment="Top"
+                    Command="{Binding CloseCloudCommand}" Content="{loc:Tr 'Закрыть'}" />
+          </Grid>
+
+          <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                        HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="14">
+              <StackPanel Spacing="5">
+                <TextBlock Classes="muted" Text="{loc:Tr 'Провайдер облака'}" />
+                <ComboBox ItemsSource="{Binding CloudProviders}"
+                          SelectedItem="{Binding SelectedCloudProvider}"
+                          HorizontalAlignment="Left" MinWidth="220">
+                  <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="cloud:CloudProviderInfo">
+                      <TextBlock Text="{Binding DisplayName}" />
+                    </DataTemplate>
+                  </ComboBox.ItemTemplate>
+                </ComboBox>
+              </StackPanel>
+
+              <!-- Подключение: логин + пароль приложения, без основного пароля. -->
+              <StackPanel Spacing="10" IsVisible="{Binding ShowYandexConnectForm}">
+                <TextBlock TextWrapping="Wrap"
+                           Text="{loc:Tr '1. Откройте настройки Яндекса и создайте пароль приложения для «Файлов».'}" />
+                <Button Classes="hollow" HorizontalAlignment="Left"
+                        Command="{Binding OpenLinkCommand}"
+                        CommandParameter="{x:Static launcher:LauncherViewModel.YandexAppPasswordsUrl}"
+                        Content="{loc:Tr 'Создать пароль приложения'}" />
+                <TextBlock TextWrapping="Wrap"
+                           Text="{loc:Tr '2. Введите логин Яндекса и этот пароль приложения. Основной пароль приложению не нужен.'}" />
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                  <StackPanel Grid.Column="0" Spacing="5">
+                    <TextBlock Classes="muted" Text="{loc:Tr 'Логин Яндекса'}" />
+                    <TextBox Classes="cloudField" Text="{Binding CloudLogin}"
+                             PlaceholderText="name@yandex.ru" />
+                  </StackPanel>
+                  <StackPanel Grid.Column="1" Spacing="5">
+                    <TextBlock Classes="muted" Text="{loc:Tr 'Пароль приложения'}" />
+                    <TextBox Classes="cloudField" Text="{Binding CloudPassword}"
+                             PasswordChar="●" PlaceholderText="xxxx xxxx xxxx xxxx" />
+                  </StackPanel>
+                </Grid>
+                <Button Classes="accentBtn" HorizontalAlignment="Left"
+                        Command="{Binding ConnectCloudCommand}"
+                        IsEnabled="{Binding !IsCloudBusy}"
+                        Content="{loc:Tr 'Подключить Яндекс.Диск'}" />
+              </StackPanel>
+
+              <!-- Google Drive: вход в браузере через OAuth, без пароля в приложении. -->
+              <StackPanel Spacing="10" IsVisible="{Binding ShowGoogleConnectForm}">
+                <TextBlock TextWrapping="Wrap"
+                           Text="{loc:Tr 'Войдите в аккаунт Google. Откроется браузер; пароль вводится только на сайте Google.'}" />
+                <Button Classes="accentBtn" HorizontalAlignment="Left"
+                        Command="{Binding ConnectCloudCommand}"
+                        IsEnabled="{Binding !IsCloudBusy}"
+                        Content="{loc:Tr 'Войти через Google'}" />
+              </StackPanel>
+
+              <!-- Подключённый аккаунт: загрузка и список файлов. -->
+              <StackPanel Spacing="10" IsVisible="{Binding IsCloudConnected}">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                  <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6">
+                    <TextBlock Classes="muted" Text="{loc:Tr 'Подключено:'}" />
+                    <TextBlock Text="{Binding CloudLogin}" FontWeight="SemiBold" />
+                  </StackPanel>
+                  <Button Grid.Column="1" Classes="hollow"
+                          Command="{Binding DisconnectCloudCommand}" Content="{loc:Tr 'Отключить'}" />
+                </Grid>
+
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <Button Classes="accentBtn" Command="{Binding UploadToCloudCommand}"
+                          Content="{loc:Tr 'Загрузить текущий проект'}" />
+                  <Button Classes="hollow" Command="{Binding RefreshCloudFilesCommand}"
+                          Content="{loc:Tr 'Обновить список'}" />
+                </StackPanel>
+
+                <TextBlock Classes="muted" TextWrapping="Wrap"
+                           Text="{loc:Tr 'Если проект открыт, перед загрузкой он будет сохранён. Без открытого проекта загрузится выбранная карточка из списка.'}" />
+
+                <ListBox Classes="cloudFiles" ItemsSource="{Binding CloudFiles}"
+                         IsVisible="{Binding HasCloudFiles}" MaxHeight="300">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="launcher:CloudFileItem">
+                      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="0,4">
+                        <StackPanel Grid.Column="0" Spacing="2">
+                          <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
+                                     TextTrimming="CharacterEllipsis" />
+                          <TextBlock Classes="muted" Text="{Binding SizeText}" />
+                          <TextBlock Classes="muted" Text="{Binding UpdatedText}" />
+                        </StackPanel>
+                        <Button Grid.Column="1" Classes="hollow" VerticalAlignment="Center"
+                                Command="{Binding DownloadCommand}" CommandParameter="{Binding}"
+                                Content="{loc:Tr 'Скачать'}" />
+                      </Grid>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+
+                <TextBlock Classes="muted" TextWrapping="Wrap"
+                           IsVisible="{Binding !HasCloudFiles}"
+                           Text="{loc:Tr 'В облаке пока нет проектов.'}" />
+              </StackPanel>
+
+              <TextBlock Classes="success" Text="{Binding CloudStatusMessage}"
+                         IsVisible="{Binding HasCloudStatus}" TextWrapping="Wrap" />
+              <TextBlock Classes="error" Text="{Binding CloudErrorMessage}"
+                         IsVisible="{Binding HasCloudError}" TextWrapping="Wrap" />
+            </StackPanel>
+          </ScrollViewer>
+        </Grid>
+      </Border>
     </Border>
   </Grid>
 </UserControl>

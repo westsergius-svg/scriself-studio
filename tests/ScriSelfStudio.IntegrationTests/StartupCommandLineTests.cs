@@ -31,6 +31,18 @@ public sealed class StartupCommandLineTests
         Assert.Equal("Рукопись.SCRI", Path.GetFileName(resolved));
     }
 
+    [Theory]
+    [InlineData("Рукопись.scri.bak")]
+    [InlineData("Автосохранение.backup")]
+    public void Backup_argument_is_resolved_to_absolute_path(string argument)
+    {
+        var resolved = StartupCommandLine.ResolveProjectPath([argument]);
+
+        Assert.NotNull(resolved);
+        Assert.True(Path.IsPathFullyQualified(resolved));
+        Assert.Equal(argument, Path.GetFileName(resolved));
+    }
+
     [Fact]
     public void Arguments_without_project_extension_are_ignored()
     {
