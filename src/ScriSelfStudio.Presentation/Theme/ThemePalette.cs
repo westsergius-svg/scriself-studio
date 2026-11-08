@@ -18,13 +18,16 @@ public sealed class ThemePalette
     {
         AppTheme.Paper => Paper,
         AppTheme.Starter => Starter,
+        AppTheme.GreenStart => GreenStart,
         AppTheme.Graphite => Graphite,
         AppTheme.Ocean => Ocean,
         AppTheme.Forest => Forest,
+        AppTheme.Cabinet => Cabinet,
+        AppTheme.Jam => Jam,
         _ => Studio,
     };
 
-    // Ключи в порядке колонок таблицы ниже: Studio, Paper, Starter, Graphite, Ocean, Forest.
+    // Общий порядок ключей для массивов цветов всех тем ниже.
     private static readonly string[] Keys =
     [
         "ChromeBrush", "PanelBrush", "ChromeBorderBrush",
@@ -46,21 +49,21 @@ public sealed class ThemePalette
 
     private static readonly string[] StudioValues =
     [
-        "#0F181D", "#142127", "#29353B",
-        "#F5F3EE", "#FBFAF7", "#DDD8CE", "#DDD8CE",
-        "#202428", "#6F7476", "#929696",
-        "#C56C45", "#FFFFFF",
-        "#142026", "#1A292F", "#2B3B42",
-        "#25292C", "#F1F2F2",
-        "#2B373C", "#AEB7BA", "#69767B",
-        "#2B373C", "#F2F4F4",
-        "#C0392B", "#36B97B", "#C07A1E",
-        "#C56C45", "#36B97B", "#26363D", "#D8BCAE",
-        "#131A1E", "#161E22", "#1B2428", "#1B2428",
-        "#2B3B42", "#1F292E", "#2A3238", "#3E4C52",
-        "#5FBF7F", "#7FD8A2", "#1E2E24",
-        "#E07A6C", "#5A322C", "#241C1A",
-        "#F1F2F2", "#9AA3A7", "#C6CED1", "#E5856F", "#1F292E",
+        "#252525", "#303030", "#191919",
+        "#F5F5F5", "#202020", "#181818", "#D9D9D9",
+        "#242424", "#6B6B6B", "#B7B7B7",
+        "#3785DB", "#FFFFFF",
+        "#303030", "#252525", "#191919",
+        "#EEEEEE", "#EEEEEE",
+        "#384B60", "#E0E0E0", "#B7B7B7",
+        "#434343", "#FFFFFF",
+        "#F19691", "#88C29C", "#DEC38B",
+        "#76B7FF", "#88C29C", "#444444", "#DDDDDD",
+        "#252525", "#202020", "#303030", "#252525",
+        "#484848", "#3C3C3C", "#384B60", "#679BD0",
+        "#88C29C", "#A2D5B4", "#304339",
+        "#F19691", "#79504E", "#47312F",
+        "#E8E8E8", "#B7B7B7", "#D0D0D0", "#76B7FF", "#3B3B3B",
     ];
 
     private static readonly string[] PaperValues =
@@ -99,6 +102,25 @@ public sealed class ThemePalette
         "#3B8AE5", "#3C7DCC", "#E4F0FF",
         "#D86052", "#DFB157", "#F2F7FF",
         "#1F2B39", "#7A8EA3", "#4A607A", "#2F78D7", "#E8F1FB",
+    ];
+
+    private static readonly string[] GreenStartValues =
+    [
+        "#F1F0EA", "#F5F4EF", "#D8DAD2",
+        "#FCFBF7", "#EEEFE9", "#D8DAD2", "#D8DAD2",
+        "#292F2C", "#616B63", "#626C64",
+        "#38634F", "#FFFFFF",
+        "#F5F4EF", "#ECEEE7", "#D8DAD2",
+        "#292F2C", "#292F2C",
+        "#E1E9DC", "#3E4B42", "#626C64",
+        "#E1E9DC", "#284E3B",
+        "#A43D35", "#326348", "#805719",
+        "#38634F", "#38634F", "#E1E9DC", "#38634F",
+        "#F1F0EA", "#F5F4EF", "#FCFBF7", "#ECEEE7",
+        "#D8DAD2", "#E8EBE2", "#E1E9DC", "#9CAC9A",
+        "#38634F", "#326348", "#E1E9DC",
+        "#A43D35", "#CFA49D", "#F7EAE5",
+        "#292F2C", "#626C64", "#465449", "#38634F", "#E8EBE2",
     ];
 
     private static readonly string[] GraphiteValues =
@@ -164,8 +186,11 @@ public sealed class ThemePalette
     /// <summary>Светлая бумажная тема.</summary>
     public static readonly ThemePalette Paper = Build(PaperValues);
 
-    /// <summary>Тёплая стартовая тема «Стартовая».</summary>
+    /// <summary>Стандартная светлая тема с синим акцентом.</summary>
     public static readonly ThemePalette Starter = Build(StarterValues);
+
+    /// <summary>«Зелёный старт»: светлая палитра с зелёным акцентом «Кабинета».</summary>
+    public static readonly ThemePalette GreenStart = Build(GreenStartValues);
 
     /// <summary>Тёмная нейтральная тема.</summary>
     public static readonly ThemePalette Graphite = Build(GraphiteValues);
@@ -175,6 +200,29 @@ public sealed class ThemePalette
 
     /// <summary>Глубокая зелёная тема.</summary>
     public static readonly ThemePalette Forest = Build(ForestValues);
+
+    /// <summary>Тёплые нейтральные поверхности и контрастный шалфейный акцент.</summary>
+    public static readonly ThemePalette Cabinet = GreenStart;
+
+    /// <summary>Стеклянные поверхности. Текст и лист непрозрачны для устойчивой читаемости.</summary>
+    public static readonly ThemePalette Jam = Build(
+    [
+        "#B8F5F7FC", "#BFFFFFFF", "#CCFFFFFF",
+        "#FCFDFF", "#30FFFFFF", "#D9E0EF", "#E1E6F0",
+        "#242A3B", "#566078", "#566078",
+        "#9E376D", "#FFFFFF",
+        "#BFFFFFFF", "#A6F3F5FC", "#CCFFFFFF",
+        "#252A3D", "#252A3D",
+        "#DCEBD8E8", "#364056", "#566078",
+        "#DCEBD8E8", "#812653",
+        "#A12839", "#216347", "#825615",
+        "#9E376D", "#287556", "#EBD8E8", "#812653",
+        "#B8FFFFFF", "#18FFFFFF", "#CFFFFFFF", "#B3F3F5FC",
+        "#9EBAC5DB", "#D9FFFFFF", "#DCEBD8E8", "#B98AAA",
+        "#287556", "#216347", "#DCEEE5",
+        "#A12839", "#D2A0AB", "#F9EAF0",
+        "#252A3D", "#566078", "#364056", "#9E376D", "#D9FFFFFF",
+    ]);
 
     private static ThemePalette Build(string[] values)
     {

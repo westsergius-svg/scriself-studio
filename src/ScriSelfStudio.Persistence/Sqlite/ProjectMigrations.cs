@@ -19,7 +19,33 @@ internal interface IProjectMigration
 internal static class ProjectMigrations
 {
     private static readonly IProjectMigration[] Steps =
-        [new MigrationV1ToV2(), new MigrationV2ToV3(), new MigrationV3ToV4()];
+        [new MigrationV1ToV2(), new MigrationV2ToV3(), new MigrationV3ToV4(), new MigrationV4ToV5(), new MigrationV5ToV6()];
+
+    private sealed class MigrationV5ToV6 : IProjectMigration
+    {
+        public int FromVersion => 5;
+        public int ToVersion => 6;
+        public void Apply(SqliteConnection connection, SqliteTransaction transaction)
+        {
+            using var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = "UPDATE schema_info SET version = 6 WHERE id = 1;";
+            command.ExecuteNonQuery();
+        }
+    }
+
+    private sealed class MigrationV4ToV5 : IProjectMigration
+    {
+        public int FromVersion => 4;
+        public int ToVersion => 5;
+        public void Apply(SqliteConnection connection, SqliteTransaction transaction)
+        {
+            using var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = ProjectSchema.VersionsSql + "UPDATE schema_info SET version = 5 WHERE id = 1;";
+            command.ExecuteNonQuery();
+        }
+    }
 
     /// <summary>
     /// Версия 2: персонажи, шаги их арок и шаги сюжетных линий (ТЗ п. 27; ADR 010).

@@ -5,12 +5,13 @@ using System.Security.Cryptography;
 using System.Text;
 
 /// <summary>
-/// Шифрование паролей средствами Windows (DPAPI, привязка к учётной записи).
-/// В настройках хранится только зашифрованная строка в Base64.
+/// Шифрование паролей: DPAPI в Windows, AES-GCM с ключом в Keychain в macOS.
+/// В настройках хранится зашифрованная строка, а ключ принадлежит учётной записи.
 /// </summary>
 public static class SecretProtector
 {
     private const int CryptProtectUiForbidden = 0x1;
+    private const string MacEnvelopePrefix = "mac-keychain-v1:";
 
     public static string? Protect(string? value)
     {
@@ -21,6 +22,19 @@ public static class SecretProtector
 
         try
         {
+            if (OperatingSystem.IsMacOS())
+            {
+                var key = MacKeychain.GetOrCreateKey();
+                try
+                {
+                    return MacEnvelopePrefix + AuthenticatedSecretEnvelope.Encrypt(value, key);
+                }
+                finally
+                {
+                    CryptographicOperations.ZeroMemory(key);
+                }
+            }
+
             var bytes = Encoding.UTF8.GetBytes(value);
             if (!OperatingSystem.IsWindows())
             {
@@ -44,6 +58,24 @@ public static class SecretProtector
 
         try
         {
+            if (protectedValue.StartsWith(MacEnvelopePrefix, StringComparison.Ordinal))
+            {
+                if (!OperatingSystem.IsMacOS())
+                {
+                    return null;
+                }
+
+                var key = MacKeychain.GetOrCreateKey();
+                try
+                {
+                    return AuthenticatedSecretEnvelope.Decrypt(protectedValue[MacEnvelopePrefix.Length..], key);
+                }
+                finally
+                {
+                    CryptographicOperations.ZeroMemory(key);
+                }
+            }
+
             var bytes = Convert.FromBase64String(protectedValue);
             if (!OperatingSystem.IsWindows())
             {

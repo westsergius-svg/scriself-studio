@@ -202,6 +202,7 @@ internal static class DocumentEditor
     /// <summary>Структурное сравнение без учёта идентификаторов блоков.</summary>
     public static bool IsEquivalent(RichDocument left, RichDocument right)
     {
+        if (!ReviewEditing.SameReview(left.Review, right.Review)) return false;
         if (left.Blocks.Count != right.Blocks.Count)
         {
             return false;

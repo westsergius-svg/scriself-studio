@@ -127,14 +127,14 @@ public sealed partial class TimelineViewModel : ViewModelBase, IDisposable
 
     public bool IsNew => Draft.IsNew;
 
-    public string LineTitle => Draft.IsNew ? "Новая линия" : Draft.Name;
+    public string LineTitle => Draft.IsNew ? Loc.T("Новая линия") : Draft.Name;
 
     /// <summary>Крупный заголовок в центре: рабочее название линии (макет).</summary>
     public string LineHeading => string.IsNullOrWhiteSpace(Draft.Description) ? LineTitle : Draft.Description!;
 
     public string GoalText => string.IsNullOrWhiteSpace(Draft.Goal)
         ? Loc.T("Цель не задана")
-        : $"Цель: {Draft.Goal}";
+        : Loc.F("Цель: {0}", Draft.Goal);
 
     public IBrush LineBrush => StoryLabels.BrushFromHex(Draft.ColorHex, StoryLabels.DefaultLineBrush);
 
@@ -158,9 +158,9 @@ public sealed partial class TimelineViewModel : ViewModelBase, IDisposable
         ? Loc.T("Персонажи не назначены.")
         : string.Join("\n", step.Participants.Select(participant =>
             participant.Character is null
-                ? "персонаж не выбран"
+                ? Loc.T("персонаж не выбран")
                 : participant.ArcStage is null
-                    ? $"{participant.Character.Name} · этап не выбран"
+                    ? Loc.F("{0} · этап не выбран", participant.Character.Name)
                     : $"{participant.Character.Name} · {participant.ArcStage.Title}"));
 
     public string SelectedStepScenesText => SelectedStep is not { } step || step.Scenes.Count == 0
@@ -187,7 +187,7 @@ public sealed partial class TimelineViewModel : ViewModelBase, IDisposable
 
     public string StepHint => Draft.Steps.Count == 0
         ? Loc.T("У линии нет шагов. Добавьте первый шаг.")
-        : "Выберите шаг, чтобы раскрыть его и назначить персонажей.";
+        : Loc.T("Выберите шаг, чтобы раскрыть его и назначить персонажей.");
 
     /// <summary>Есть ли у линии шаги: подсказка в ленте показывается только при пустой ленте.</summary>
     public bool HasSteps => Draft.Steps.Count > 0;
@@ -225,7 +225,7 @@ public sealed partial class TimelineViewModel : ViewModelBase, IDisposable
                 _suppressLineSelection = false;
             }
 
-            LoadDraft(restored.Id, selectedStepId);
+            LoadDraft(restored.Id, selectedStepId, preserveStepState: true);
         }
         else
         {
@@ -324,14 +324,40 @@ public sealed partial class TimelineViewModel : ViewModelBase, IDisposable
         await DeleteLineByIdAsync(line.Id, cancellationToken);
     }
 
+    [RelayCommand]
+    private Task MoveLineUpAsync(Guid lineId, CancellationToken cancellationToken) =>
+        MoveLineAsync(lineId, -1, cancellationToken);
+
+    [RelayCommand]
+    private Task MoveLineDownAsync(Guid lineId, CancellationToken cancellationToken) =>
+        MoveLineAsync(lineId, 1, cancellationToken);
+
+    private async Task MoveLineAsync(Guid lineId, int delta, CancellationToken cancellationToken)
+    {
+        var lines = _architecture.GetPlotLines().OrderBy(line => line.Order).ToList();
+        var index = lines.FindIndex(line => line.Id == lineId);
+        if (index < 0 || index + delta < 0 || index + delta >= lines.Count) return;
+        await FlushDraftAsync();
+        var result = await _architecture.MoveEntityAsync(new MoveEntityRequest
+        {
+            Kind = EntityKind.PlotLine, Id = lineId, NewOrder = index + delta,
+        }, cancellationToken);
+        if (!result.IsSuccess)
+        {
+            await ReportAsync(result.Error!);
+            return;
+        }
+        RefreshTo(lineId);
+    }
+
     /// <summary>Удаление строки списка через «…»: подтверждение и удаление (макет).</summary>
     [RelayCommand]
     private async Task DeleteLineByIdAsync(Guid lineId, CancellationToken cancellationToken)
     {
-        var name = PlotLines.FirstOrDefault(item => item.Id == lineId)?.Name ?? "линию";
+        var name = PlotLines.FirstOrDefault(item => item.Id == lineId)?.Name ?? Loc.T("линию");
         if (!await _dialogs.ConfirmAsync(
                 "Удалить линию",
-                $"Удалить «{name}»? Действие нельзя отменить.",
+                Loc.F("Удалить «{0}»? Действие нельзя отменить.", name),
                 "Удалить",
                 Loc.T("Отмена")))
         {
@@ -392,8 +418,13 @@ public sealed partial class TimelineViewModel : ViewModelBase, IDisposable
     {
         // Новую линию ещё нельзя выделить: она существует только черновиком, поэтому
         // проверяем не выбор, а готовность черновика — иначе создание линии терялось.
-        if (!CanPersist)
+        if (!HasUnsavedDraft)
         {
+            if (CanPersist)
+            {
+                IsHeaderEditing = false;
+            }
+
             return;
         }
 
@@ -733,7 +764,7 @@ public sealed partial class TimelineViewModel : ViewModelBase, IDisposable
         }
     }
 
-    private void LoadDraft(Guid lineId, Guid? preferredStepId)
+    private void LoadDraft(Guid lineId, Guid? preferredStepId, bool preserveStepState = false)
     {
         var line = _architecture.GetPlotLines().FirstOrDefault(item => item.Id == lineId);
         if (line is null)
@@ -743,6 +774,7 @@ public sealed partial class TimelineViewModel : ViewModelBase, IDisposable
             return;
         }
 
+        var previousSteps = preserveStepState ? Draft.Steps.ToArray() : [];
         _lineSceneIds = [.. line.SceneIds];
         var draft = new PlotLineDraft(line.Id)
         {
@@ -758,9 +790,16 @@ public sealed partial class TimelineViewModel : ViewModelBase, IDisposable
         foreach (var step in line.Steps.OrderBy(step => step.Order))
         {
             number++;
+            var previousStep = previousSteps.FirstOrDefault(item => item.Id == step.Id);
+            if (previousStep is null && number <= previousSteps.Length && previousSteps[number - 1].Id == Guid.Empty)
+            {
+                previousStep = previousSteps[number - 1];
+            }
+
             var stepDraft = new StepDraft(step.Id, step.Title, step.Description, step.IsFinal, step.Icon)
             {
                 Number = number,
+                SelectedTabIndex = previousStep?.SelectedTabIndex ?? 0,
             };
             stepDraft.InitializeIcon(step.Icon);
 

@@ -22,6 +22,102 @@ public sealed class LegacyZipProjectTests
     private const string SceneText = "Первая строка старого текста\nВторая строка";
 
     [Fact]
+    public async Task Broken_zip_review_is_not_silently_replaced_by_plain_text()
+    {
+        using var workspace = new TempWorkspace();
+        var path = workspace.FilePath("Повреждённая редактура.scri");
+        WriteLegacyProject(path, SceneText, new JsonObject
+        {
+            ["version"] = 1,
+            ["documents"] = new JsonObject
+            {
+                ["scene_001"] = JsonNode.Parse("{\"blocks\":[],\"review\":{\"comments\":[{\"start\":-1,\"length\":3}]}}"),
+            },
+        });
+        var original = await File.ReadAllBytesAsync(path);
+        using var provider = ScriSelfStudioServices.Build(workspace.Root, useAvaloniaDialogs: false);
+        var projects = provider.GetRequiredService<IProjectService>();
+        Assert.False((await projects.OpenAsync(path)).IsSuccess);
+        Assert.Equal(original, await File.ReadAllBytesAsync(path));
+    }
+
+    [Fact]
+    public async Task Review_and_comments_survive_zip_even_when_all_text_is_deleted()
+    {
+        using var workspace = new TempWorkspace();
+        var path = workspace.FilePath("Правки.scri");
+        WriteLegacyProject(path, SceneText);
+        using var provider = ScriSelfStudioServices.Build(workspace.Root, useAvaloniaDialogs: false);
+        var projects = provider.GetRequiredService<IProjectService>();
+        await projects.OpenAsync(path);
+        var id = projects.Current!.Series[0].Books[0].Chapters[0].Scenes[0].Id;
+        var before = projects.GetSceneDocument(id).Require().Document;
+        before.Review.TrackChanges = true;
+        ReviewEditing.AddComment(before, 0, 6, "Сохранить комментарий", DateTimeOffset.UtcNow);
+        var empty = RichDocument.CreateEmpty();
+        ReviewEditing.Capture(before, empty, DateTimeOffset.UtcNow);
+        Assert.True((await projects.UpdateSceneDocumentAsync(new() { SceneId = id, BaseRevision = 0, Document = empty })).IsSuccess);
+        Assert.True((await projects.SaveAsync()).IsSuccess);
+        await projects.CloseAsync(false);
+        Assert.True((await projects.OpenAsync(path)).IsSuccess);
+        var reopened = projects.GetSceneDocument(id).Require().Document;
+        Assert.True(Assert.Single(reopened.Review.Comments).IsOrphaned);
+        ReviewEditing.Reject(reopened, Assert.Single(reopened.Review.Changes).Id);
+        Assert.Equal(SceneText, reopened.ToPlainText());
+    }
+
+    [Fact]
+    public async Task Scene_versions_and_safety_snapshot_survive_legacy_zip_roundtrip()
+    {
+        using var workspace = new TempWorkspace();
+        var path = workspace.FilePath("Версии.scri");
+        WriteLegacyProject(path, SceneText);
+        using var provider = ScriSelfStudioServices.Build(workspace.Root, useAvaloniaDialogs: false);
+        var projects = provider.GetRequiredService<IProjectService>();
+        Assert.True((await projects.OpenAsync(path)).IsSuccess);
+        var id = projects.Current!.Series[0].Books[0].Chapters[0].Scenes[0].Id;
+        var version = projects.CreateSceneVersion(id, 0, "Из старого файла").Require();
+        await projects.UpdateSceneDocumentAsync(new() { SceneId = id, BaseRevision = 0,
+            Document = SampleProjects.DocumentWithText("Новое окончание", TextFormat.Italic) });
+        Assert.True(projects.RestoreSceneVersion(id, version.Id, 1).IsSuccess);
+        Assert.True((await projects.SaveAsync()).IsSuccess);
+        await projects.CloseAsync(false);
+        Assert.True((await projects.OpenAsync(path)).IsSuccess);
+        Assert.Equal(2, projects.GetSceneVersions(id).Require().Count);
+        var safety = projects.GetSceneVersions(id).Require().Single(v => v.IsSafetySnapshot);
+        var document = projects.GetSceneVersion(id, safety.Id).Require().Document;
+        Assert.Equal("Новое окончание", document.ToPlainText());
+        Assert.Equal(TextFormat.Italic, document.Blocks[0].Spans[0].Style.Flags);
+        Assert.Equal(SceneText, projects.GetSceneDocument(id).Require().Document.ToPlainText());
+    }
+
+    [Fact]
+    public async Task Scene_step_order_and_links_survive_legacy_zip_save()
+    {
+        using var workspace = new TempWorkspace();
+        var path = workspace.FilePath("Порядок.scri");
+        WriteLegacyProject(path, SceneText);
+        using var provider = ScriSelfStudioServices.Build(workspace.Root, useAvaloniaDialogs: false);
+        var projects = provider.GetRequiredService<IProjectService>();
+        var architecture = provider.GetRequiredService<IBookArchitectureService>();
+        await projects.OpenAsync(path);
+        var scene = projects.Current!.Series[0].Books[0].Chapters[0].Scenes[0];
+        Assert.Empty(scene.PlotLineStepOrder);
+        await architecture.SavePlotLineAsync(new PlotLineDto { Name = "Новая линия",
+            Steps = [new() { Title = "Первый" }, new() { Title = "Второй" }] });
+        var line = architecture.GetPlotLines().Single(item => item.Name == "Новая линия");
+        var expected = new[] { line.Steps[1].Id, line.Steps[0].Id };
+        await projects.UpdateSceneAsync(new UpdateSceneRequest { SceneId = scene.Id, PlotLineStepIds = expected });
+        Assert.True((await projects.SaveAsync()).IsSuccess);
+        await projects.CloseAsync(true);
+        Assert.True((await projects.OpenAsync(path)).IsSuccess);
+        var reopened = projects.Current!.Series[0].Books[0].Chapters[0].Scenes[0];
+        Assert.Equal(scene.Id, reopened.Id);
+        Assert.Equal(expected, reopened.OrderedStepIds(architecture.GetPlotLines()));
+        Assert.Equal(SceneText, projects.GetSceneDocument(reopened.Id).Require().Document.ToPlainText());
+    }
+
+    [Fact]
     public async Task Legacy_zip_project_opens_with_structure_texts_and_plotlines()
     {
         using var workspace = new TempWorkspace();

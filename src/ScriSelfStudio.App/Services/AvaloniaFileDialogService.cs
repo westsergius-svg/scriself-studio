@@ -138,10 +138,18 @@ public sealed class AvaloniaFileDialogService : IFileDialogService
     public async Task ShowErrorAsync(string title, string message, CancellationToken cancellationToken = default) =>
         await ShowDialogAsync(title, message, Loc.T("Понятно"), string.Empty, isConfirm: false, _ => { });
 
+    public Task<string?> PromptAsync(
+        string title,
+        string message,
+        string initialValue,
+        CancellationToken cancellationToken = default) =>
+        PromptAsync(title, message, initialValue, prefillInitialValue: false, cancellationToken);
+
     public async Task<string?> PromptAsync(
         string title,
         string message,
         string initialValue,
+        bool prefillInitialValue,
         CancellationToken cancellationToken = default)
     {
         if (cancellationToken.IsCancellationRequested)
@@ -158,7 +166,7 @@ public sealed class AvaloniaFileDialogService : IFileDialogService
         string? result = null;
         var dialog = new PromptDialog
         {
-            DataContext = new PromptDialogViewModel(title, message, initialValue, value => result = value),
+            DataContext = new PromptDialogViewModel(title, message, initialValue, value => result = value, prefillInitialValue),
         };
 
         await dialog.ShowDialog(owner);

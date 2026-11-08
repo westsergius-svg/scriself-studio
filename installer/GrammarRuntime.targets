@@ -1,0 +1,21 @@
+<Project>
+  <PropertyGroup>
+    <GrammarRuntimeRoot Condition="'$(GrammarRuntimeRoot)' == ''">$(MSBuildThisFileDirectory)..\artifacts\grammar-runtime\win-x64</GrammarRuntimeRoot>
+  </PropertyGroup>
+  <Target Name="PrepareGrammarFiles" Condition="'$(IncludeGrammarRuntime)' == 'true'">
+    <Error Condition="!Exists('$(GrammarRuntimeRoot)\server.properties')" Text="Prepare the local runtime with tools/prepare-grammar-runtime.ps1 before including it." />
+    <ItemGroup><GrammarRuntimeFile Include="$(GrammarRuntimeRoot)\**\*" /></ItemGroup>
+  </Target>
+  <Target Name="CopyGrammarRuntime" AfterTargets="Build" DependsOnTargets="PrepareGrammarFiles" Condition="'$(IncludeGrammarRuntime)' == 'true'">
+    <Copy SourceFiles="@(GrammarRuntimeFile)" DestinationFiles="@(GrammarRuntimeFile->'$(OutDir)Grammar\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
+  <Target Name="PublishGrammarRuntime" BeforeTargets="ComputeFilesToPublish" DependsOnTargets="PrepareGrammarFiles" Condition="'$(IncludeGrammarRuntime)' == 'true'">
+    <ItemGroup>
+      <ResolvedFileToPublish Include="@(GrammarRuntimeFile)">
+        <RelativePath>Grammar\%(RecursiveDir)%(Filename)%(Extension)</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
+</Project>

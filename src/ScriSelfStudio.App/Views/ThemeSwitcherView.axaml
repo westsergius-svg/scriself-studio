@@ -1,43 +1,38 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:loc="clr-namespace:ScriSelfStudio.Presentation.Localization;assembly=ScriSelfStudio.Presentation"
-             xmlns:shell="clr-namespace:ScriSelfStudio.App.Shell"
+             xmlns:shell="using:ScriSelfStudio.App.Shell"
              x:Class="ScriSelfStudio.App.Views.ThemeSwitcherView"
              x:DataType="shell:ShellViewModel">
-  <!-- Плавающий переключатель тем из макета (.theme-switcher в углу). -->
-  <Grid>
-    <StackPanel Orientation="Horizontal" Spacing="8">
-      <Button Classes="themeTrigger"
-              Command="{Binding ToggleThemeMenuCommand}"
-              ToolTip.Tip="{loc:Tr 'Темы оформления'}">
-        <StackPanel Orientation="Horizontal" Spacing="5">
-          <TextBlock Text="{loc:Tr 'Тема'}" VerticalAlignment="Center" />
-          <TextBlock Text="{Binding CurrentThemeName}" VerticalAlignment="Center"
-                     Foreground="{DynamicResource AccentBrush}" />
-          <TextBlock Text="▾" VerticalAlignment="Center" />
-        </StackPanel>
-      </Button>
-      <Border Classes="themeMenu"
-              IsVisible="{Binding IsThemeMenuOpen}"
-              VerticalAlignment="Top"
-              Margin="0,42,0,0">
-        <ItemsControl ItemsSource="{Binding Themes}">
-          <ItemsControl.ItemTemplate>
-            <DataTemplate x:DataType="shell:ThemeOption">
-              <Button Classes="themeMenuItem"
-                      Command="{Binding $parent[ItemsControl].((shell:ShellViewModel)DataContext).SelectThemeCommand}"
-                      CommandParameter="{Binding}">
-                <Grid ColumnDefinitions="Auto,*,Auto">
-                  <Border Grid.Column="0" Classes="themeSwatch" Background="{Binding Swatch}" />
-                  <TextBlock Grid.Column="1" Text="{Binding Title}" VerticalAlignment="Center"
-                             Margin="9,0,0,0" />
-                  <TextBlock Grid.Column="2" Classes="themeMenuCaption" Text="{Binding Hint}" />
-                </Grid>
-              </Button>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-      </Border>
+  <Button x:Name="ThemeButton" Classes="themeTrigger" MinHeight="34" Padding="10,6"
+          ToolTip.Tip="{loc:Tr 'Темы оформления'}" AutomationProperties.Name="{loc:Tr 'Темы оформления'}">
+    <StackPanel Orientation="Horizontal" Spacing="6">
+      <TextBlock Text="{Binding CurrentThemeName}" VerticalAlignment="Center" />
+      <TextBlock Text="▾" VerticalAlignment="Center" />
     </StackPanel>
-  </Grid>
+    <Button.Flyout>
+      <Flyout Placement="BottomEdgeAlignedRight">
+        <StackPanel Spacing="8" Width="240">
+          <TextBlock Text="{loc:Tr 'Рабочее пространство'}" FontWeight="SemiBold" Margin="8,4" />
+          <ItemsControl ItemsSource="{Binding Themes}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="shell:ThemeOption">
+                <Button Classes="themeMenuItem" Height="52" Width="240" HorizontalAlignment="Stretch"
+                        Command="{Binding $parent[ItemsControl].((shell:ShellViewModel)DataContext).SelectThemeCommand}"
+                        CommandParameter="{Binding}" Click="OnThemeSelected">
+                  <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                    <Border Width="20" Height="20" CornerRadius="10" Background="{Binding Swatch}" />
+                    <StackPanel Grid.Column="1" Spacing="3">
+                      <TextBlock Text="{Binding Title}" />
+                      <TextBlock Text="{Binding Hint}" FontSize="11" Foreground="{DynamicResource MutedBrush}" />
+                    </StackPanel>
+                  </Grid>
+                </Button>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Flyout>
+    </Button.Flyout>
+  </Button>
 </UserControl>

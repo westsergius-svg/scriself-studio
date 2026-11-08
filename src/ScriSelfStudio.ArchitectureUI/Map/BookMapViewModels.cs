@@ -6,6 +6,7 @@ using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using ScriSelfStudio.BookArchitecture.Map;
 using ScriSelfStudio.Core.Model;
+using ScriSelfStudio.Presentation.Localization;
 
 /// <summary>
 /// Отметка сюжетной линии на карте: цвет и название для подсказки (ТЗ п. 27).
@@ -49,7 +50,7 @@ public sealed class BookMapSceneViewModel : ObservableObject
     public string Title => Node.Title;
 
     public string Description => string.IsNullOrWhiteSpace(Node.Description)
-        ? "Замысел не описан"
+        ? Loc.T("Замысел не описан")
         : Node.Description;
 
     public string StatusText => Node.StatusText;
@@ -139,7 +140,7 @@ public sealed partial class BookMapColumnViewModel : ObservableObject
 
     public int Number { get; }
 
-    public string Short => $"Гл. {Number}";
+    public string Short => Loc.F("Гл. {0}", Number);
 
     public string Title => Node.Title;
 
@@ -147,12 +148,12 @@ public sealed partial class BookMapColumnViewModel : ObservableObject
     public string HeaderLabel => $"{Number}. {Title}";
 
     public string Description => string.IsNullOrWhiteSpace(Node.Description)
-        ? "Описание главы не задано"
+        ? Loc.T("Описание главы не задано")
         : Node.Description;
 
     public string ScenesLabel => Scenes.Count == 0
-        ? "сцен нет"
-        : $"{Scenes.Count} {StoryText.Plural(Scenes.Count, "сцена", "сцены", "сцен")}";
+        ? Loc.T("сцен нет")
+        : Loc.Count(Scenes.Count, "сцена", "сцены", "сцен");
 
     public string WordsLabel => Node.WordsLabel;
 
@@ -161,7 +162,7 @@ public sealed partial class BookMapColumnViewModel : ObservableObject
         get
         {
             var keys = Scenes.Count(scene => scene.IsKey);
-            return keys > 0 ? $"ключевых: {keys}" : "ключевых нет";
+            return keys > 0 ? Loc.F("ключевых: {0}", keys) : Loc.T("ключевых нет");
         }
     }
 
@@ -206,10 +207,6 @@ public sealed class ChapterOverviewViewModel : ObservableObject
         Title = chapter.Title;
 
         var scenes = chapter.Children;
-        ScenesLabel = scenes.Count == 0
-            ? "сцен нет"
-            : $"{scenes.Count} {StoryText.Plural(scenes.Count, "сцена", "сцены", "сцен")}";
-
         var counts = scenes
             .GroupBy(scene => scene.Status ?? SceneStatus.Idea)
             .ToDictionary(group => group.Key, group => group.Count());
@@ -229,7 +226,9 @@ public sealed class ChapterOverviewViewModel : ObservableObject
 
     public string Title { get; }
 
-    public string ScenesLabel { get; }
+    public string ScenesLabel => Node.Children.Count == 0
+        ? Loc.T("сцен нет")
+        : Loc.Count(Node.Children.Count, "сцена", "сцены", "сцен");
 
     public List<OverviewSegment> Segments { get; } = [];
 

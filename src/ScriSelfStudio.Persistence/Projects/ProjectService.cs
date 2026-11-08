@@ -17,7 +17,7 @@ using ScriSelfStudio.Persistence.Sqlite;
 /// Владелец открытого проекта (ТЗ п. 7, 22, 23): создание, открытие, сохранение,
 /// восстановление и выдача снимков для UI.
 /// </summary>
-public sealed class ProjectService : IProjectService
+public sealed partial class ProjectService : IProjectService
 {
     public const string DefaultSeriesTitle = "Основная";
 
@@ -265,7 +265,13 @@ public sealed class ProjectService : IProjectService
                 "Откройте сцену заново."));
         }
 
-        scene.Document = request.Document;
+        try { ReviewEditing.Validate(request.Document); }
+        catch (InvalidDataException error)
+        {
+            return Task.FromResult(Result<SceneDocumentDto>.FromError(ErrorCode.ValidationFailed,
+                "Данные редактуры повреждены. Изменения не применены.", technicalDetails: error.Message));
+        }
+        scene.Document = request.Document.Clone();
         scene.Words = WordCounting.Count(scene.Document);
         scene.Revision++;
         scene.Touch(_clock.UtcNow);
@@ -366,6 +372,9 @@ public sealed class ProjectService : IProjectService
         {
             return Result.FromError(ErrorCode.EntityNotFound, "Шаг сюжетной линии не найден.");
         }
+
+        scene.Metadata.PlotLineStepOrder.Clear();
+        scene.Metadata.PlotLineStepOrder.AddRange(stepIds.Distinct());
 
         foreach (var step in project.PlotLines.SelectMany(line => line.Steps))
         {

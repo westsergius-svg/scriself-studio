@@ -1,6 +1,6 @@
 namespace ScriSelfStudio.Presentation.Export;
 
-using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -25,6 +25,8 @@ public sealed partial class ExportViewModel : ViewModelBase, IDisposable
     private readonly IProjectService _projects;
     private readonly INavigationService _navigation;
     private readonly IFileDialogService _dialogs;
+    private bool _refreshingTranslations;
+    private ExportManuscript? _previewManuscript;
 
     [ObservableProperty]
     private ExportFormatOption _selectedFormat = null!;
@@ -60,6 +62,12 @@ public sealed partial class ExportViewModel : ViewModelBase, IDisposable
     private bool _preserveFormatting = true;
 
     [ObservableProperty]
+    private bool _includeSceneHeadings;
+
+    [ObservableProperty]
+    private bool _includeCharacterCards;
+
+    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasStatus))]
     private string? _statusMessage;
 
@@ -68,19 +76,10 @@ public sealed partial class ExportViewModel : ViewModelBase, IDisposable
     private string? _errorMessage;
 
     [ObservableProperty]
-    private string _previewTitle = "Пепел и Серебро";
+    private IReadOnlyList<ExportPreviewBlock> _previewBlocks = [];
 
     [ObservableProperty]
-    private string _previewSubtitle = "Книга 1. Пробуждение";
-
-    [ObservableProperty]
-    private string _previewChapterHeader = "Глава 1. Начало";
-
-    [ObservableProperty]
-    private string _previewTextExcerpt = "Серые горы медленно уходили за горизонт, словно растворяясь в тумане. Дорога петляла между скал, и каждый поворот открывал новый, ещё более суровый вид...";
-
-    [ObservableProperty]
-    private string _previewPageCounter = "Страница 1 из 320";
+    private string _previewPageCounter = string.Empty;
 
     public ExportViewModel(
         IBookArchitectureService architecture,
@@ -93,30 +92,7 @@ public sealed partial class ExportViewModel : ViewModelBase, IDisposable
         _navigation = navigation;
         _dialogs = dialogs;
 
-        Formats =
-        [
-            new("DOCX", "docx", "DOCX", "Microsoft Word, .docx", "W"),
-            new("PDF", "pdf", "PDF", Loc.T("Печатный формат, .pdf"), "P"),
-            new("EPUB", "epub", "EPUB", Loc.T("Электронная книга, .epub"), "E"),
-            new("TXT", "txt", "TXT", Loc.T("Простой текст, .txt"), "T"),
-            new("Markdown", "md", "Markdown", Loc.T("Текст с разметкой, .md"), "M"),
-        ];
-
-        Ranges =
-        [
-            new("All", Loc.T("Вся книга")),
-            new("Book", Loc.T("Текущая книга")),
-            new("Chapter", Loc.T("Текущая глава")),
-            new("Scenes", Loc.T("Выбранные сцены")),
-        ];
-
-        DocumentStyles =
-        [
-            Loc.T("Классический (книжный)"),
-            Loc.T("Стандартный"),
-            Loc.T("Современный"),
-            Loc.T("Академический"),
-        ];
+        RebuildTranslatedOptions();
         Fonts = ["Georgia", "Inter", "Times New Roman", "Segoe UI", "Consolas"];
         FontSizes = ["10", "11", "12", "14", "16"];
         LineSpacings = ["1.0", "1.15", "1.5", "2.0"];
@@ -125,14 +101,15 @@ public sealed partial class ExportViewModel : ViewModelBase, IDisposable
         _selectedRange = Ranges[0];
 
         _navigation.Navigated += OnNavigated;
+        LocalizationManager.Instance.PropertyChanged += OnLanguageChanged;
         UpdatePreview();
     }
 
-    public IReadOnlyList<ExportFormatOption> Formats { get; }
+    public IReadOnlyList<ExportFormatOption> Formats { get; private set; } = [];
 
-    public IReadOnlyList<ExportRangeOption> Ranges { get; }
+    public IReadOnlyList<ExportRangeOption> Ranges { get; private set; } = [];
 
-    public IReadOnlyList<string> DocumentStyles { get; }
+    public IReadOnlyList<string> DocumentStyles { get; private set; } = [];
 
     public IReadOnlyList<string> Fonts { get; }
 
@@ -146,12 +123,28 @@ public sealed partial class ExportViewModel : ViewModelBase, IDisposable
 
     public bool HasProject => _projects.Current is not null;
 
-    public string ProjectTitle => _projects.Current?.Name ?? "Пепел и Серебро";
+    public string ProjectTitle => _projects.Current?.Name ?? string.Empty;
 
-    public string SettingsHeader => Loc.F("Настройки экспорта ({0})", SelectedFormat.Name);
+    public string SettingsHeader => Loc.F("Настройки экспорта ({0})", SelectedFormat?.Name ?? string.Empty);
 
     partial void OnSelectedFormatChanged(ExportFormatOption value) =>
         OnPropertyChanged(nameof(SettingsHeader));
+
+    protected override void OnPropertyChanged(PropertyChangedEventArgs e)
+    {
+        base.OnPropertyChanged(e);
+        if (_refreshingTranslations || _previewManuscript is null) return;
+        if (e.PropertyName == nameof(PreserveFormatting))
+        {
+            UpdatePreview();
+        }
+        else if (e.PropertyName is nameof(SelectedFormat) or nameof(SelectedFont) or nameof(SelectedFontSize)
+            or nameof(SelectedLineSpacing) or nameof(IncludeTitlePage) or nameof(TableOfContents)
+            or nameof(PageNumbering) or nameof(IncludeSceneHeadings) or nameof(IncludeCharacterCards))
+        {
+            RefreshPreview();
+        }
+    }
 
     /// <summary>
     /// Стиль документа задаёт согласованный набор шрифта, размера и интервала.
@@ -159,6 +152,8 @@ public sealed partial class ExportViewModel : ViewModelBase, IDisposable
     /// </summary>
     partial void OnSelectedDocumentStyleChanged(string value)
     {
+        if (_refreshingTranslations) return;
+
         if (value == Loc.T("Классический (книжный)"))
         {
             SelectedFont = "Georgia";
@@ -195,36 +190,28 @@ public sealed partial class ExportViewModel : ViewModelBase, IDisposable
 
     public void UpdatePreview()
     {
-        PreviewTextExcerpt = string.Empty;
-        var project = _projects.Current;
-        if (project is null)
+        if (_projects.Current is null)
         {
-            PreviewTitle = Loc.T("Откройте проект");
-            PreviewSubtitle = string.Empty;
-            PreviewChapterHeader = string.Empty;
+            _previewManuscript = null;
+            PreviewBlocks = [new([new(Loc.T("Откройте проект"))], "Georgia", 16, 24)];
             PreviewPageCounter = string.Empty;
             return;
         }
-
-        PreviewTitle = project.Name;
-        var books = _architecture.GetBooks();
-        var firstBook = books.FirstOrDefault();
-        PreviewSubtitle = firstBook?.Title ?? Loc.T("Книга 1");
-
-        var firstChapter = firstBook?.Chapters.FirstOrDefault();
-        PreviewChapterHeader = firstChapter != null
-            ? Loc.F("Глава 1. {0}", firstChapter.Title)
-            : Loc.T("Глава 1. Начало");
-
-        var scenesCount = books.Sum(b => b.Chapters.Sum(c => c.Scenes.Count));
-        var firstScene = firstChapter?.Scenes.FirstOrDefault();
-        if (firstScene != null)
-        {
-            PreviewTextExcerpt = ReadSceneText(firstScene.Id);
-        }
-
-        PreviewPageCounter = Loc.F("Сцен: {0}. Предпросмотр текста без пагинации.", scenesCount);
+        _previewManuscript = BuildManuscript();
+        RefreshPreview();
     }
+
+    private void RefreshPreview()
+    {
+        if (_previewManuscript is null) return;
+        PreviewBlocks = ExportPreviewBuilder.Build(_previewManuscript, BuildOptions(), SelectedFormat.Key);
+        PreviewPageCounter = Loc.T(SelectedFormat.Key is "TXT" or "Markdown"
+            ? "Точное содержимое текстового файла."
+            : "Предпросмотр содержания и оформления. Разбиение на страницы зависит от формата.");
+    }
+
+    private ExportManuscript BuildManuscript() => ManuscriptExportBuilder.Build(
+        ProjectTitle, _architecture.GetBooks(), ReadSceneDocument, PreserveFormatting, _architecture.GetCharacters());
 
     [RelayCommand]
     private async Task ExportAsync(CancellationToken cancellationToken = default)
@@ -253,11 +240,7 @@ public sealed partial class ExportViewModel : ViewModelBase, IDisposable
 
         try
         {
-            var manuscript = ManuscriptExportBuilder.Build(
-                ProjectTitle,
-                _architecture.GetBooks(),
-                ReadSceneDocument,
-                PreserveFormatting);
+            var manuscript = BuildManuscript();
             var options = BuildOptions();
 
             await Task.Run(
@@ -301,7 +284,9 @@ public sealed partial class ExportViewModel : ViewModelBase, IDisposable
             lineSpacing,
             IncludeTitlePage,
             TableOfContents,
-            PageNumbering);
+            PageNumbering,
+            IncludeSceneHeadings,
+            IncludeCharacterCards);
     }
 
     private static void WriteExport(
@@ -336,8 +321,54 @@ public sealed partial class ExportViewModel : ViewModelBase, IDisposable
         return result.TryGetValue(out var document) ? document.Document : null;
     }
 
-    private string ReadSceneText(Guid sceneId) =>
-        _projects.GetSceneDocument(sceneId).Require().Document.ToPlainText();
+    private void RebuildTranslatedOptions()
+    {
+        var formatKey = SelectedFormat?.Key ?? "TXT";
+        var rangeKey = SelectedRange?.Key ?? "All";
+        var styleIndex = Math.Max(0, DocumentStyles.ToList().IndexOf(SelectedDocumentStyle));
+        _refreshingTranslations = true;
+        try
+        {
+            Formats =
+            [
+                new("DOCX", "docx", "DOCX", "Microsoft Word, .docx", "W"),
+                new("PDF", "pdf", "PDF", Loc.T("Печатный формат, .pdf"), "P"),
+                new("EPUB", "epub", "EPUB", Loc.T("Электронная книга, .epub"), "E"),
+                new("TXT", "txt", "TXT", Loc.T("Простой текст, .txt"), "T"),
+                new("Markdown", "md", "Markdown", Loc.T("Текст с разметкой, .md"), "M"),
+            ];
+            Ranges =
+            [
+                new("All", Loc.T("Вся книга")),
+                new("Book", Loc.T("Текущая книга")),
+                new("Chapter", Loc.T("Текущая глава")),
+                new("Scenes", Loc.T("Выбранные сцены")),
+            ];
+            DocumentStyles = [Loc.T("Классический (книжный)"), Loc.T("Стандартный"), Loc.T("Современный"), Loc.T("Академический")];
+            OnPropertyChanged(nameof(Formats));
+            OnPropertyChanged(nameof(Ranges));
+            OnPropertyChanged(nameof(DocumentStyles));
+            SelectedFormat = Formats.Single(option => option.Key == formatKey);
+            SelectedRange = Ranges.Single(option => option.Key == rangeKey);
+            SelectedDocumentStyle = DocumentStyles[styleIndex];
+            OnPropertyChanged(nameof(SettingsHeader));
+        }
+        finally
+        {
+            _refreshingTranslations = false;
+        }
+    }
 
-    public void Dispose() => _navigation.Navigated -= OnNavigated;
+    private void OnLanguageChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(LocalizationManager.Language)) return;
+        RebuildTranslatedOptions();
+        UpdatePreview();
+    }
+
+    public void Dispose()
+    {
+        _navigation.Navigated -= OnNavigated;
+        LocalizationManager.Instance.PropertyChanged -= OnLanguageChanged;
+    }
 }

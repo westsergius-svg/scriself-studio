@@ -1,0 +1,71 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Style Selector=":is(Window).jam">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="TransparencyLevelHint" Value="AcrylicBlur,Blur" />
+  </Style>
+
+  <!-- Поднятые над фоном стеклянные поверхности. -->
+  <Style Selector=":is(Window).jam Border.compactHeader">
+    <Setter Property="Margin" Value="12,12,12,10" />
+    <Setter Property="Padding" Value="12,8" />
+    <Setter Property="CornerRadius" Value="24" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="BorderBrush" Value="#E6FFFFFF" />
+    <Setter Property="BoxShadow" Value="0 6 24 0 #12364270, 0 1 0 0 #80FFFFFF inset" />
+  </Style>
+  <Style Selector=":is(Window).jam Border.projectTreeSurface">
+    <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
+    <Setter Property="BorderBrush" Value="#D9FFFFFF" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Margin" Value="12,0,0,12" />
+    <Setter Property="CornerRadius" Value="24" />
+    <Setter Property="BoxShadow" Value="0 6 24 0 #10364270, 0 1 0 0 #D9FFFFFF inset" />
+  </Style>
+  <Style Selector=":is(Window).jam Border.sceneContextSurface">
+    <Setter Property="Margin" Value="0,0,12,12" />
+    <Setter Property="CornerRadius" Value="24" />
+    <Setter Property="BoxShadow" Value="0 6 24 0 #10364270, 0 1 0 0 #D9FFFFFF inset" />
+  </Style>
+
+  <Style Selector=":is(Window).jam Button.cabinetHeaderAction, :is(Window).jam Button.themeTrigger">
+    <Setter Property="CornerRadius" Value="18" />
+    <Setter Property="Background" Value="#80FFFFFF" />
+    <Setter Property="BorderBrush" Value="#E6FFFFFF" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+  <Style Selector=":is(Window).jam Button.cabinetHeaderAction.active">
+    <Setter Property="Background" Value="{DynamicResource SurfaceSelectedBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource SurfaceSelectedBorderBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource SidebarActiveTextBrush}" />
+  </Style>
+  <Style Selector=":is(Window).jam Button.cabinetHeaderAction:pointerover /template/ ContentPresenter,
+                   :is(Window).jam Button.themeTrigger:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="#F0FFFFFF" />
+    <Setter Property="BorderBrush" Value="{DynamicResource SurfaceSelectedBorderBrush}" />
+  </Style>
+  <Style Selector=":is(Window).jam Button.treeNode, :is(Window).jam Button.sceneRow">
+    <Setter Property="CornerRadius" Value="12" />
+  </Style>
+  <Style Selector=":is(Window).jam Button.sceneRow.current /template/ ContentPresenter">
+    <Setter Property="CornerRadius" Value="12" />
+  </Style>
+  <Style Selector=":is(Window).jam Border.panel, :is(Window).jam Border.mapPanel,
+                   :is(Window).jam Border.mapColumn">
+    <Setter Property="CornerRadius" Value="22" />
+    <Setter Property="BoxShadow" Value="0 6 20 0 #10364270, 0 1 0 0 #B3FFFFFF inset" />
+  </Style>
+  <Style Selector=":is(Window).jam TextBox, :is(Window).jam ComboBox, :is(Window).jam NumericUpDown">
+    <Setter Property="CornerRadius" Value="12" />
+  </Style>
+  <Style Selector=":is(Window).jam Button.accentBtn, :is(Window).jam Button.hollow,
+                   :is(Window).jam Button.panelAction">
+    <Setter Property="CornerRadius" Value="18" />
+  </Style>
+  <Style Selector=":is(Window).jam MenuFlyoutPresenter, :is(Window).jam FlyoutPresenter">
+    <Setter Property="CornerRadius" Value="20" />
+    <Setter Property="Background" Value="#F5F7F9FF" />
+    <Setter Property="BorderBrush" Value="#E6FFFFFF" />
+    <Setter Property="Padding" Value="8" />
+  </Style>
+</Styles>

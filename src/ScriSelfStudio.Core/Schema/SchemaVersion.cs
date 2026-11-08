@@ -6,7 +6,7 @@ namespace ScriSelfStudio.Core.Schema;
 public static class SchemaVersion
 {
     /// <summary>Версия схемы, которую пишет текущая сборка.</summary>
-    public const int Current = 4;
+    public const int Current = 6;
 
     /// <summary>Самая старая версия схемы, для которой существует миграция.</summary>
     public const int MinimumSupported = 1;

@@ -26,11 +26,13 @@ using ScriSelfStudio.Persistence.Cloud;
 using ScriSelfStudio.Persistence.Formats;
 using ScriSelfStudio.Persistence.Projects;
 using ScriSelfStudio.Persistence.Sqlite;
+using ScriSelfStudio.Persistence.Language;
 using ScriSelfStudio.Presentation.Dialogs;
 using ScriSelfStudio.Presentation.Export;
 using ScriSelfStudio.Presentation.Localization;
 using ScriSelfStudio.Presentation.Navigation;
 using ScriSelfStudio.Presentation.Theme;
+using ScriSelfStudio.Presentation.Statistics;
 using ScriSelfStudio.StoryUI;
 
 /// <summary>
@@ -60,6 +62,10 @@ public static class ScriSelfStudioServices
         services.AddSingleton<IProjectService, ProjectService>();
         services.AddSingleton<IBookArchitectureService, BookArchitectureService>();
         services.AddSingleton<IEditorEngine, SceneEditorEngine>();
+        services.AddSingleton<ITextToolsService, TextToolsService>();
+        services.AddSingleton<TextToolsViewModel>();
+        services.AddSingleton<IGrammarService>(_ => new LanguageToolService());
+        services.AddSingleton<GrammarViewModel>();
         services.AddSingleton<IAppSettingsService>(_ => new JsonAppSettingsService(settingsDirectory));
 
         // Облако автора: Яндекс.Диск через WebDAV и Google Drive через OAuth.
@@ -69,10 +75,13 @@ public static class ScriSelfStudioServices
 
         // Обновление с официального канала Scriborium: тот же адрес, что у 1.1.3.3S.
         services.AddSingleton<IUpdateService>(_ => new ScriboriumUpdateService());
+        services.AddSingleton<UsageStatisticsService>();
 
         services.AddSingleton<IThemeService, AvaloniaThemeService>();
         services.AddSingleton<ICultureService, CultureService>();
         services.AddSingleton<INavigationService, NavigationService>();
+        services.AddSingleton<IHelpService, AvaloniaHelpService>();
+        services.AddSingleton<ISceneVersionsDialogService, AvaloniaSceneVersionsDialogService>();
 
         if (useAvaloniaDialogs)
         {

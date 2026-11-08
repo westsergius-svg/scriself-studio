@@ -23,5 +23,14 @@ public interface IFileDialogService
     /// </summary>
     Task<string?> PromptAsync(string title, string message, string initialValue, CancellationToken cancellationToken = default);
 
+    /// <summary>Запрашивает строку с возможностью редактировать исходное значение.</summary>
+    Task<string?> PromptAsync(
+        string title,
+        string message,
+        string initialValue,
+        bool prefillInitialValue,
+        CancellationToken cancellationToken = default) =>
+        PromptAsync(title, message, initialValue, cancellationToken);
+
     Task ShowErrorAsync(string title, string message, CancellationToken cancellationToken = default);
 }

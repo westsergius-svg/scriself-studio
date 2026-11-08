@@ -4,7 +4,7 @@
              xmlns:launcher="clr-namespace:ScriSelfStudio.Launcher"
              x:Class="ScriSelfStudio.Launcher.SettingsView"
              x:DataType="launcher:SettingsViewModel">
-  <Grid RowDefinitions="Auto,*" Margin="24">
+  <Grid RowDefinitions="Auto,*" Margin="{DynamicResource WorkspaceOuterMargin}" Container.Name="settingsWorkspace" Container.Sizing="Width">
     <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,20">
       <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
         <Button Command="{Binding GoBackCommand}" Content="{loc:Tr '← Назад'}" Padding="12,6" CornerRadius="8" />
@@ -16,10 +16,23 @@
                CornerRadius="8" VerticalAlignment="Center" />
     </Grid>
 
-    <Grid Grid.Row="1" ColumnDefinitions="220,*,340">
-      <Border Grid.Column="0" Background="{DynamicResource SurfaceCardBrush}"
+    <Grid Grid.Row="1" x:Name="SettingsWorkspace">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="1*" MinWidth="120" />
+        <ColumnDefinition Width="6" />
+        <ColumnDefinition Width="2.7*" MinWidth="220" />
+        <ColumnDefinition Width="6" />
+        <ColumnDefinition Width="1.5*" MinWidth="160" />
+      </Grid.ColumnDefinitions>
+      <GridSplitter x:Name="SettingsLeftSplitter" Grid.Column="1"
+                    Classes="workspaceSplitter" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" KeyboardIncrement="10"
+                    AutomationProperties.Name="{loc:Tr 'Изменить ширину левой панели'}" ToolTip.Tip="{loc:Tr 'Изменить ширину левой панели'}" />
+      <GridSplitter x:Name="SettingsRightSplitter" Grid.Column="3"
+                    Classes="workspaceSplitter" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" KeyboardIncrement="10"
+                    AutomationProperties.Name="{loc:Tr 'Изменить ширину правой панели'}" ToolTip.Tip="{loc:Tr 'Изменить ширину правой панели'}" />
+      <Border Grid.Column="0" Classes="settingsSections" Background="{DynamicResource SurfaceCardBrush}"
               BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="1"
-              CornerRadius="14" Padding="8" Margin="0,0,16,0">
+              CornerRadius="{DynamicResource WorkspacePanelRadius}" Padding="8" Margin="0,0,16,0">
         <ListBox ItemsSource="{Binding VisibleSections}"
                  SelectedItem="{Binding SelectedSection, Mode=TwoWay}"
                  Background="Transparent" BorderThickness="0">
@@ -52,14 +65,14 @@
         </ListBox>
       </Border>
 
-      <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Disabled"
+      <ScrollViewer Grid.Column="2" HorizontalScrollBarVisibility="Disabled"
                     VerticalScrollBarVisibility="Auto">
         <Border Background="{DynamicResource SurfaceCardBrush}"
                 BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="1"
-                CornerRadius="14" Padding="24" Margin="0,0,16,0">
+                CornerRadius="{DynamicResource WorkspacePanelRadius}" Padding="24" Margin="0,0,16,0">
           <StackPanel Spacing="20">
             <StackPanel>
-              <TextBlock Text="{Binding SelectedSection.Title}" FontSize="20" FontWeight="Bold"
+              <TextBlock Text="{Binding SelectedSectionTitle}" FontSize="20" FontWeight="Bold"
                          Foreground="{DynamicResource HeadingBrush}" />
               <TextBlock Text="{loc:Tr 'Изменения применяются автоматически и сохраняются.'}"
                          FontSize="13" Foreground="{DynamicResource SidebarSubTextBrush}"
@@ -68,7 +81,7 @@
 
             <Border IsVisible="{Binding HasError}" Background="#FEE2E2" BorderBrush="#EF4444"
                     BorderThickness="1" CornerRadius="6" Padding="12">
-              <TextBlock Text="{Binding ErrorMessage}" Foreground="#991B1B" TextWrapping="Wrap" />
+              <TextBlock Text="{Binding ErrorMessage}" Foreground="{DynamicResource DangerTextBrush}" TextWrapping="Wrap" />
             </Border>
             <Border IsVisible="{Binding HasStatus}" Background="#ECFDF5" BorderBrush="#10B981"
                     BorderThickness="1" CornerRadius="6" Padding="12">
@@ -77,7 +90,7 @@
 
             <StackPanel IsVisible="{Binding IsGeneralSection}" Spacing="18">
               <StackPanel Spacing="6">
-                <TextBlock Text="{loc:Tr 'Региональный формат'}" FontSize="14" FontWeight="Bold"
+                <TextBlock Text="{loc:Tr 'Язык интерфейса'}" FontSize="14" FontWeight="Bold"
                            Foreground="{DynamicResource HeadingBrush}" />
                 <ComboBox ItemsSource="{Binding Languages}" SelectedItem="{Binding SelectedLanguage}"
                           HorizontalAlignment="Stretch">
@@ -103,6 +116,11 @@
                           IsChecked="{Binding CheckRecoveryOnStartup}" />
                 <CheckBox Content="{loc:Tr 'Проверять обновления на сайте при запуске'}"
                           IsChecked="{Binding CheckForUpdatesOnStartup}" />
+                <CheckBox Content="{loc:Tr 'Отправлять статистику использования'}"
+                          IsChecked="{Binding ShareUsageStatistics}" />
+                <TextBlock Text="{loc:Tr 'Раз в день: случайный номер установки, версия и платформа. Без имён, проектов и текста. Получатель — scriself.com. Можно отключить в любой момент.'}"
+                           FontSize="12" Foreground="{DynamicResource SidebarSubTextBrush}"
+                           TextWrapping="Wrap" />
                 <TextBlock Text="{loc:Tr 'Если проверка восстановления выключена, снимок восстановления останется на диске.'}"
                            FontSize="12" Foreground="{DynamicResource SidebarSubTextBrush}"
                            TextWrapping="Wrap" />
@@ -112,17 +130,45 @@
             <StackPanel IsVisible="{Binding IsAppearanceSection}" Spacing="12">
               <TextBlock Text="{loc:Tr 'Тема оформления'}" FontSize="14" FontWeight="Bold"
                          Foreground="{DynamicResource HeadingBrush}" />
-              <Border Background="{DynamicResource SurfaceFieldBrush}"
-                      BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="1"
-                      CornerRadius="8" Padding="12,9">
-                <TextBlock Text="{Binding SelectedTheme.Title}" />
-              </Border>
-              <TextBlock Text="{loc:Tr 'Выбор тем временно недоступен: приложение использует стандартную тему.'}"
+              <ComboBox x:Name="ThemeChoice" ItemsSource="{Binding Themes}" SelectedItem="{Binding SelectedTheme, Mode=TwoWay}"
+                        HorizontalAlignment="Stretch" AutomationProperties.Name="{loc:Tr 'Тема оформления'}">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate x:DataType="launcher:ThemeOption">
+                    <TextBlock Text="{Binding Title}" />
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+              <TextBlock Text="{Binding ThemeDescription}"
                          FontSize="12" Foreground="{DynamicResource SidebarSubTextBrush}"
                          TextWrapping="Wrap" />
+              <TextBlock Text="{loc:Tr 'Переключение разделов'}" FontWeight="SemiBold" Margin="0,8,0,0" />
+              <ComboBox x:Name="NavigationChoice" ItemsSource="{Binding NavigationOptions}"
+                        IsEnabled="{Binding IsClassicNavigationAvailable}"
+                        SelectedItem="{Binding SelectedNavigation, Mode=TwoWay}"
+                        HorizontalAlignment="Stretch" AutomationProperties.Name="{loc:Tr 'Переключение разделов'}">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate x:DataType="launcher:NavigationOption"><TextBlock Text="{Binding Title}" /></DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+              <TextBlock Text="{Binding NavigationDescription}"
+                         TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource SidebarSubTextBrush}" />
             </StackPanel>
 
             <StackPanel IsVisible="{Binding IsEditorSection}" Spacing="14">
+              <TextBlock Text="{loc:Tr 'Проверка и набор текста'}" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource HeadingBrush}" />
+              <CheckBox Content="{loc:Tr 'Проверять орфографию: русский и английский'}" IsChecked="{Binding SpellCheckEnabled}" />
+              <CheckBox Name="GrammarSettingsToggle" Content="{loc:Tr 'Грамматические подсказки LanguageTool на компьютере'}" IsChecked="{Binding GrammarCheckEnabled}" />
+              <ComboBox Name="GrammarLanguageBox" ItemsSource="{Binding GrammarLanguages}" SelectedItem="{Binding SelectedGrammarLanguage}"
+                        HorizontalAlignment="Stretch" AutomationProperties.Name="{loc:Tr 'Язык грамматической проверки'}">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate x:DataType="launcher:LanguageOption"><TextBlock Text="{Binding Title}" /></DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+              <TextBlock Text="{loc:Tr 'Находит часть ошибок грамматики и пунктуации. Некоторые русские запятые пропускает; исправления выбираете вы. Текст не отправляется в интернет.'}"
+                         TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource SidebarSubTextBrush}" />
+              <CheckBox Name="AutoCapitalizationToggle" Content="{loc:Tr 'Заглавная буква после точки'}" IsChecked="{Binding AutoCapitalizeSentences}" />
+              <TextBlock Text="{loc:Tr 'После «. слово» нажмите пробел — получится «. Слово ». Ручная строчная буква и отмена сохраняются. Вставленный текст не меняется.'}"
+                         TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource SidebarSubTextBrush}" />
               <TextBlock Text="{loc:Tr 'Шрифт текста в редакторе'}" FontSize="14" FontWeight="Bold"
                          Foreground="{DynamicResource HeadingBrush}" />
               <ComboBox ItemsSource="{Binding Fonts}" SelectedItem="{Binding SelectedFont}"
@@ -180,11 +226,11 @@
         </Border>
       </ScrollViewer>
 
-      <ScrollViewer Grid.Column="2" HorizontalScrollBarVisibility="Disabled"
+      <ScrollViewer Grid.Column="4" Classes="settingsPreview" HorizontalScrollBarVisibility="Disabled"
                     VerticalScrollBarVisibility="Auto">
         <Border Background="{DynamicResource SurfaceCardBrush}"
                 BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="1"
-                CornerRadius="14" Padding="20">
+                CornerRadius="{DynamicResource WorkspacePanelRadius}" Padding="20">
           <StackPanel Spacing="16">
             <StackPanel Spacing="4">
               <TextBlock Text="{loc:Tr 'Предпросмотр'}" FontSize="14" FontWeight="Bold"
@@ -205,10 +251,10 @@
                         CornerRadius="6" Padding="12">
                   <StackPanel Spacing="6">
                     <TextBlock Text="{loc:Tr 'Текст рукописи'}" FontWeight="Bold"
-                               FontFamily="{Binding SelectedFont.Value}"
+                               FontFamily="{Binding PreviewFontFamily}"
                                Foreground="{DynamicResource HeadingBrush}" />
                     <TextBlock Text="{loc:Tr 'Выбранный шрифт применяется к тексту открытого проекта.'}"
-                               FontFamily="{Binding SelectedFont.Value}"
+                               FontFamily="{Binding PreviewFontFamily}"
                                Foreground="{DynamicResource SidebarTextBrush}" TextWrapping="Wrap" />
                   </StackPanel>
                 </Border>

@@ -16,6 +16,29 @@ using ScriSelfStudio.TestSupport;
 public sealed class SceneEditorEngineTests
 {
     [Fact]
+    public async Task Engine_commands_keep_review_ranges_and_undo_restores_the_same_change_identity()
+    {
+        var harness = await Harness.CreateAsync("Нужное слово");
+        var seed = harness.Projects.GetSceneDocument(harness.SceneId).Require();
+        seed.Document.Review.TrackChanges = true;
+        ReviewEditing.AddComment(seed.Document, 7, 5, "Уточнить", DateTimeOffset.UtcNow);
+        await harness.Projects.UpdateSceneDocumentAsync(new() { SceneId = harness.SceneId, BaseRevision = seed.Revision, Document = seed.Document });
+        await harness.Engine.OpenSceneAsync(harness.SceneId);
+        harness.Engine.InsertText(new(0), "Очень ");
+        var edited = harness.Engine.CreateCommitRequest().Require().Document;
+        Assert.Equal(13, edited.Review.Comments[0].Start);
+        var changeId = Assert.Single(edited.Review.Changes).Id;
+        harness.Engine.Undo();
+        var undone = harness.Engine.CreateCommitRequest().Require().Document;
+        Assert.Equal(7, undone.Review.Comments[0].Start);
+        Assert.Empty(undone.Review.Changes);
+        harness.Engine.Redo();
+        Assert.Equal(changeId, Assert.Single(harness.Engine.CreateCommitRequest().Require().Document.Review.Changes).Id);
+        harness.Engine.ApplyFormatting(new(new(0), new(5)), TextFormat.Italic);
+        Assert.NotEmpty(harness.Engine.CreateCommitRequest().Require().Document.Review.Changes);
+    }
+
+    [Fact]
     public async Task Open_exposes_document_revision_and_plain_text()
     {
         var harness = await Harness.CreateAsync(SampleProjects.SceneText);

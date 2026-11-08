@@ -38,9 +38,11 @@ internal static class RichDocumentAdapter
     public static RichDocument ToRibbonDocument(IEnumerable<RichDocument> sceneDocuments)
     {
         var ribbon = new RichDocument();
+        ribbon.Review.Sections = [];
         var hasScene = false;
         foreach (var sceneDocument in sceneDocuments)
         {
+            ribbon.Review.Sections.Add(sceneDocument.Review.Clone());
             if (sceneDocument.Blocks.Any(block => block.Kind == RichBlockKind.Separator))
             {
                 throw new InvalidDataException("A scene document cannot contain ribbon separators.");
@@ -102,6 +104,9 @@ internal static class RichDocumentAdapter
                 "Scene boundaries in the editor were changed. Restore the scene separators before continuing.");
         }
 
+        for (var index = 0; index < scenes.Count; index++)
+            scenes[index].Review = ribbon.Review.Sections is { } sections && index < sections.Count
+                ? sections[index].Clone() : (sceneCount == 1 ? ribbon.Review.Clone() : new());
         return scenes;
     }
 
@@ -175,7 +180,7 @@ internal static class RichDocumentAdapter
         };
         paragraph.Inlines.Add(new RichRun
         {
-            Text = $"{RibbonHeaderMarker}{scene.Order + 1:D2}  СЦЕНА",
+            Text = RibbonHeaderMarker + ScriSelfStudio.Presentation.Localization.Loc.F("СЦЕНА {0}", scene.Order + 1),
             FontSize = captionSize,
             FontWeight = FontWeight.SemiBold,
             Foreground = new SolidColorBrush(Color.Parse("#8A8F90")),
@@ -189,14 +194,15 @@ internal static class RichDocumentAdapter
         });
         paragraph.Inlines.Add(new RichRun
         {
-            Text = $"      {scene.StatusLabel} · {scene.Words} сл.",
+            // Word counts live in the editor status bar; a snapshot here became stale while typing.
+            Text = $"      {scene.StatusLabel}",
             FontSize = captionSize,
             Foreground = new SolidColorBrush(Color.Parse("#8A8F90")),
         });
         return paragraph;
     }
 
-    private static bool IsSceneHeader(Block block) =>
+    internal static bool IsSceneHeader(Block block) =>
         block is RichParagraph paragraph
         && paragraph.Inlines.OfType<RichRun>()
             .Any(run => run.Text?.StartsWith(RibbonHeaderMarker) == true);
@@ -263,15 +269,35 @@ internal static class RichDocumentAdapter
                 });
             }
 
+            // The native normalizer otherwise inserts a 10pt run in an empty paragraph,
+            // overriding the project's font size as soon as the author starts typing.
+            if (paragraph.Inlines.Count == 0)
+                paragraph.Inlines.Add(new RichRun { Text = string.Empty, FontSize = defaultFontSize });
             flowDocument.Blocks.Add(paragraph);
         }
 
+        // IDs and host metadata must survive the native editor's deep undo snapshots.
+        for (var index = 0; index < Math.Min(document.Blocks.Count, flowDocument.Blocks.Count); index++)
+            flowDocument.Blocks[index].StableId = document.Blocks[index].Id;
+        flowDocument.HostState = new ReviewFlowState(document, defaultFontSize);
         return flowDocument;
     }
 
     public static RichDocumentModel FromFlowDocument(FlowDocument document, double defaultFontSize)
     {
+        if (document.HostState is ReviewFlowState state)
+        {
+            state.Synchronize(document);
+            if (state.Error is { } error) throw new InvalidDataException(error);
+            return state.Snapshot.Clone();
+        }
+        return ReadFlowContent(document, defaultFontSize);
+    }
+
+    internal static RichDocumentModel ReadFlowContent(FlowDocument document, double defaultFontSize)
+    {
         var richDocument = new RichDocumentModel();
+        var identities = new HashSet<Guid>();
         foreach (var block in document.Blocks)
         {
             if (IsSceneHeader(block))
@@ -279,9 +305,15 @@ internal static class RichDocumentAdapter
                 continue;
             }
 
+            if (block.StableId == Guid.Empty || !identities.Add(block.StableId))
+            {
+                block.StableId = Guid.NewGuid();
+                identities.Add(block.StableId);
+            }
+
             if (block is DividerBlock)
             {
-                richDocument.Blocks.Add(new RichTextBlock { Kind = RichBlockKind.Separator });
+                richDocument.Blocks.Add(new RichTextBlock { Id = block.StableId, Kind = RichBlockKind.Separator });
                 continue;
             }
 
@@ -292,6 +324,7 @@ internal static class RichDocumentAdapter
 
             var textBlock = new RichTextBlock
             {
+                Id = block.StableId,
                 Kind = ToBlockKind(paragraph),
                 Alignment = ToCoreAlignment(paragraph.TextAlignment),
                 IndentLevel = paragraph.ListType != RichListKind.None

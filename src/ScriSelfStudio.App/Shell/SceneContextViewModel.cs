@@ -13,6 +13,7 @@ using ScriSelfStudio.Contracts.Projects;
 using ScriSelfStudio.Core.Events;
 using ScriSelfStudio.Core.Model;
 using ScriSelfStudio.Presentation;
+using ScriSelfStudio.Presentation.Characters;
 using ScriSelfStudio.Presentation.Localization;
 using ScriSelfStudio.StoryUI;
 
@@ -22,6 +23,17 @@ using ScriSelfStudio.StoryUI;
 /// </summary>
 public sealed partial class CharacterEntry : ObservableObject
 {
+    public Guid CharacterId { get; init; }
+    public IReadOnlyList<CharacterProfileField> Profile { get; init; } = [];
+    public bool HasProfile => Profile.Count > 0;
+    public IReadOnlyList<CharacterArcStageDto> ArcStages { get; init; } = [];
+
+    [ObservableProperty]
+    private bool _isProfileExpanded;
+
+    [RelayCommand]
+    private void ToggleProfile() => IsProfileExpanded = !IsProfileExpanded;
+
     private readonly Action<CharacterEntry> _toggleDescription;
 
     public CharacterEntry(
@@ -109,6 +121,10 @@ public sealed record CharacterOption(Guid Id, string Name)
 /// </summary>
 public sealed partial class SceneStepEntry : ObservableObject
 {
+    [ObservableProperty]
+    private bool _canMoveUp;
+    [ObservableProperty]
+    private bool _canMoveDown;
     private readonly Func<SceneStepEntry, CancellationToken, Task> _remove;
     private readonly Action<SceneStepEntry> _toggleDescription;
 
@@ -389,6 +405,24 @@ public sealed partial class SceneContextViewModel : ViewModelBase, IDisposable
     private Task RemoveAssignedStepAsync(SceneStepEntry entry, CancellationToken cancellationToken) =>
         RemoveStepAsync(entry, cancellationToken);
 
+    [RelayCommand]
+    private Task MoveStepUpAsync(SceneStepEntry? entry, CancellationToken cancellationToken) =>
+        MoveAssignedStepAsync(entry, -1, cancellationToken);
+
+    [RelayCommand]
+    private Task MoveStepDownAsync(SceneStepEntry? entry, CancellationToken cancellationToken) =>
+        MoveAssignedStepAsync(entry, 1, cancellationToken);
+
+    private Task MoveAssignedStepAsync(SceneStepEntry? entry, int delta, CancellationToken cancellationToken)
+    {
+        if (entry is null) return Task.CompletedTask;
+        var ids = AssignedSteps.Select(step => step.StepId).ToList();
+        var index = ids.IndexOf(entry.StepId);
+        if (index < 0 || index + delta < 0 || index + delta >= ids.Count) return Task.CompletedTask;
+        (ids[index], ids[index + delta]) = (ids[index + delta], ids[index]);
+        return PersistStepAssignmentAsync(ids, cancellationToken);
+    }
+
     [RelayCommand(CanExecute = nameof(HasScene))]
     private async Task RemoveStepAsync(SceneStepEntry? entry, CancellationToken cancellationToken)
     {
@@ -653,6 +687,8 @@ public sealed partial class SceneContextViewModel : ViewModelBase, IDisposable
         var plotLines = snapshot.PlotLines;
         var touchingLines = plotLines.Where(candidate => TouchesScene(candidate, scene.Id)).ToList();
 
+        var expandedProfiles = Characters.Where(entry => entry.IsProfileExpanded).Select(entry => entry.CharacterId).ToHashSet();
+        var expandedCharacters = Characters.Where(entry => entry.IsDescriptionExpanded).Select(entry => entry.CharacterId).ToHashSet();
         Characters.Clear();
         var seenCharacters = new HashSet<Guid>();
         foreach (var line in touchingLines)
@@ -674,9 +710,8 @@ public sealed partial class SceneContextViewModel : ViewModelBase, IDisposable
                         continue;
                     }
 
-                    var arcStage = participant.CharacterArcStageId is { } arcStageId
-                        ? character.ArcStages.FirstOrDefault(candidate => candidate.Id == arcStageId)
-                        : null;
+                    var arcStages = CharacterSceneProfile.ArcStages(character, touchingLines, scene.Id);
+                    var arcStage = arcStages.FirstOrDefault();
                     var goal = character.ExternalGoal;
                     Characters.Add(new CharacterEntry(
                         character.Name.Length > 0 ? character.Name[0].ToString() : "?",
@@ -688,7 +723,14 @@ public sealed partial class SceneContextViewModel : ViewModelBase, IDisposable
                         arcStage?.Description,
                         arcStage is not null,
                         brush,
-                        ToggleCharacterDescription));
+                        ToggleCharacterDescription)
+                    {
+                        CharacterId = character.Id,
+                        Profile = CharacterSceneProfile.Fields(character),
+                        ArcStages = arcStages,
+                        IsProfileExpanded = expandedProfiles.Contains(character.Id),
+                        IsDescriptionExpanded = expandedCharacters.Contains(character.Id),
+                    });
                 }
             }
         }
@@ -710,13 +752,15 @@ public sealed partial class SceneContextViewModel : ViewModelBase, IDisposable
                 StoryLabels.BrushFromHex(line.ColorHex, PlotLineFallback)));
         }
 
-        RebuildStepAssignment(scene.Id, plotLines);
+        RebuildStepAssignment(scene, plotLines);
         NotifyCommands();
     }
 
     /// <summary>Чипы назначенных этапов и списки выбора линии и этапа (ADR 012).</summary>
-    private void RebuildStepAssignment(Guid sceneId, IReadOnlyList<PlotLineDto> plotLines)
+    private void RebuildStepAssignment(SceneDto scene, IReadOnlyList<PlotLineDto> plotLines)
     {
+        var sceneId = scene.Id;
+        var expandedSteps = AssignedSteps.Where(entry => entry.IsDescriptionExpanded).Select(entry => entry.StepId).ToHashSet();
         var previousLineId = SelectedLineOption?.Id;
         var previousStepId = SelectedStepOption?.Id;
 
@@ -739,13 +783,22 @@ public sealed partial class SceneContextViewModel : ViewModelBase, IDisposable
                     step.Description,
                     StoryLabels.BrushFromHex(line.ColorHex, PlotLineFallback),
                     RemoveAssignedStepAsync,
-                    ToggleLineDescription));
+                    ToggleLineDescription) { IsDescriptionExpanded = expandedSteps.Contains(step.Id) });
             }
 
             if (line.Steps.Count > 0)
             {
                 LineOptions.Add(new PlotLineOption(line.Id, line.Name));
             }
+        }
+
+        var orderedIds = scene.OrderedStepIds(plotLines);
+        for (var index = 0; index < orderedIds.Count; index++)
+        {
+            var entry = AssignedSteps.First(item => item.StepId == orderedIds[index]);
+            AssignedSteps.Move(AssignedSteps.IndexOf(entry), index);
+            entry.CanMoveUp = index > 0;
+            entry.CanMoveDown = index < orderedIds.Count - 1;
         }
 
         SelectedLineOption = LineOptions.FirstOrDefault(option => option.Id == previousLineId)
@@ -785,22 +838,12 @@ public sealed partial class SceneContextViewModel : ViewModelBase, IDisposable
 
     private void ToggleLineDescription(SceneStepEntry entry)
     {
-        var expand = !entry.IsDescriptionExpanded;
-        CollapseDescriptions();
-        if (expand)
-        {
-            entry.IsDescriptionExpanded = true;
-        }
+        entry.IsDescriptionExpanded = !entry.IsDescriptionExpanded;
     }
 
     private void ToggleCharacterDescription(CharacterEntry entry)
     {
-        var expand = !entry.IsDescriptionExpanded;
-        CollapseDescriptions();
-        if (expand)
-        {
-            entry.IsDescriptionExpanded = true;
-        }
+        entry.IsDescriptionExpanded = !entry.IsDescriptionExpanded;
     }
 
     public void CollapseDescriptions()

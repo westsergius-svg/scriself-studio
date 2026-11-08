@@ -1,0 +1,97 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="using:ScriSelfStudio.Presentation.Localization"
+        xmlns:editor="using:ScriSelfStudio.EditorUI"
+        x:Class="ScriSelfStudio.App.Views.SceneVersionsWindow"
+        x:DataType="editor:SceneVersionsViewModel"
+        Title="{loc:Tr 'Версии сцены — ScriSelf Studio'}" Icon="/Assets/scriself.png"
+        Width="1100" Height="760" MinWidth="760" MinHeight="540"
+        WindowStartupLocation="CenterOwner" Background="{DynamicResource SurfaceChromeBrush}">
+  <Window.Styles>
+    <Style Selector="TextBlock, SelectableTextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource SidebarTextBrush}" />
+    </Style>
+    <Style Selector="Button"><Setter Property="MinHeight" Value="34" /><Setter Property="Padding" Value="12,7" /></Style>
+    <Style Selector="ListBoxItem"><Setter Property="Padding" Value="12,10" /><Setter Property="Margin" Value="0,2" /></Style>
+    <Style Selector="TabItem"><Setter Property="FontSize" Value="14" /><Setter Property="Padding" Value="12,8" /></Style>
+  </Window.Styles>
+  <Grid RowDefinitions="Auto,*,Auto">
+    <Border Padding="22,18" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource SurfaceBorderBrush}">
+      <StackPanel Spacing="5">
+        <TextBlock Text="{loc:Tr 'Версии сцены'}" FontSize="23" FontWeight="SemiBold" />
+        <TextBlock Name="VersionSceneTitle" Text="{Binding SceneTitle}" FontSize="14" TextWrapping="Wrap" Foreground="{DynamicResource SidebarSubTextBrush}" />
+      </StackPanel>
+    </Border>
+    <Grid Grid.Row="1">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="280" MinWidth="230" MaxWidth="420" />
+        <ColumnDefinition Width="4" />
+        <ColumnDefinition Width="*" MinWidth="380" />
+      </Grid.ColumnDefinitions>
+      <Grid RowDefinitions="Auto,*,Auto" Margin="14,18,12,14">
+        <StackPanel Spacing="9" Margin="0,0,0,16" IsEnabled="{Binding CanChange}">
+          <TextBlock Text="{loc:Tr 'Сохранить текущий вариант'}" FontWeight="SemiBold" />
+          <TextBox Name="VersionNameBox" Text="{Binding NewVersionName}" MaxLength="120"
+                   PlaceholderText="{loc:Tr 'Например, до смены финала'}" AutomationProperties.Name="{loc:Tr 'Название версии'}" />
+          <Button Name="CreateVersionButton" Content="{loc:Tr 'Сохранить версию'}" Command="{Binding CreateCommand}" HorizontalAlignment="Stretch" />
+        </StackPanel>
+        <ListBox Name="SceneVersionsList" Grid.Row="1" ItemsSource="{Binding Versions}" SelectedItem="{Binding SelectedVersion}"
+                 Background="Transparent" BorderThickness="0" IsEnabled="{Binding !IsBusy}" AutomationProperties.Name="{loc:Tr 'Сохранённые версии сцены'}">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="editor:SceneVersionItem">
+              <StackPanel Spacing="5">
+                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                <TextBlock Text="{Binding Detail}" FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource SidebarSubTextBrush}" />
+                <TextBlock Text="{Binding Kind}" FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource SidebarSubTextBrush}" />
+              </StackPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+        <StackPanel Grid.Row="2" Spacing="8" Margin="0,12,0,0" IsEnabled="{Binding CanUseSelectedVersion}">
+          <Button Name="RestoreVersionButton" Content="{loc:Tr 'Восстановить выбранную'}" Command="{Binding RequestRestoreCommand}" HorizontalAlignment="Stretch" />
+          <Button Name="DeleteVersionButton" Content="{loc:Tr 'Удалить версию…'}" Command="{Binding RequestDeleteCommand}" HorizontalAlignment="Stretch" />
+        </StackPanel>
+      </Grid>
+      <GridSplitter Grid.Column="1" ResizeDirection="Columns" Background="{DynamicResource SurfaceBorderBrush}" />
+      <Grid Grid.Column="2" RowDefinitions="Auto,*" Background="{DynamicResource SurfaceCardBrush}">
+        <TextBlock Name="VersionComparisonSummary" Text="{Binding ComparisonSummary}" TextWrapping="Wrap" Margin="22,18" FontSize="13" />
+        <TabControl Name="VersionPreviewTabs" Grid.Row="1" Margin="12,0,12,12">
+          <TabItem Header="{loc:Tr 'Изменения'}">
+            <ScrollViewer HorizontalScrollBarVisibility="Disabled" Background="#FFFFFF">
+              <SelectableTextBlock Name="VersionDiffText" Margin="18" FontSize="16" LineHeight="27" TextWrapping="Wrap" Foreground="#252525" />
+            </ScrollViewer>
+          </TabItem>
+          <TabItem Header="{loc:Tr 'Сохранённая'}">
+            <Border Background="#FFFFFF" Padding="20">
+              <ScrollViewer HorizontalScrollBarVisibility="Disabled"><editor:SceneVersionPreview Name="SavedVersionPreview" /></ScrollViewer>
+            </Border>
+          </TabItem>
+          <TabItem Header="{loc:Tr 'Текущая'}">
+            <Border Background="#FFFFFF" Padding="20">
+              <ScrollViewer HorizontalScrollBarVisibility="Disabled"><editor:SceneVersionPreview Name="CurrentVersionPreview" /></ScrollViewer>
+            </Border>
+          </TabItem>
+        </TabControl>
+      </Grid>
+    </Grid>
+    <Border Grid.Row="2" Padding="20,14" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource SurfaceBorderBrush}">
+      <StackPanel Spacing="10">
+        <StackPanel IsVisible="{Binding ShowConfirmation}" Spacing="10">
+          <TextBlock Name="VersionConfirmationText" Text="{Binding ConfirmationText}" TextWrapping="Wrap" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Name="ConfirmVersionActionButton" Content="{loc:Tr 'Подтвердить'}" Command="{Binding ConfirmCommand}" />
+            <Button Content="{loc:Tr 'Отмена'}" Command="{Binding CancelConfirmationCommand}" />
+          </StackPanel>
+        </StackPanel>
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="14">
+          <StackPanel Spacing="4">
+            <TextBlock Text="{Binding Status}" TextWrapping="Wrap" FontSize="13" />
+            <TextBlock Text="{loc:Tr 'Версии хранятся в книге и не входят в экспорт.'}" FontSize="12" Foreground="{DynamicResource SidebarSubTextBrush}" />
+          </StackPanel>
+          <Button Grid.Column="1" Content="{loc:Tr 'Повторить сохранение'}" Command="{Binding SaveChangesCommand}"
+                  IsVisible="{Binding HasUnsavedChanges}" IsEnabled="{Binding !IsBusy}" />
+        </Grid>
+      </StackPanel>
+    </Border>
+  </Grid>
+</Window>

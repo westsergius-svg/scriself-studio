@@ -48,6 +48,7 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
     private readonly INavigationService _navigation;
     private readonly IFileDialogService _dialogs;
     private readonly ISystemClock _clock;
+    private readonly ISceneVersionsDialogService _versionsDialog;
     private readonly List<IDisposable> _subscriptions = [];
     private readonly DispatcherTimer _autosaveTimer;
     private readonly Dictionary<Guid, RichDocument> _sceneDocuments = [];
@@ -102,6 +103,7 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanvasOuterMargin))]
     [NotifyPropertyChangedFor(nameof(CanvasPaperMargin))]
+    [NotifyPropertyChangedFor(nameof(ShowReadingZoom))]
     private bool _isFullCanvas;
 
     /// <summary>Упорядоченные сцены главы, отображаемые как единый поток текста.</summary>
@@ -126,7 +128,7 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
 
             return scene.Title.StartsWith("Сцена ", StringComparison.CurrentCultureIgnoreCase)
                 ? scene.Title
-                : $"Сцена {scene.Title}";
+                : Loc.F("Сцена {0}", scene.Title);
         }
     }
 
@@ -156,6 +158,11 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
 
     public bool HasTextSelection => _selectionStart != _selectionEnd;
 
+    public TextToolsViewModel TextTools { get; }
+    public GrammarViewModel Grammar { get; }
+
+    public ReviewPanelViewModel ReviewPanel { get; } = new();
+
     public void SetRibbonCaretLine(int line)
     {
         var nextLine = Math.Max(1, line);
@@ -174,12 +181,18 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
         INavigationService navigation,
         IFileDialogService dialogs,
         IEventBus events,
+        TextToolsViewModel textTools,
+        GrammarViewModel grammar,
+        ISceneVersionsDialogService versionsDialog,
         ISystemClock? clock = null)
     {
         _engine = engine;
         _projects = projects;
         _navigation = navigation;
         _dialogs = dialogs;
+        TextTools = textTools;
+        Grammar = grammar;
+        _versionsDialog = versionsDialog;
         _clock = clock ?? new SystemClock();
         _lastActivity = _clock.UtcNow;
 
@@ -199,6 +212,7 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
         _subscriptions.Add(events.Subscribe<ProjectOpened>(_ => RebuildRibbon()));
         _subscriptions.Add(events.Subscribe<EditorDocumentChanged>(_ => RefreshFormattedPreview()));
         _navigation.Navigated += OnNavigated;
+        LocalizationManager.Instance.PropertyChanged += OnLanguageChanged;
 
         if (_engine.SceneId is { } existingScene)
         {
@@ -227,9 +241,42 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
     public bool HasStatus => !string.IsNullOrEmpty(StatusMessage);
 
     /// <summary>Отступ холста от краёв рабочей области.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanvasOuterMargin))]
+    [NotifyPropertyChangedFor(nameof(ShowReadingZoom))]
+    private bool _isCabinetLayout;
+
+    [ObservableProperty]
+    private bool _isJamLayout;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanvasOuterMargin))]
+    [NotifyPropertyChangedFor(nameof(ShowReadingZoom))]
+    private bool _isStudioLayout;
+
+    [ObservableProperty]
+    private bool _isToolbarMoreOpen;
+
+    [RelayCommand]
+    private void ToggleToolbarMore() => IsToolbarMoreOpen = !IsToolbarMoreOpen;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ReadingZoomLabel))]
+    private double _readingZoom = 1.15;
+
+    public string ReadingZoomLabel => $"{ReadingZoom * 100:0}%";
+    public bool ShowReadingZoom => IsCabinetLayout && !IsStudioLayout && !IsFullCanvas;
+
+    [RelayCommand]
+    private void IncreaseReadingZoom() => ReadingZoom = Math.Min(1.75, Math.Round(ReadingZoom + 0.1, 2));
+
+    [RelayCommand]
+    private void DecreaseReadingZoom() => ReadingZoom = Math.Max(0.75, Math.Round(ReadingZoom - 0.1, 2));
+
     public Thickness CanvasOuterMargin => IsFullCanvas
         ? new Thickness(20, 12, 20, 12)
-        : new Thickness(24);
+        : IsStudioLayout ? new Thickness(0)
+        : IsCabinetLayout ? new Thickness(20, 12, 20, 8) : new Thickness(24);
 
     /// <summary>Отступ «бумаги» внутри холста: в полном режиме лента занимает всю ширину.</summary>
     public Thickness CanvasPaperMargin => IsFullCanvas
@@ -472,10 +519,10 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
         if (IsDirty)
         {
             var save = await _dialogs.ConfirmAsync(
-                "Несохранённые изменения",
-                "В главе есть несохранённые изменения. Сохранить перед закрытием?",
-                "Сохранить",
-                "Закрыть без сохранения",
+                Loc.T("Несохранённые изменения"),
+                Loc.T("В главе есть несохранённые изменения. Сохранить перед закрытием?"),
+                Loc.T("Сохранить"),
+                Loc.T("Закрыть без сохранения"),
                 cancellationToken);
 
             if (save)
@@ -530,6 +577,7 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
     {
         _autosaveTimer.Stop();
         _navigation.Navigated -= OnNavigated;
+        LocalizationManager.Instance.PropertyChanged -= OnLanguageChanged;
         foreach (var subscription in _subscriptions)
         {
             subscription.Dispose();
@@ -1042,7 +1090,7 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
         _lastActivity = _clock.UtcNow;
         if (!silent)
         {
-            StatusMessage = "Глава сохранена.";
+            StatusMessage = Loc.T("Глава сохранена.");
         }
 
         if (_ribbonRefreshPending)
@@ -1111,8 +1159,9 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
         }
     }
 
-    private static bool AreDocumentsEquivalent(RichDocument left, RichDocument right)
+    internal static bool AreDocumentsEquivalent(RichDocument left, RichDocument right)
     {
+        if (!ReviewEditing.SameReview(left.Review, right.Review)) return false;
         if (left.SchemaVersion != right.SchemaVersion || left.Blocks.Count != right.Blocks.Count)
         {
             return false;
@@ -1165,6 +1214,18 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
         RedoCommand.NotifyCanExecuteChanged();
     }
 
+    private void OnLanguageChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(LocalizationManager.Language)) return;
+        OnPropertyChanged(nameof(WordsLabel));
+        OnPropertyChanged(nameof(CharactersLabel));
+        OnPropertyChanged(nameof(ReadingTimeLabel));
+        RefreshSceneNavigation();
+        TextTools.RefreshLocalization();
+        Grammar.RefreshLocalization();
+        ReviewPanel.RefreshLocalization();
+    }
+
     /// <summary>
     /// Пересчитывает номер сцены, подписи и доступность навигации внизу
     /// документа после смены сцены или структуры проекта (ТЗ п. 27).
@@ -1174,8 +1235,8 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
         var located = LocateScene(_engine.SceneId);
         SceneNumber = located?.Scene.Order + 1 ?? 0;
         BreadcrumbText = located is { } place ? $"{place.Chapter.Title} › {place.Scene.Title}" : string.Empty;
-        PreviousSceneLabel = NeighboringScene(-1) is { } previous ? $"Сцена {previous.Order + 1}" : string.Empty;
-        NextSceneLabel = NeighboringScene(1) is { } next ? $"Сцена {next.Order + 1}" : string.Empty;
+        PreviousSceneLabel = NeighboringScene(-1) is { } previous ? Loc.F("Сцена {0}", previous.Order + 1) : string.Empty;
+        NextSceneLabel = NeighboringScene(1) is { } next ? Loc.F("Сцена {0}", next.Order + 1) : string.Empty;
         CanPreviousScene = NeighboringScene(-1) is not null;
         CanNextScene = NeighboringScene(1) is not null;
         OnPropertyChanged(nameof(SceneNumber));
@@ -1266,24 +1327,24 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
     }
 
     private static string FormatNumber(int number)
-        => number.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("ru-RU"));
+        => number.ToString("N0", System.Globalization.CultureInfo.CurrentCulture);
 
     private async Task ReportAsync(AppError error, bool silent)
     {
         ErrorMessage = error.SuggestedAction is null
-            ? error.UserMessage
-            : $"{error.UserMessage} {error.SuggestedAction}";
+            ? Loc.T(error.UserMessage)
+            : $"{Loc.T(error.UserMessage)} {Loc.T(error.SuggestedAction)}";
 
         if (!silent)
         {
-            await _dialogs.ShowErrorAsync("Ошибка редактора", ErrorMessage);
+            await _dialogs.ShowErrorAsync(Loc.T("Ошибка редактора"), ErrorMessage);
         }
     }
 
     private void ReportInPlace(AppError error) =>
         ErrorMessage = error.SuggestedAction is null
-            ? error.UserMessage
-            : $"{error.UserMessage} {error.SuggestedAction}";
+            ? Loc.T(error.UserMessage)
+            : $"{Loc.T(error.UserMessage)} {Loc.T(error.SuggestedAction)}";
 
     private void ClearMessages()
     {

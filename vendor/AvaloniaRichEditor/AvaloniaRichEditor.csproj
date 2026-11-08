@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Version>1.2.1</Version>
+    <Authors>centwon</Authors>
+    <Copyright>Copyright (c) 2026 centwon</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="HtmlAgilityPack" />
+  </ItemGroup>
+</Project>

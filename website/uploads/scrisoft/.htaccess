@@ -1,0 +1,44 @@
+# Прямые ссылки на установщики закрыты. Файлы выдаются только маршрутом PHP.
+<IfModule mod_headers.c>
+    <FilesMatch "^latest(-osx-(arm64|x64))?\.json$">
+        Header set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+    </FilesMatch>
+</IfModule>
+
+<FilesMatch "\.(exe|msi|zip|7z|dmg)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Текущие обновления Windows и Mac проходят через серверный счётчик.
+# Старый апдейтер продолжает использовать прежнюю ссылку на .exe.
+# При отсутствии mod_rewrite запрет выше остаётся действовать.
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^(ScriSelfStudio-Setup-[0-9]+(?:\.[0-9]+){1,3}\.exe|ScriSelfStudio-[0-9]+(?:\.[0-9]+){1,3}-osx-(?:arm64|x64)\.(?:zip|dmg))$ /update-download.php?file=$1 [L]
+    <FilesMatch "^(ScriSelfStudio-Setup-[0-9]+(?:\.[0-9]+){1,3}\.exe|ScriSelfStudio-[0-9]+(?:\.[0-9]+){1,3}-osx-(?:arm64|x64)\.(?:zip|dmg))$">
+        <IfModule mod_authz_core.c>
+            Require all granted
+        </IfModule>
+        <IfModule !mod_authz_core.c>
+            Order allow,deny
+            Allow from all
+        </IfModule>
+    </FilesMatch>
+</IfModule>
+
+# Запрет на выполнение PHP в uploads
+<FilesMatch "\.php$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>

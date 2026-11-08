@@ -17,6 +17,8 @@ public sealed class RichDocument
     [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
     public List<TextBlock> Blocks { get; } = [];
 
+    public DocumentReview Review { get; set; } = new();
+
     public static RichDocument CreateEmpty()
     {
         var document = new RichDocument();
@@ -67,7 +69,7 @@ public sealed class RichDocument
     /// </summary>
     public RichDocument Clone()
     {
-        var copy = new RichDocument { SchemaVersion = SchemaVersion };
+        var copy = new RichDocument { SchemaVersion = SchemaVersion, Review = Review.Clone() };
         foreach (var block in Blocks)
         {
             var blockCopy = new TextBlock

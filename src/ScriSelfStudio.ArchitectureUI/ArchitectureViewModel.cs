@@ -30,6 +30,8 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
     private readonly IFileDialogService _dialogs;
     private bool _isArchitectureScreen;
     private bool _suppressSceneDetailsSave;
+    private bool _preserveSceneDetails;
+    private (Guid SceneId, HashSet<Guid> Lines, HashSet<Guid> Characters)? _expansionDuringRefresh;
 
     [ObservableProperty]
     private ArchitectureNodeViewModel? _selected;
@@ -48,6 +50,7 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
     private bool _isMapMode = true;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanCreateChapterInBook))]
     private ArchitectureNodeViewModel? _selectedBook;
 
     [ObservableProperty]
@@ -166,8 +169,8 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
 
     /// <summary>Что делать, если карта пустая: без подсказки экран выглядит сломанным.</summary>
     public string MapHint => SelectedBook is null
-        ? "В проекте нет книг. Создайте книгу в списке."
-        : "В выбранной книге нет глав. Создайте главу в списке.";
+        ? Loc.T("В проекте нет книг. Создайте книгу в списке.")
+        : Loc.T("В выбранной книге нет глав. Создайте главу в списке.");
 
     /// <summary>Подпись кнопки на пустой карте: следующий недостающий элемент структуры.</summary>
     public string MapEmptyActionLabel => SelectedBook is null ? Loc.T("Создать книгу") : Loc.T("Создать главу");
@@ -178,7 +181,7 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
 
     public bool HasProject => _projects.Current is not null;
 
-    public string ProjectTitle => _projects.Current?.Name ?? "Проект не открыт";
+    public string ProjectTitle => _projects.Current?.Name ?? Loc.T("Проект не открыт");
 
     public bool HasStructure => Roots.Count > 0;
 
@@ -189,19 +192,12 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
         // создаёт элементы подряд, и выбор не должен сбрасываться (ТЗ п. 27).
         var known = Roots.SelectMany(Enumerate).ToDictionary(node => node.Id, node => node.IsExpanded);
         var selectedId = Selected?.Id;
-
-        Roots.Clear();
-        foreach (var series in _architecture.GetSeries())
+        var previousExpansion = _expansionDuringRefresh;
+        if (SceneDetails is { } details)
         {
-            Roots.Add(ArchitectureNodeViewModel.ForSeries(series));
-        }
-
-        foreach (var node in Roots.SelectMany(Enumerate))
-        {
-            if (known.TryGetValue(node.Id, out var wasExpanded))
-            {
-                node.IsExpanded = wasExpanded;
-            }
+            _expansionDuringRefresh = (details.SceneId,
+                details.Lines.Where(line => line.IsExpanded).Select(line => line.LineId).ToHashSet(),
+                details.Characters.Where(character => character.IsExpanded).Select(character => character.CharacterId).ToHashSet());
         }
 
         // Перечитывание структуры не должно приниматься за выбор пользователя:
@@ -209,21 +205,36 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
         _suppressSceneDetailsSave = true;
         try
         {
+            Roots.Clear();
+            foreach (var series in _architecture.GetSeries())
+            {
+                Roots.Add(ArchitectureNodeViewModel.ForSeries(series));
+            }
+
+            foreach (var node in Roots.SelectMany(Enumerate))
+            {
+                if (known.TryGetValue(node.Id, out var wasExpanded))
+                {
+                    node.IsExpanded = wasExpanded;
+                }
+            }
+
             Selected = selectedId is { } id
                 ? Roots.SelectMany(Enumerate).FirstOrDefault(node => node.Id == id)
                 : null;
+
+            RefreshBooks();
+            OnPropertyChanged(nameof(HasProject));
+            OnPropertyChanged(nameof(ProjectTitle));
+            OnPropertyChanged(nameof(HasStructure));
+            RebuildMap();
+            NotifyCommands();
         }
         finally
         {
             _suppressSceneDetailsSave = false;
+            _expansionDuringRefresh = previousExpansion;
         }
-
-        RefreshBooks();
-        OnPropertyChanged(nameof(HasProject));
-        OnPropertyChanged(nameof(ProjectTitle));
-        OnPropertyChanged(nameof(HasStructure));
-        RebuildMap();
-        NotifyCommands();
     }
 
     /// <summary>Выбор узла из карты или списка: выделение одно на оба вида.</summary>
@@ -346,7 +357,7 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
         PlotLineLegend.Clear();
         var previousFilterId = SelectedLineFilter?.Id;
         LineFilters.Clear();
-        LineFilters.Add(new PlotLineFilterOption(null, "Все линии", null));
+        LineFilters.Add(new PlotLineFilterOption(null, Loc.T("Все линии"), null));
 
         foreach (var line in _architecture.GetPlotLines())
         {
@@ -474,6 +485,10 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
     /// </summary>
     private void BuildSceneDetails()
     {
+        // Потеря фокуса сохраняет текст до обработки следующего клика. Сохраняем
+        // экземпляр панели, чтобы этот клик дошёл до раскрываемого заголовка.
+        if (_preserveSceneDetails) return;
+
         if (_projects.Current is not { } snapshot || Selected is not { Kind: EntityKind.Scene } node)
         {
             SceneDetails = null;
@@ -497,10 +512,15 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
         var sceneIndex = column is null
             ? 1
             : column.Scenes.ToList().FindIndex(cell => cell.Id == node.Id) + 1;
-        var bookTitle = node.FindAncestor(EntityKind.Book)?.Title ?? "Книга";
-        var breadcrumb = $"{bookTitle} / Глава {column?.Number ?? 0} / Сцена {sceneIndex}";
+        var bookTitle = node.FindAncestor(EntityKind.Book)?.Title ?? Loc.T("Книга");
+        var breadcrumb = Loc.F("{0} / Глава {1} / Сцена {2}", bookTitle, column?.Number ?? 0, sceneIndex);
 
-        var touchingLines = snapshot.PlotLines.Where(line => TouchesScene(line, node.Id)).ToList();
+        var previous = SceneDetails?.SceneId == scene.Id ? SceneDetails : null;
+        var expansion = _expansionDuringRefresh?.SceneId == scene.Id ? _expansionDuringRefresh : null;
+        var stepOrder = scene.OrderedStepIds(snapshot.PlotLines).ToList();
+        var touchingLines = snapshot.PlotLines.Where(line => TouchesScene(line, node.Id))
+            .OrderBy(line => line.Steps.Where(step => step.SceneIds.Contains(scene.Id))
+                .Select(step => stepOrder.IndexOf(step.Id)).DefaultIfEmpty(int.MaxValue).Min()).ToList();
         var lines = touchingLines
             .Select(line => new SceneLineEntry(
                 line.Id,
@@ -508,7 +528,21 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
                 line.Name,
                 StoryText.BrushFromHex(line.ColorHex, Brushes.Gray),
                 StoryText.LineStatusLabel(line.Status),
-                StoryText.StatusDot(line.Status)))
+                StoryText.StatusDot(line.Status))
+            {
+                Description = line.Description ?? string.Empty,
+                MoveUpCommand = new AsyncRelayCommand(ct => MoveSceneLineAsync(scene.Id, line.Id, -1, ct), () => touchingLines.IndexOf(line) > 0),
+                MoveDownCommand = new AsyncRelayCommand(ct => MoveSceneLineAsync(scene.Id, line.Id, 1, ct), () => touchingLines.IndexOf(line) < touchingLines.Count - 1),
+                Steps = [.. line.Steps.Where(step => step.SceneIds.Contains(node.Id))
+                    .OrderBy(step => stepOrder.IndexOf(step.Id))
+                    .Select(step => new SceneStageDescription(Loc.F("Шаг «{0}»", step.Title), step.Description)
+                    {
+                        RemoveCommand = new AsyncRelayCommand(ct => ApplySceneLinesAsync(scene.Id,
+                            CurrentSceneStepIds(scene.Id).Where(id => id != step.Id).ToList(), ct)),
+                    })],
+                IsExpanded = expansion?.Lines.Contains(line.Id)
+                    ?? previous?.Lines.FirstOrDefault(entry => entry.LineId == line.Id)?.IsExpanded == true,
+            })
             .ToList();
 
         var lineChoices = snapshot.PlotLines
@@ -521,6 +555,11 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
                     .Select((step, index) => new SceneStepOption(step.Id, step.Title, index + 1))]))
             .ToList();
         var characters = BuildSceneCharacters(snapshot, touchingLines, node.Id);
+        foreach (var character in characters)
+        {
+            character.IsExpanded = expansion?.Characters.Contains(character.CharacterId)
+                ?? previous?.Characters.FirstOrDefault(entry => entry.CharacterId == character.CharacterId)?.IsExpanded == true;
+        }
         var assignedCharacterIds = touchingLines
             .SelectMany(line => line.Steps)
             .Where(step => step.SceneIds.Contains(node.Id))
@@ -593,13 +632,19 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
                         character.Name,
                         StoryText.RoleLabel(character.Role),
                         !string.IsNullOrWhiteSpace(character.ExternalGoal)
-                            ? $"Цель: {character.ExternalGoal}"
+                            ? Loc.F("Цель: {0}", character.ExternalGoal)
                             : character.Description ?? string.Empty,
                         !string.IsNullOrWhiteSpace(character.ExternalGoal)
                             || !string.IsNullOrWhiteSpace(character.Description),
-                        $"Этап: {step.Title}",
+                        Loc.T("Этапы арки"),
                         brush,
-                        HasStep: true));
+                        HasStep: true)
+                    {
+                        CharacterId = character.Id,
+                        Stages = [.. ScriSelfStudio.Presentation.Characters.CharacterSceneProfile
+                            .ArcStages(character, touchingLines, sceneId)
+                            .Select(stage => new SceneStageDescription(Loc.F("Этап арки «{0}»", stage.Title), stage.Description))],
+                    });
                 }
             }
         }
@@ -669,7 +714,7 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
             return false;
         }
 
-        Refresh();
+        RefreshAfterSceneTextSave(sceneId);
         StatusMessage = Loc.T("Описание сцены сохранено.");
         return true;
     }
@@ -691,9 +736,23 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
             return false;
         }
 
-        Refresh();
+        RefreshAfterSceneTextSave(sceneId);
         StatusMessage = Loc.T("Заметки сцены сохранены.");
         return true;
+    }
+
+    private void RefreshAfterSceneTextSave(Guid sceneId)
+    {
+        var wasPreserving = _preserveSceneDetails;
+        _preserveSceneDetails = Selected?.Id == sceneId && SceneDetails?.SceneId == sceneId;
+        try
+        {
+            Refresh();
+        }
+        finally
+        {
+            _preserveSceneDetails = wasPreserving;
+        }
     }
 
     /// <summary>Снять линию со сцены: убираются все этапы этой линии, привязанные к сцене.</summary>
@@ -708,12 +767,27 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
         await ApplySceneLinesAsync(sceneId, stepIds, cancellationToken);
     }
 
-    private IReadOnlyList<Guid> CurrentSceneStepIds(Guid sceneId) =>
-        _projects.Current?.PlotLines
-            .SelectMany(line => line.Steps)
-            .Where(step => step.SceneIds.Contains(sceneId))
-            .Select(step => step.Id)
-            .ToList() ?? [];
+    private IReadOnlyList<Guid> CurrentSceneStepIds(Guid sceneId)
+    {
+        var snapshot = _projects.Current;
+        var scene = snapshot?.Series.SelectMany(series => series.Books)
+            .SelectMany(book => book.Chapters).SelectMany(chapter => chapter.Scenes)
+            .FirstOrDefault(candidate => candidate.Id == sceneId);
+        return scene?.OrderedStepIds(snapshot!.PlotLines) ?? [];
+    }
+
+    private Task MoveSceneLineAsync(Guid sceneId, Guid lineId, int delta, CancellationToken cancellationToken)
+    {
+        if (_projects.Current is not { } snapshot) return Task.CompletedTask;
+        var ids = CurrentSceneStepIds(sceneId);
+        var lineByStep = snapshot.PlotLines.SelectMany(line => line.Steps.Select(step => (step.Id, LineId: line.Id)))
+            .ToDictionary(item => item.Id, item => item.LineId);
+        var groups = ids.GroupBy(id => lineByStep[id]).Select(group => (group.Key, Steps: group.ToList())).ToList();
+        var index = groups.FindIndex(group => group.Key == lineId);
+        if (index < 0 || index + delta < 0 || index + delta >= groups.Count) return Task.CompletedTask;
+        (groups[index], groups[index + delta]) = (groups[index + delta], groups[index]);
+        return ApplySceneLinesAsync(sceneId, groups.SelectMany(group => group.Steps).ToList(), cancellationToken);
+    }
 
     private async Task ApplySceneLinesAsync(
         Guid sceneId,
@@ -740,8 +814,8 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
         line.SceneIds.Contains(sceneId) || line.Steps.Any(step => step.SceneIds.Contains(sceneId));
 
     private static string WordsLabel(int words) => words > 0
-        ? $"{words} {StoryText.Plural(words, "слово", "слова", "слов")}"
-        : "текста нет";
+        ? Loc.Count(words, "слово", "слова", "слов")
+        : Loc.T("текста нет");
 
     [RelayCommand(CanExecute = nameof(HasProject))]
     private async Task CreateSeriesAsync(CancellationToken cancellationToken)
@@ -897,7 +971,9 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        var title = await _dialogs.PromptAsync(Loc.T("Переименовать"), node.KindLabel, node.Title, cancellationToken);
+        var title = await _dialogs.PromptAsync(
+            Loc.T("Переименовать"), node.KindLabel, node.Title,
+            prefillInitialValue: true, cancellationToken);
         if (title is null)
         {
             return;
@@ -944,6 +1020,30 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
     [RelayCommand(CanExecute = nameof(CanMoveDown))]
     private Task MoveDownAsync(CancellationToken cancellationToken) =>
         MoveAsync(+1, cancellationToken);
+
+    [RelayCommand]
+    private Task MoveNodeUpAsync(ArchitectureNodeViewModel? node, CancellationToken cancellationToken)
+    {
+        if (node is null) return Task.CompletedTask;
+        Selected = node;
+        return MoveAsync(-1, cancellationToken);
+    }
+
+    [RelayCommand]
+    private Task MoveNodeDownAsync(ArchitectureNodeViewModel? node, CancellationToken cancellationToken)
+    {
+        if (node is null) return Task.CompletedTask;
+        Selected = node;
+        return MoveAsync(1, cancellationToken);
+    }
+
+    [RelayCommand]
+    private Task DeleteNodeAsync(ArchitectureNodeViewModel? node, CancellationToken cancellationToken)
+    {
+        if (node is null) return Task.CompletedTask;
+        Selected = node;
+        return DeleteAsync(cancellationToken);
+    }
 
     [RelayCommand(CanExecute = nameof(IsSceneSelected))]
     private async Task OpenSceneAsync(CancellationToken cancellationToken)

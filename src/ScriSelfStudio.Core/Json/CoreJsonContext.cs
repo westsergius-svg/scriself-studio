@@ -18,6 +18,8 @@ using ScriSelfStudio.Core.Text;
 [JsonSerializable(typeof(Book))]
 [JsonSerializable(typeof(Chapter))]
 [JsonSerializable(typeof(Scene))]
+[JsonSerializable(typeof(SceneVersion))]
+[JsonSerializable(typeof(List<SceneVersion>))]
 [JsonSerializable(typeof(PlotLine))]
 [JsonSerializable(typeof(PlotLineStep))]
 [JsonSerializable(typeof(StepParticipant))]
@@ -38,6 +40,7 @@ using ScriSelfStudio.Core.Text;
 [JsonSerializable(typeof(SceneMetadata))]
 [JsonSerializable(typeof(ProjectSettings))]
 [JsonSerializable(typeof(RichDocument))]
+[JsonSerializable(typeof(DocumentReview))]
 [JsonSerializable(typeof(List<Guid>))]
 [JsonSerializable(typeof(List<string>))]
 public sealed partial class CoreJsonContext : JsonSerializerContext

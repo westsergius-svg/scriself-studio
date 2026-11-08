@@ -12,6 +12,11 @@
   <ItemGroup>
     <!-- Значок окна: Avalonia читает PNG, ICO она не декодирует. -->
     <AvaloniaResource Include="Assets\scriself.png" />
+    <Content Include="..\..\LICENSE" Link="LICENSE.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\licenses\**\*" Link="licenses\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\ScriSelfStudio.Persistence\Language\Data\wiki-synonyms.json.gz" Link="Documentation\Data\wiki-synonyms.json.gz" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\docs\USER-GUIDE.md" Link="Documentation\Руководство.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\docs\training\ScriSelfStudio-Training.pptx" Link="Documentation\Обучение.pptx" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" />
@@ -39,4 +44,5 @@
     <ProjectReference Include="..\ScriSelfStudio.ArchitectureUI\ScriSelfStudio.ArchitectureUI.csproj" />
     <ProjectReference Include="..\ScriSelfStudio.StoryUI\ScriSelfStudio.StoryUI.csproj" />
   </ItemGroup>
+  <Import Project="..\..\installer\GrammarRuntime.targets" />
 </Project>

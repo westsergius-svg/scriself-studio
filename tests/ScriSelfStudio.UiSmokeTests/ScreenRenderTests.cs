@@ -29,9 +29,14 @@ using AvaloniaRichEditor.Controls;
 /// </summary>
 public sealed class ScreenRenderTests
 {
-    [AvaloniaFact]
-    public async Task All_screens_render_a_frame()
+    [AvaloniaTheory]
+    [InlineData(AppTheme.Starter)]
+    [InlineData(AppTheme.GreenStart)]
+    [InlineData(AppTheme.Cabinet)]
+    [InlineData(AppTheme.Jam)]
+    public async Task All_screens_render_a_frame(AppTheme theme)
     {
+        var cabinet = theme is AppTheme.Cabinet or AppTheme.Jam;
         using var workspace = new TempWorkspace();
         var path = workspace.FilePath("Источник магии.scri");
         var dialogs = new StubFileDialogService { CreatePath = path, PromptResult = "Элемент" };
@@ -39,6 +44,8 @@ public sealed class ScreenRenderTests
         var window = provider.GetRequiredService<MainWindow>();
         var launcher = provider.GetRequiredService<LauncherViewModel>();
         await launcher.InitializeAsync();
+        var themeShell = provider.GetRequiredService<ScriSelfStudio.App.Shell.ShellViewModel>();
+        await themeShell.SelectThemeCommand.ExecuteAsync(themeShell.Themes.Single(option => option.Value == theme));
         window.Width = 1440;
         window.Height = 768;
 
@@ -56,6 +63,7 @@ public sealed class ScreenRenderTests
         Assert.Equal(6, launcher.SelectedProject?.SceneCount);
 
         window.Show();
+        provider.GetRequiredService<ScriSelfStudio.App.Shell.ShellViewModel>().OpenLauncherCommand.Execute(null);
         Render(window, "01-launcher");
 
         launcher.OpenArchitectureCommand.Execute(null);
@@ -163,14 +171,14 @@ public sealed class ScreenRenderTests
         Assert.Equal("Идан отказывается покинуть родной город.", character.StepDescription);
         character.ToggleDescriptionCommand.Execute(null);
         Assert.True(character.IsDescriptionExpanded);
-        Assert.False(assignedFirstStep.IsDescriptionExpanded);
+        Assert.True(assignedFirstStep.IsDescriptionExpanded);
         character.ToggleDescriptionCommand.Execute(null);
         Assert.False(character.IsDescriptionExpanded);
 
         contextPanel.SelectedStepOption = contextPanel.StepOptions.First(option => option.Title == "Развязка");
         await contextPanel.AddStepCommand.ExecuteAsync(null);
         Assert.Equal(2, contextPanel.AssignedSteps.Count);
-        Assert.False(contextPanel.AssignedSteps[0].IsDescriptionExpanded);
+        Assert.True(contextPanel.AssignedSteps[0].IsDescriptionExpanded);
         contextPanel.AssignedSteps[1].ToggleDescriptionCommand.Execute(null);
         Assert.True(contextPanel.AssignedSteps[1].IsDescriptionExpanded);
         contextPanel.AssignedSteps[1].ToggleDescriptionCommand.Execute(null);
@@ -186,6 +194,14 @@ public sealed class ScreenRenderTests
 
         var editor = provider.GetRequiredService<EditorViewModel>();
         editor.Text = "Первая строка рукописи.\nВторая строка с «ёжиком» и emoji 🚀.\n\nЕщё абзац.";
+        if (cabinet)
+        {
+            editor.Text = "К утру дождь закончился. Город ещё спал, и только в окне напротив горел свет. Идан остановился у двери мастерской, прислушиваясь к тишине. За этой дверью начиналось всё, что он столько лет откладывал.\n\n"
+                + "На столе лежала раскрытая тетрадь. Незнакомый почерк заполнял страницы неторопливо, оставляя широкие поля. Между строк попадались наброски улиц, названия деревень и короткие замечания о ветре. Это было похоже на путевые записи человека, который никуда не спешил.\n\n"
+                + "Лея нашла его у окна. Она не стала спрашивать, почему он пришёл так рано, а просто поставила рядом две чашки. От горячего чая поднимался пар, и на мгновение Идану показалось, что в комнате стало светлее.\n\n"
+                + "— Начнём с самого простого, — сказала она. — Расскажи, что ты помнишь.\n\n"
+                + "Он посмотрел на первую страницу. Вчера эти слова казались чужими, но теперь в них проступал знакомый ритм. Где-то за городом ждала дорога, которую однажды уже прошёл его отец. Идан взял карандаш и написал на свободном поле одно слово: «Вернуться».";
+        }
         Dispatcher.UIThread.RunJobs();
         // The active scene uses the rich-text editor and synchronizes with the document.
         Assert.NotEmpty(editor.Blocks);
@@ -206,6 +222,50 @@ public sealed class ScreenRenderTests
         // Режим «Полный холст»: боковые панели скрыты, «бумага» растягивается
         // на всю ширину с отступами по 20px — кадр для визуальной приёмки.
         var shell = provider.GetRequiredService<ScriSelfStudio.App.Shell.ShellViewModel>();
+        if (cabinet)
+        {
+            var originalDocument = sceneField.Document;
+            var originalText = sceneField.GetPlainText();
+            editor.IncreaseReadingZoomCommand.Execute(null);
+            editor.DecreaseReadingZoomCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Same(originalDocument, sceneField.Document);
+            Assert.Equal(originalText, sceneField.GetPlainText());
+            Assert.False(shell.ShowScenePanel);
+            Assert.True(shell.ShowBookTree);
+            shell.ToggleScenePanelCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(shell.ShowScenePanel);
+            Render(window, "03c-editor-context");
+            shell.ToggleScenePanelCommand.Execute(null);
+            editor.ToggleToolbarMoreCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Render(window, "03d-editor-formatting");
+            editor.ToggleToolbarMoreCommand.Execute(null);
+            foreach (var width in new[] { 800, 1024, 1280, 1920 })
+            {
+                window.Width = width;
+                window.Height = width == 800 ? 600 : 768;
+                Dispatcher.UIThread.RunJobs();
+                Render(window, $"03e-editor-{width}");
+                Assert.True(sceneField.Bounds.Width >= 360, $"Editor width {sceneField.Bounds.Width} at window {width}");
+                shell.ToggleScenePanelCommand.Execute(null);
+                Render(window, $"03f-context-{width}");
+                Assert.True(sceneField.Bounds.Width >= 300, $"Context leaves editor width {sceneField.Bounds.Width} at {width}");
+                shell.ToggleScenePanelCommand.Execute(null);
+            }
+            window.Width = 1440;
+            window.Height = 768;
+            Assert.Same(originalDocument, sceneField.Document);
+            Assert.Equal(originalText, sceneField.GetPlainText());
+            // Switching layout must not replace the document or lose the active editing state.
+            await shell.SelectThemeCommand.ExecuteAsync(shell.Themes[0]);
+            await shell.SelectThemeCommand.ExecuteAsync(shell.Themes.Single(option => option.Value == theme));
+            Dispatcher.UIThread.RunJobs();
+            Assert.Same(originalDocument, sceneField.Document);
+            Assert.Equal(originalText, sceneField.GetPlainText());
+            shell.IsScenePanelRequested = true;
+        }
         shell.IsFullCanvas = true;
         Dispatcher.UIThread.RunJobs();
         Render(window, "03b-editor-full-canvas");
@@ -223,7 +283,7 @@ public sealed class ScreenRenderTests
 
 
         launcher.OpenCharactersCommand.Execute(null);
-        Assert.False(shell.ShowBookTree);
+        Assert.Equal(cabinet, shell.ShowBookTree);
         Assert.False(shell.ShowScenePanel);
         var characters = provider.GetRequiredService<CharactersViewModel>();
         characters.NewCharacterCommand.Execute(null);
@@ -287,6 +347,24 @@ public sealed class ScreenRenderTests
         Assert.False(shell.ShowScenePanel);
         Assert.False(shell.ShowStatusBar);
         Render(window, "07-settings");
+
+        if (cabinet)
+        {
+            window.Width = 800;
+            Render(window, "07b-settings-800");
+            var themeSettings = provider.GetRequiredService<SettingsViewModel>();
+            themeSettings.SelectedSection = themeSettings.Sections.Single(section => section.Section == SettingsSection.Appearance);
+            Render(window, "07c-appearance-800");
+            window.Width = 1440;
+            Render(window, "07d-appearance");
+            if (Environment.GetEnvironmentVariable("SCRISELF_RENDER_DIR") is { Length: > 0 } renderDirectory)
+            {
+                await shell.FlushPendingEditsAsync();
+                var saved = await provider.GetRequiredService<IProjectService>().SaveAsAsync(Path.Combine(renderDirectory,
+                    theme == AppTheme.Jam ? "jam" : "cabinet", "Рабочее место — пример.scri"));
+                Assert.True(saved.IsSuccess, saved.Error?.UserMessage);
+            }
+        }
 
         window.Close();
     }
@@ -671,6 +749,12 @@ public sealed class ScreenRenderTests
             return;
         }
 
+        if (window.DataContext is ScriSelfStudio.App.Shell.ShellViewModel { IsJamTheme: true })
+            directory = Path.Combine(directory, "jam");
+        else if (window.DataContext is ScriSelfStudio.App.Shell.ShellViewModel { IsCabinetTheme: true })
+            directory = Path.Combine(directory, "cabinet");
+        else if (window.DataContext is ScriSelfStudio.App.Shell.ShellViewModel { SelectedTheme.Value: AppTheme.GreenStart })
+            directory = Path.Combine(directory, "green-start");
         Directory.CreateDirectory(directory);
         frame!.Save(Path.Combine(directory, name + ".png"), PngBitmapEncoderOptions.Default);
     }

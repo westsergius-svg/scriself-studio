@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using ScriSelfStudio.Presentation.Localization;
 
 /// <summary>
 /// Сюжетная линия сцены в правой панели карты: цвет, название, статус и этапы,
@@ -19,6 +20,22 @@ public sealed record SceneLineEntry(
     IBrush StatusBrush)
 {
     public string StatusText => $"({StatusLabel})";
+    public IAsyncRelayCommand? MoveUpCommand { get; init; }
+    public IAsyncRelayCommand? MoveDownCommand { get; init; }
+
+    public string Description { get; init; } = string.Empty;
+    public bool HasDescription => !string.IsNullOrWhiteSpace(Description);
+    public IReadOnlyList<SceneStageDescription> Steps { get; init; } = [];
+    public bool IsExpanded { get; set; }
+}
+
+/// <summary>Описание шага линии или этапа арки, относящегося к выбранной сцене.</summary>
+public sealed record SceneStageDescription(string Title, string? Description)
+{
+    public IAsyncRelayCommand? RemoveCommand { get; init; }
+    public bool HasStepActions => RemoveCommand is not null;
+    public string DescriptionText => string.IsNullOrWhiteSpace(Description)
+        ? Loc.T("Описание этапа не задано.") : Description;
 }
 
 /// <summary>Шаг линии, доступный для привязки к сцене с карты (ADR 012).</summary>
@@ -52,7 +69,13 @@ public sealed record SceneCharacterEntry(
     bool HasDetail,
     string StepLabel,
     IBrush StepBrush,
-    bool HasStep);
+    bool HasStep)
+{
+    public Guid CharacterId { get; init; }
+    public IReadOnlyList<SceneStageDescription> Stages { get; init; } = [];
+    public bool HasStages => Stages.Count > 0;
+    public bool IsExpanded { get; set; }
+}
 
 /// <summary>
 /// Правая панель карты «Сцена» (ТЗ п. 27): номер и название, хлебные крошки, краткое

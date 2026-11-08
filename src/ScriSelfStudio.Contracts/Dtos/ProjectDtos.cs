@@ -95,6 +95,9 @@ public sealed record ChapterDto
 /// <summary>Снимок сцены без текста.</summary>
 public sealed record SceneDto
 {
+    /// <summary>Предпочтительный порядок связанных шагов; пустой список сохраняет порядок старых проектов.</summary>
+    public IReadOnlyList<Guid> PlotLineStepOrder { get; init; } = [];
+
     public required Guid Id { get; init; }
 
     public required Guid ChapterId { get; init; }

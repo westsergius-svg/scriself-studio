@@ -148,5 +148,5 @@ public sealed partial class ArchitectureNodeViewModel : ObservableObject
         return null;
     }
 
-    private string StatusLabel() => StatusText + (HasText ? ", есть текст" : ", пусто");
+    private string StatusLabel() => StatusText + (HasText ? Loc.T(", есть текст") : Loc.T(", пусто"));
 }

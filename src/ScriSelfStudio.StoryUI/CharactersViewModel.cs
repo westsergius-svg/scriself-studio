@@ -364,7 +364,7 @@ public sealed partial class CharactersViewModel : ViewModelBase, IDisposable
     private void AddArcStage() =>
         Draft.ArcStages.Add(new ArcStageDraft(
             Guid.Empty,
-            "Новый этап",
+            Loc.T("Новый этап"),
             CharacterArcStageKind.Custom,
             null));
 
@@ -461,8 +461,8 @@ public sealed partial class CharactersViewModel : ViewModelBase, IDisposable
                         .Select(participant => participant.CharacterArcStageId)
                         .FirstOrDefault();
                     var stepTitle = arcStageId is null
-                        ? "этап арки не выбран"
-                        : Draft.ArcStages.FirstOrDefault(item => item.Id == arcStageId)?.Title ?? "этап арки не выбран";
+                        ? Loc.T("этап арки не выбран")
+                        : Draft.ArcStages.FirstOrDefault(item => item.Id == arcStageId)?.Title ?? Loc.T("этап арки не выбран");
                     Participation.Add($"{line.Name} · {step.Title} — {stepTitle}");
                 }
             }
@@ -630,7 +630,7 @@ public sealed partial class CharactersViewModel : ViewModelBase, IDisposable
         new("11. Секреты и тайны",
         [
             Field("Скрывает от других", () => Draft.Secrets, v => Draft.Secrets = v, multiline: true),
-            Field("Скрывает от себя", () => Draft.SecretsFromSelf, v => Draft.SecretsFromSelf = v, multiline: true),
+            Field("Не признаёт в себе", () => Draft.SecretsFromSelf, v => Draft.SecretsFromSelf = v, multiline: true),
             Field("Кто знает правду", () => Draft.SecretKeepers, v => Draft.SecretKeepers = v, multiline: true),
             Field("Когда и как раскроется", () => Draft.SecretReveal, v => Draft.SecretReveal = v, multiline: true),
             Field("Последствия раскрытия", () => Draft.SecretConsequences, v => Draft.SecretConsequences = v, multiline: true),

@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using ScriSelfStudio.App.Shell;
 
 /// <summary>Главное окно приложения: заголовок и текущий экран.</summary>
@@ -24,7 +25,13 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        // Subpixel smoothing assumes an opaque backing; glass uses grayscale
+        // antialiasing so small labels remain clean over translucent surfaces.
+        Classes.CollectionChanged += (_, _) => TextOptions.SetTextRenderingMode(this,
+            Classes.Contains("jam") ? TextRenderingMode.Antialias : TextRenderingMode.Unspecified);
         FitToScreen();
+        SizeChanged += (_, _) => UpdateResponsiveLayout();
+        DataContextChanged += (_, _) => UpdateResponsiveLayout();
         // Thumb помечает PointerPressed обработанным, поэтому обычная подписка из
         // XAML события не получает. Регистрируем с handledEventsToo: true — иначе
         // перетаскивание разделителя вообще не начиналось бы.
@@ -51,6 +58,11 @@ public partial class MainWindow : Window
         MinHeight = Math.Min(MinHeight, availableHeight);
         Width = Math.Min(Width, availableWidth);
         Height = Math.Min(Height, availableHeight);
+    }
+
+    private void UpdateResponsiveLayout()
+    {
+        if (DataContext is ShellViewModel shell) shell.UpdateWindowWidth(Bounds.Width > 0 ? Bounds.Width : Width);
     }
 
     private static void Subscribe(

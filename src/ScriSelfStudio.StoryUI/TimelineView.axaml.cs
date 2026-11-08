@@ -2,6 +2,7 @@ namespace ScriSelfStudio.StoryUI;
 
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 
 /// <summary>
 /// Экран сюжетных линий. Логика — в <see cref="TimelineViewModel"/>.
@@ -23,9 +24,13 @@ public partial class TimelineView : UserControl
             return;
         }
 
-        if (viewModel.CommitLineCommand.CanExecute(null))
+        // Дать текущему клику выбрать вкладку до пересоздания карточек сохранением.
+        Dispatcher.UIThread.Post(() =>
         {
-            viewModel.CommitLineCommand.Execute(null);
-        }
+            if (ReferenceEquals(DataContext, viewModel) && viewModel.CommitLineCommand.CanExecute(null))
+            {
+                viewModel.CommitLineCommand.Execute(null);
+            }
+        }, DispatcherPriority.Background);
     }
 }

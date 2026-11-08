@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Скоро запуск</title>
+    <style>
+        /* Сброс и базовые стили */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Poppins', system-ui, sans-serif;
+            background: #0a0a12;
+            color: #fff;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            /* Фоновый градиент с эффектом глубины */
+            background: radial-gradient(ellipse at 30% 20%, #14142a 0%, #030308 100%);
+        }
+
+        /* Анимированная сетка на заднем фоне */
+        .background-grid {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+            background-size: 60px 60px;
+            animation: gridMove 20s linear infinite;
+            perspective: 500px;
+        }
+
+        @keyframes gridMove {
+            0% {
+                transform: translateY(0) rotateX(2deg);
+            }
+            100% {
+                transform: translateY(60px) rotateX(2deg);
+            }
+        }
+
+        /* Плавающие частицы (звезды/глюки) */
+        .glitch-particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            overflow: hidden;
+        }
+
+        .particle {
+            position: absolute;
+            background: #00f7ff;
+            border-radius: 50%;
+            filter: blur(1px);
+            opacity: 0.4;
+            box-shadow: 0 0 20px #00f7ff;
+            animation: floatParticle linear infinite;
+        }
+
+        @keyframes floatParticle {
+            0% {
+                transform: translateY(100vh) scale(0);
+                opacity: 0;
+            }
+            10% {
+                opacity: 0.7;
+            }
+            90% {
+                opacity: 0.7;
+            }
+            100% {
+                transform: translateY(-10vh) scale(1);
+                opacity: 0;
+            }
+        }
+
+        /* Основной контейнер */
+        .main-content {
+            position: relative;
+            z-index: 10;
+            text-align: center;
+            max-width: 800px;
+            padding: 40px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* Неоновая надпись "РЕМОНТ" */
+        .neon-title {
+            font-size: clamp(3rem, 15vw, 7rem);
+            font-weight: 900;
+            letter-spacing: 8px;
+            text-transform: uppercase;
+            color: #fff;
+            text-shadow: 
+                0 0 10px #00f7ff,
+                0 0 20px #00f7ff,
+                0 0 40px #00f7ff,
+                0 0 80px #b300ff,
+                0 0 120px #b300ff;
+            animation: flicker 3s infinite alternate;
+            margin-bottom: 10px;
+            line-height: 1.1;
+        }
+
+        @keyframes flicker {
+            0%, 18%, 22%, 25%, 53%, 57%, 100% {
+                text-shadow: 
+                    0 0 10px #00f7ff,
+                    0 0 20px #00f7ff,
+                    0 0 40px #00f7ff,
+                    0 0 80px #b300ff,
+                    0 0 120px #b300ff;
+            }
+            20%, 24%, 55% {
+                text-shadow: 
+                    0 0 5px #00f7ff,
+                    0 0 10px #b300ff,
+                    0 0 30px #b300ff;
+            }
+        }
+
+        .sub-neon {
+            font-size: clamp(1rem, 3vw, 1.8rem);
+            font-weight: 300;
+            letter-spacing: 6px;
+            color: #b3b3ff;
+            text-shadow: 0 0 20px rgba(0, 247, 255, 0.3);
+            margin-bottom: 40px;
+            border-bottom: 1px solid rgba(0, 247, 255, 0.2);
+            padding-bottom: 10px;
+            display: inline-block;
+        }
+
+        /* Таймер */
+        .timer-container {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin: 30px 0 40px;
+            backdrop-filter: blur(5px);
+            background: rgba(255, 255, 255, 0.03);
+            padding: 25px 35px;
+            border-radius: 20px;
+            border: 1px solid rgba(0, 247, 255, 0.15);
+            box-shadow: 0 0 60px rgba(0, 247, 255, 0.05);
+        }
+
+        .timer-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 70px;
+        }
+
+        .timer-item .number {
+            font-size: clamp(2.2rem, 7vw, 4rem);
+            font-weight: 700;
+            background: linear-gradient(135deg, #00f7ff, #b300ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: none;
+            line-height: 1.2;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .timer-item .label {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            color: rgba(255, 255, 255, 0.4);
+            margin-top: 5px;
+            font-weight: 300;
+        }
+
+        /* Кнопка / ссылка */
+        .btn-notify {
+            display: inline-block;
+            padding: 16px 48px;
+            background: transparent;
+            color: #00f7ff;
+            font-size: 1.1rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            border: 2px solid #00f7ff;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            box-shadow: 0 0 20px rgba(0, 247, 255, 0.2);
+            backdrop-filter: blur(10px);
+            background: rgba(0, 247, 255, 0.05);
+            margin-top: 10px;
+        }
+
+        .btn-notify:hover {
+            background: #00f7ff;
+            color: #0a0a12;
+            box-shadow: 0 0 60px #00f7ff;
+            transform: scale(1.05);
+            border-color: #00f7ff;
+        }
+
+        /* Социальные иконки (стилизованные) */
+        .social-links {
+            margin-top: 50px;
+            display: flex;
+            gap: 25px;
+        }
+
+        .social-links a {
+            color: rgba(255, 255, 255, 0.3);
+            font-size: 1.5rem;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            border-bottom: 2px solid transparent;
+            padding-bottom: 5px;
+            font-weight: 300;
+            letter-spacing: 2px;
+        }
+
+        .social-links a:hover {
+            color: #00f7ff;
+            border-bottom-color: #00f7ff;
+            text-shadow: 0 0 20px rgba(0, 247, 255, 0.5);
+        }
+
+        /* Адаптив */
+        @media (max-width: 600px) {
+            .timer-container {
+                padding: 20px;
+                gap: 10px;
+                width: 100%;
+            }
+            .timer-item {
+                min-width: 50px;
+            }
+            .btn-notify {
+                padding: 14px 30px;
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Анимированная сетка -->
+    <div class="background-grid"></div>
+
+    <!-- Плавающие частицы (генерируем скриптом) -->
+    <div class="glitch-particles" id="particles"></div>
+
+    <!-- Основной контент -->
+    <div class="main-content">
+        <h1 class="neon-title">РЕМОНТ</h1>
+        <span class="sub-neon">⚡ МЫ СКОРО ВЕРНЕМСЯ ⚡</span>
+
+        <!-- Таймер обратного отсчета -->
+        <div class="timer-container">
+            <div class="timer-item">
+                <span class="number" id="days">00</span>
+                <span class="label">Дней</span>
+            </div>
+            <div class="timer-item">
+                <span class="number" id="hours">00</span>
+                <span class="label">Часов</span>
+            </div>
+            <div class="timer-item">
+                <span class="number" id="minutes">00</span>
+                <span class="label">Минут</span>
+            </div>
+            <div class="timer-item">
+                <span class="number" id="seconds">00</span>
+                <span class="label">Секунд</span>
+            </div>
+        </div>
+
+        <!-- Кнопка -->
+        <!-- Yandex.Metrika informer -->
+        <a href="https://metrika.yandex.ru/stat/?id=113770132&amp;from=informer" target="_blank" rel="nofollow">
+            <img src="https://informer.yandex.ru/informer/113770132/3_1_FFFFFFFF_EFEFEFFF_0_pageviews"
+                 style="width:88px; height:31px; border:0;"
+                 alt="Яндекс.Метрика"
+                 title="Яндекс.Метрика: данные за сегодня (просмотры, визиты и уникальные посетители)"
+                />
+        </a>
+        <!-- /Yandex.Metrika informer -->
+
+        <!-- Социальные сети (заглушка) -->
+        <div class="social-links">
+            
+            
+        </div>
+    </div>
+
+    <script>
+        // 1. Генерация частиц
+        (function createParticles() {
+            const container = document.getElementById('particles');
+            const colors = ['#00f7ff', '#b300ff', '#ff00e4', '#00ff9d'];
+            for (let i = 0; i < 45; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                const size = Math.random() * 6 + 2;
+                particle.style.width = size + 'px';
+                particle.style.height = size + 'px';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.background = colors[Math.floor(Math.random() * colors.length)];
+                particle.style.boxShadow = `0 0 ${size * 4}px ${particle.style.background}`;
+                particle.style.animationDuration = (Math.random() * 25 + 15) + 's';
+                particle.style.animationDelay = (Math.random() * 20) + 's';
+                container.appendChild(particle);
+            }
+        })();
+
+        // 2. Таймер обратного отсчета (установите свою дату!)
+        (function startTimer() {
+            // ⚠️ ИЗМЕНИТЕ ЭТУ ДАТУ на вашу (год, месяц (0-11), день, часы, минуты)
+            const targetDate = new Date(2026, 09, 31, 23, 59, 59).getTime();
+            // Если дата уже прошла — показываем "00", иначе отсчет
+            // Для демонстрации: если дата прошла, ставим +30 дней от сегодня
+            let finalTarget = targetDate;
+            if (Date.now() > targetDate) {
+                const now = new Date();
+                now.setDate(now.getDate() + 30);
+                finalTarget = now.getTime();
+            }
+
+            const daysEl = document.getElementById('days');
+            const hoursEl = document.getElementById('hours');
+            const minutesEl = document.getElementById('minutes');
+            const secondsEl = document.getElementById('seconds');
+
+            function updateTimer() {
+                const now = Date.now();
+                let diff = finalTarget - now;
+
+                if (diff <= 0) {
+                    daysEl.textContent = '00';
+                    hoursEl.textContent = '00';
+                    minutesEl.textContent = '00';
+                    secondsEl.textContent = '00';
+                    return;
+                }
+
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+                daysEl.textContent = String(days).padStart(2, '0');
+                hoursEl.textContent = String(hours).padStart(2, '0');
+                minutesEl.textContent = String(minutes).padStart(2, '0');
+                secondsEl.textContent = String(seconds).padStart(2, '0');
+            }
+
+            updateTimer();
+            setInterval(updateTimer, 1000);
+        })();
+    </script>
+<!-- Yandex.Metrika counter -->
+<script type="text/javascript">
+    (function(m,e,t,r,i,k,a){
+        m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+        m[i].l=1*new Date();
+        for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
+        k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
+    })(window, document,'script','https://mc.yandex.ru/metrika/tag.js?id=113770132', 'ym');
+
+    ym(113770132, 'init', {ssr:true, webvisor:true, trackHash:true, clickmap:true, ecommerce:"dataLayer", referrer: document.referrer, url: location.href, accurateTrackBounce:true, trackLinks:true});
+</script>
+<noscript><div><img src="https://mc.yandex.ru/watch/113770132" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+<!-- /Yandex.Metrika counter -->
+</body>
+</html>

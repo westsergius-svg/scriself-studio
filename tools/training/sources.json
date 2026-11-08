@@ -1,0 +1,112 @@
+[
+  {
+    "Id": "workspace",
+    "Source": "artifacts/grammar-20261104/grammar-live.png",
+    "Crop": null
+  },
+  {
+    "Id": "projects",
+    "Source": "artifacts/photoshop-studio-20261104/studio-projects.png",
+    "Crop": {
+      "left": 320,
+      "top": 55,
+      "width": 1095,
+      "height": 540
+    }
+  },
+  {
+    "Id": "writing",
+    "Source": "artifacts/photoshop-studio-20261104/studio-editor.png",
+    "Crop": {
+      "left": 295,
+      "top": 40,
+      "width": 1125,
+      "height": 750
+    }
+  },
+  {
+    "Id": "characters",
+    "Source": "artifacts/photoshop-studio-20261104/studio-characters.png",
+    "Crop": {
+      "left": 345,
+      "top": 95,
+      "width": 1085,
+      "height": 700
+    }
+  },
+  {
+    "Id": "lines",
+    "Source": "artifacts/photoshop-studio-20261104/studio-lines.png",
+    "Crop": {
+      "left": 48,
+      "top": 45,
+      "width": 1380,
+      "height": 545
+    }
+  },
+  {
+    "Id": "map",
+    "Source": "artifacts/photoshop-studio-20261104/studio-map.png",
+    "Crop": {
+      "left": 52,
+      "top": 48,
+      "width": 1375,
+      "height": 835
+    }
+  },
+  {
+    "Id": "versions",
+    "Source": "artifacts/editor-acceptance-20261104/version-diff.png",
+    "Crop": {
+      "left": 10,
+      "top": 115,
+      "width": 1080,
+      "height": 612
+    }
+  },
+  {
+    "Id": "changes",
+    "Source": "artifacts/editor-acceptance-20261104/native-grammar-review.png",
+    "Crop": {
+      "left": 287,
+      "top": 155,
+      "width": 1006,
+      "height": 598
+    }
+  },
+  {
+    "Id": "comments",
+    "Source": "artifacts/editor-acceptance-20261104/native-comment.png",
+    "Crop": {
+      "left": 287,
+      "top": 155,
+      "width": 1006,
+      "height": 598
+    }
+  },
+  {
+    "Id": "grammar",
+    "Source": "artifacts/grammar-20261104/grammar-live.png",
+    "Crop": {
+      "left": 285,
+      "top": 92,
+      "width": 1012,
+      "height": 725
+    }
+  },
+  {
+    "Id": "export",
+    "Source": "artifacts/photoshop-studio-20261104/studio-export.png",
+    "Crop": {
+      "left": 45,
+      "top": 40,
+      "width": 1380,
+      "height": 835
+    }
+  },
+  {
+    "Id": "saving",
+    "Source": "artifacts/editor-acceptance-20261104/restored-review.png",
+    "Crop": null
+  }
+]

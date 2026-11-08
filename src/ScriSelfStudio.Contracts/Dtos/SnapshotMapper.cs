@@ -21,7 +21,7 @@ public static class SnapshotMapper
         Settings = project.Settings.Clone(),
         Series = project.EnumerateSeries().Select(ToDto).ToList(),
         Characters = project.Characters.Where(character => !character.IsDeleted).Select(ToDto).ToList(),
-        PlotLines = project.PlotLines.Where(line => !line.IsDeleted).Select(ToDto).ToList(),
+        PlotLines = project.PlotLines.Where(line => !line.IsDeleted).OrderBy(line => line.Order).Select(ToDto).ToList(),
         Locations = project.Locations.Where(location => !location.IsDeleted).Select(ToDto).ToList(),
         StoryObjects = project.StoryObjects.Where(item => !item.IsDeleted).Select(ToDto).ToList(),
     };
@@ -232,6 +232,7 @@ public static class SnapshotMapper
         IsLocked = scene.Metadata.IsLocked,
         HasText = !scene.Document.IsEmpty(),
         Notes = scene.Metadata.Notes,
+        PlotLineStepOrder = [.. scene.Metadata.PlotLineStepOrder],
     };
 
     private static int ChapterWords(Chapter chapter) =>

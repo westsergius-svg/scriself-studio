@@ -118,17 +118,17 @@ public sealed class RecentProjectItem
         var parts = new List<string>(3);
         if (BookCount > 0)
         {
-            parts.Add(Plural(BookCount, "книга", "книги", "книг"));
+            parts.Add(Loc.Count(BookCount, "книга", "книги", "книг"));
         }
 
         if (ChapterCount > 0)
         {
-            parts.Add(Plural(ChapterCount, "глава", "главы", "глав"));
+            parts.Add(Loc.Count(ChapterCount, "глава", "главы", "глав"));
         }
 
         if (SceneCount > 0)
         {
-            parts.Add(Plural(SceneCount, "сцена", "сцены", "сцен"));
+            parts.Add(Loc.Count(SceneCount, "сцена", "сцены", "сцен"));
         }
 
         return string.Join(" · ", parts);
@@ -147,19 +147,4 @@ public sealed class RecentProjectItem
         return Loc.F("Последнее изменение: {0}, {1}", when, local.ToString("HH:mm", CultureInfo.CurrentCulture));
     }
 
-    /// <summary>Русская форма числительного: 1 глава, 2 главы, 5 глав.</summary>
-    private static string Plural(int count, string one, string few, string many)
-    {
-        var mod100 = count % 100;
-        var mod10 = count % 10;
-        var word = mod100 is >= 11 and <= 14
-            ? many
-            : mod10 switch
-            {
-                1 => one,
-                2 or 3 or 4 => few,
-                _ => many,
-            };
-        return $"{count} {Loc.T(word)}";
-    }
 }

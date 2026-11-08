@@ -29,8 +29,13 @@ public static class EpubExportWriter
         {
             var title = $"Глава {chapterNumber}. {chapter.Title}";
             var fileName = $"chapter{chapterNumber.ToString("D3", CultureInfo.InvariantCulture)}.xhtml";
-            chapters.Add((fileName, title, BuildChapterXhtml(title, chapter)));
+            chapters.Add((fileName, title, BuildChapterXhtml(title, chapter, options)));
             chapterNumber++;
+        }
+
+        if (options.IncludeCharacterCards && manuscript.Characters.Count > 0)
+        {
+            chapters.Add(("characters.xhtml", "Персонажи", BuildCharactersXhtml(manuscript.Characters)));
         }
 
         WriteEntry(archive, "OEBPS/style.css", StyleCss(options), CompressionLevel.Optimal);
@@ -171,7 +176,7 @@ public static class EpubExportWriter
         return builder.ToString();
     }
 
-    private static string BuildChapterXhtml(string title, ExportChapter chapter)
+    private static string BuildChapterXhtml(string title, ExportChapter chapter, ExportOptions options)
     {
         var builder = new StringBuilder();
         builder.AppendLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
@@ -181,10 +186,13 @@ public static class EpubExportWriter
         builder.AppendLine("<body>");
         builder.AppendLine($"<h1>{Xml(title)}</h1>");
 
-        var sceneNumber = 1;
         foreach (var scene in chapter.Scenes)
         {
-            builder.AppendLine($"<h2>Сцена {sceneNumber++}: {Xml(scene.Title)}</h2>");
+            if (options.IncludeSceneHeadings)
+            {
+                builder.AppendLine($"<h2>Сцена: {Xml(scene.Title)}</h2>");
+            }
+
             foreach (var paragraph in scene.Paragraphs)
             {
                 var text = RenderParagraph(paragraph);
@@ -202,6 +210,27 @@ public static class EpubExportWriter
                     _ => "p",
                 };
                 builder.AppendLine($"<{tag}{cssClass}>{text}</{tag}>");
+            }
+        }
+
+        builder.AppendLine("</body></html>");
+        return builder.ToString();
+    }
+
+    private static string BuildCharactersXhtml(IReadOnlyList<ExportCharacter> characters)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+        builder.AppendLine("<!DOCTYPE html>");
+        builder.AppendLine("<html xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"ru\" lang=\"ru\">");
+        builder.AppendLine("<head><title>Персонажи</title><link rel=\"stylesheet\" href=\"style.css\" type=\"text/css\"/></head>");
+        builder.AppendLine("<body><h1>Персонажи</h1>");
+        foreach (var character in characters)
+        {
+            builder.AppendLine($"<h2>{Xml(character.Name)}</h2>");
+            foreach (var field in character.Fields)
+            {
+                builder.AppendLine($"<p><strong>{Xml(field.Label)}:</strong> {Xml(field.Value)}</p>");
             }
         }
 

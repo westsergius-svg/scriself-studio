@@ -10,11 +10,11 @@
 #define AppName "ScriSelf Studio"
 
 #ifndef AppVersion
-  #define AppVersion "1.1.9"
+  #define AppVersion "1.2.0"
 #endif
 
 #ifndef PublishDir
-  #define PublishDir "..\artifacts\publish\win-x64-1.1.9-installer"
+  #define PublishDir "..\artifacts\publish\win-x64-1.2.0-installer"
 #endif
 
 #define AppPublisher "ScriSelf Studio"

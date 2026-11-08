@@ -1,5 +1,7 @@
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,6 +15,9 @@ using ScriSelfStudio.Contracts.Settings;
 using ScriSelfStudio.Contracts.Storage;
 using ScriSelfStudio.Launcher;
 using ScriSelfStudio.Core.Updates;
+using ScriSelfStudio.ArchitectureUI;
+using ScriSelfStudio.Persistence.FileSystem;
+using ScriSelfStudio.Presentation.Dialogs;
 using ScriSelfStudio.TestSupport;
 
 namespace ScriSelfStudio.UiSmokeTests;
@@ -121,6 +126,84 @@ public sealed class LauncherViewTests
         Assert.True(launcher.IsProjectOpen);
         Assert.Single(launcher.RecentProjects);
         Assert.Equal(projectPath, launcher.RecentProjects[0].FilePath);
+    }
+
+    [AvaloniaFact]
+    public async Task Flushing_project_updates_persisted_recent_project_summary()
+    {
+        using var workspace = new TempWorkspace();
+        var projectPath = workspace.FilePath("Рукопись.scri");
+        var dialogs = new StubFileDialogService { CreatePath = projectPath };
+        dialogs.PromptResponses.Enqueue("Книга");
+        dialogs.PromptResponses.Enqueue("Глава");
+        dialogs.PromptResponses.Enqueue("Сцена");
+        using var provider = ServiceProviderFactory.Create(workspace.Root, dialogs);
+        var launcher = provider.GetRequiredService<LauncherViewModel>();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await launcher.InitializeAsync(cancellationToken);
+        await launcher.CreateProjectCommand.ExecuteAsync(null);
+
+        var architecture = provider.GetRequiredService<ArchitectureViewModel>();
+        architecture.Selected = architecture.Roots[0];
+        await architecture.CreateBookCommand.ExecuteAsync(null);
+        architecture.Selected = architecture.Roots[0].Children[0];
+        await architecture.CreateChapterCommand.ExecuteAsync(null);
+        architecture.Selected = architecture.Roots[0].Children[0].Children[0];
+        await architecture.CreateSceneCommand.ExecuteAsync(null);
+
+        var shell = provider.GetRequiredService<ShellViewModel>();
+        await shell.FlushPendingEditsAsync(cancellationToken);
+
+        var reloadedSettings = new JsonAppSettingsService(workspace.Root);
+        var loaded = await reloadedSettings.LoadAsync(cancellationToken);
+        Assert.True(loaded.IsSuccess);
+        var recent = Assert.Single(reloadedSettings.Current.RecentProjects);
+        Assert.Equal(1, recent.BookCount);
+        Assert.Equal(1, recent.ChapterCount);
+        Assert.Equal(1, recent.SceneCount);
+
+        using var restartedProvider = ServiceProviderFactory.Create(workspace.Root);
+        var restartedLauncher = restartedProvider.GetRequiredService<LauncherViewModel>();
+        await restartedLauncher.InitializeAsync(cancellationToken);
+        var displayedRecent = Assert.Single(restartedLauncher.RecentProjects);
+        Assert.Equal(1, displayedRecent.BookCount);
+        Assert.Equal(1, displayedRecent.ChapterCount);
+        Assert.Equal(1, displayedRecent.SceneCount);
+    }
+
+    [Fact]
+    public void Prompt_dialog_shows_initial_value_as_hint_and_uses_it_when_confirmed_empty()
+    {
+        string? result = null;
+        var prompt = new PromptDialogViewModel("Новая книга", "Название книги", "Книга", value => result = value);
+
+        Assert.Equal(string.Empty, prompt.Value);
+        Assert.Equal("Книга", prompt.InitialValue);
+        prompt.ConfirmCommand.Execute(null);
+
+        Assert.Equal("Книга", result);
+    }
+
+    [AvaloniaFact]
+    public void Rename_prompt_keeps_existing_title_when_a_suffix_is_typed()
+    {
+        string? result = null;
+        var prompt = new PromptDialogViewModel(
+            "Переименовать", "Книга", "Пробная книга", value => result = value,
+            prefillInitialValue: true);
+        var dialog = new PromptDialog { DataContext = prompt };
+        dialog.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var input = Assert.Single(dialog.GetVisualDescendants().OfType<TextBox>());
+        Assert.True(input.Focus());
+        dialog.KeyPress(Key.End, RawInputModifiers.None, PhysicalKey.End, null);
+        dialog.KeyRelease(Key.End, RawInputModifiers.None, PhysicalKey.End, null);
+        dialog.KeyTextInput(" 2");
+        prompt.ConfirmCommand.Execute(null);
+
+        Assert.Equal("Пробная книга 2", result);
+        dialog.Close();
     }
 
     /// <summary>

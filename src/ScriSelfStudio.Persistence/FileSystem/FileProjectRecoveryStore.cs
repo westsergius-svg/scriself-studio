@@ -9,6 +9,7 @@ using ScriSelfStudio.Contracts.Projects;
 using ScriSelfStudio.Contracts.Storage;
 using ScriSelfStudio.Core.Json;
 using ScriSelfStudio.Core.Model;
+using ScriSelfStudio.Core.Text;
 
 /// <summary>
 /// Файл восстановления рядом с проектом (ТЗ п. 13, 28). Удаляется только после
@@ -111,6 +112,11 @@ public sealed class FileProjectRecoveryStore : IProjectRecoveryStore
                     technicalDetails: $"Файл {recovery.RecoveryFilePath} не содержит данных проекта.");
             }
 
+            foreach (var scene in project.EnumerateScenes())
+            {
+                ReviewEditing.Validate(scene.Document);
+                foreach (var version in scene.Versions) ReviewEditing.Validate(version.Document);
+            }
             return Result<Project>.Success(project);
         }
         catch (JsonException exception)

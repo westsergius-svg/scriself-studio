@@ -113,6 +113,17 @@ public static class ScriZipMapper
 
                 scene.Metadata.Notes = NullIfEmpty(Text(sceneNode, "notes"));
                 scene.Metadata.IsKey = sceneNode["isKey"]?.GetValue<bool>() ?? false;
+                // Стабильный Id нужен сохранённым связям PlotLineStep.SceneIds.
+                if (Guid.TryParse(Text(sceneNode, "scriselfId"), out var savedId) && savedId != Guid.Empty)
+                    scene.Id = savedId;
+                if (sceneNode["scriselfStepOrder"] is JsonArray stepOrder)
+                {
+                    foreach (var value in stepOrder)
+                    {
+                        if (Guid.TryParse(value?.ToString(), out var stepId))
+                            scene.Metadata.PlotLineStepOrder.Add(stepId);
+                    }
+                }
                 chapter.Scenes.Add(scene);
 
                 foreach (var plotlineId in ReadPlotlineIds(sceneNode))
@@ -161,6 +172,7 @@ public static class ScriZipMapper
 
         // Документы сцен перекрывают текст, разобранный из плоского поля `text`.
         ApplySceneDocuments(project, content);
+        ApplySceneVersions(project, content);
 
         return project;
     }
@@ -227,6 +239,9 @@ public static class ScriZipMapper
                 legacyScene["title"] = scene.Title;
                 legacyScene["text"] = scene.Document.ToPlainText();
                 legacyScene["status"] = ToLegacyStatus(scene.Status);
+                legacyScene["scriselfId"] = scene.Id.ToString();
+                legacyScene["scriselfStepOrder"] = new JsonArray(scene.Metadata.PlotLineStepOrder
+                    .Select(id => (JsonNode?)JsonValue.Create(id.ToString())).ToArray());
                 scenes.Add(legacyScene);
 
                 // Сцена без старого идентификатора получает его здесь. Пока SourceId
@@ -595,6 +610,7 @@ public static class ScriZipMapper
                 [.. project.StoryObjects.Where(item => !item.IsDeleted)],
                 CoreJsonContext.Default.ListStoryObject),
             ["documents"] = WriteSceneDocuments(project),
+            ["sceneVersions"] = WriteSceneVersions(project),
         };
     }
 
@@ -604,6 +620,31 @@ public static class ScriZipMapper
     /// служит старый идентификатор: он переживает переоткрытие файла.
     /// </summary>
     private static string DocumentKey(Scene scene) => scene.SourceId ?? scene.Id.ToString();
+
+    private static JsonObject WriteSceneVersions(Project project)
+    {
+        var versions = new JsonObject();
+        foreach (var scene in OrderedScenes(project).Where(scene => scene.Versions.Count > 0))
+            versions[DocumentKey(scene)] = JsonSerializer.SerializeToNode(scene.Versions, CoreJsonContext.Default.ListSceneVersion);
+        return versions;
+    }
+
+    private static void ApplySceneVersions(Project project, JsonObject content)
+    {
+        var node = content[ExtrasKey]?["sceneVersions"];
+        if (node is null) return;
+        if (node is not JsonObject versions) throw new System.IO.InvalidDataException("Повреждён раздел истории сцен.");
+        foreach (var scene in OrderedScenes(project))
+        {
+            if (versions[DocumentKey(scene)] is not { } saved) continue;
+            var items = JsonSerializer.Deserialize(saved.ToJsonString(), CoreJsonContext.Default.ListSceneVersion);
+            if (items is null || items.Any(v => v is null || v.Document is null || v.Id == Guid.Empty || string.IsNullOrWhiteSpace(v.Name))
+                || items.Select(v => v.Id).Distinct().Count() != items.Count)
+                throw new System.IO.InvalidDataException("Повреждена версия сцены.");
+            scene.Versions.AddRange(items);
+            foreach (var version in items) ReviewEditing.Validate(version.Document);
+        }
+    }
 
     /// <summary>
     /// Документы сцен. Ключ не привязан к порядку, поэтому раздел не расходится
@@ -645,18 +686,21 @@ public static class ScriZipMapper
             {
                 document = JsonSerializer.Deserialize(node.ToJsonString(), CoreJsonContext.Default.RichDocument);
             }
-            catch (JsonException)
+            catch (JsonException) when (node is not JsonObject objectNode || objectNode["review"] is null)
             {
                 // Повреждённый документ не должен отменять открытие проекта: текст
                 // из плоского поля уже загружен, теряется только оформление.
                 continue;
             }
 
-            if (document is null || document.IsEmpty())
+            if (document is null)
             {
                 continue;
             }
 
+            ReviewEditing.Validate(document);
+            if (document.IsEmpty() && !document.Review.TrackChanges && document.Review.Comments.Count == 0 && document.Review.Changes.Count == 0)
+                continue;
             scene.Document = document;
             scene.Words = WordCounting.Count(document);
         }

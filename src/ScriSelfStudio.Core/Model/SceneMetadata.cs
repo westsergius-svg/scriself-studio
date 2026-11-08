@@ -25,6 +25,10 @@ public sealed class SceneMetadata
 
     public string? Notes { get; set; }
 
+    /// <summary>Порядок показа шагов в этой сцене, независимо от порядка линий проекта.</summary>
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
+    public List<Guid> PlotLineStepOrder { get; } = [];
+
     [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
     public List<string> Tags { get; } = [];
 }

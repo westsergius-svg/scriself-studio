@@ -17,6 +17,32 @@ public sealed class CharactersAndPlotLinesTests
     private const string ProjectPath = @"C:\Проекты\Рукопись.scri";
 
     [Fact]
+    public async Task New_arc_stage_descriptions_survive_first_save_and_project_reopen()
+    {
+        var context = await CreateContextAsync();
+        var created = (await context.Architecture.SaveCharacterAsync(new CharacterDto
+        {
+            Name = "Анна",
+            ArcStages = [new() { Title = "Встреча", Description = "Учится доверять новому союзнику." }],
+        })).Require().Characters.Single();
+        Assert.Equal("Учится доверять новому союзнику.", created.ArcStages.Single().Description);
+
+        var updated = await context.Architecture.SaveCharacterAsync(created with
+        {
+            ArcStages = [.. created.ArcStages, new() { Title = "Решение", Description = "Выбирает помощь друзьям." }],
+        });
+        Assert.True(updated.IsSuccess, updated.Error?.TechnicalDetails);
+        Assert.True((await context.Projects.SaveAsync()).IsSuccess);
+        Assert.True((await context.Projects.CloseAsync(discardChanges: true)).IsSuccess);
+        Assert.True((await context.Projects.OpenAsync(ProjectPath)).IsSuccess);
+
+        var saved = context.Architecture.GetCharacters().Single();
+        Assert.Equal(new[] { "Учится доверять новому союзнику.", "Выбирает помощь друзьям." }, saved.ArcStages.Select(stage => stage.Description));
+        Assert.Equal(created.ArcStages[0].Id, saved.ArcStages[0].Id);
+        Assert.NotEqual(Guid.Empty, saved.ArcStages[1].Id);
+    }
+
+    [Fact]
     public async Task New_character_gets_the_canonical_arc_steps()
     {
         var context = await CreateContextAsync();

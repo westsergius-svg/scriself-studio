@@ -21,6 +21,7 @@ internal static class SqliteProjectReader
         var chapters = ReadChapters(connection, books);
         var documents = ReadSceneDocuments(connection);
         ReadScenes(connection, chapters, documents, warnings);
+        ReadSceneVersions(connection, project);
         ReadPlotLines(connection, project);
         ReadCharacters(connection, project);
         ReadPlotLineSteps(connection, project);
@@ -33,6 +34,25 @@ internal static class SqliteProjectReader
             SourceSchemaVersion = sourceVersion,
             Warnings = warnings,
         };
+    }
+
+    private static void ReadSceneVersions(SqliteConnection connection, Project project)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT scene_id, data_json FROM scene_version;";
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            var scene = project.FindScene(Guid.Parse(reader.GetString(0)))
+                ?? throw new InvalidDataException("История ссылается на отсутствующую сцену.");
+            SceneVersion? version;
+            try { version = JsonSerializer.Deserialize(reader.GetString(1), CoreJsonContext.Default.SceneVersion); }
+            catch (JsonException error) { throw new InvalidDataException("Повреждена версия сцены.", error); }
+            if (version is null || version.Document is null || version.Id == Guid.Empty || string.IsNullOrWhiteSpace(version.Name))
+                throw new InvalidDataException("Повреждена версия сцены.");
+            ReviewEditing.Validate(version.Document);
+            scene.Versions.Add(version);
+        }
     }
 
     private static Project ReadProject(SqliteConnection connection)
@@ -169,6 +189,7 @@ internal static class SqliteProjectReader
             var document = Deserialize(row.GetString("document_json"), CoreJsonContext.Default.RichDocument);
             if (document is not null)
             {
+                ReviewEditing.Validate(document);
                 result[row.GetGuid("scene_id")] = document;
             }
         }

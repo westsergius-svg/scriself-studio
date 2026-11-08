@@ -231,7 +231,7 @@ public sealed partial class BookTreeViewModel : ViewModelBase, IDisposable
     /// <summary>Книги проекта для выпадающего списка.</summary>
     public ObservableCollection<BookOption> Books { get; } = [];
 
-    /// <summary>Полное дерево серий, книг, глав и сцен для панели редактора.</summary>
+    /// <summary>Полное дерево серий, книг, глав и сцен для панели проекта.</summary>
     public ObservableCollection<SeriesNode> Series { get; } = [];
 
     /// <summary>Главы выбранной книги со сценами.</summary>
@@ -265,6 +265,9 @@ public sealed partial class BookTreeViewModel : ViewModelBase, IDisposable
         _subscriptions.Add(events.Subscribe<EditorDocumentChanged>(_ => Refresh()));
         _subscriptions.Add(events.Subscribe<ProjectOpened>(_ => Refresh()));
         _subscriptions.Add(events.Subscribe<ProjectClosed>(_ => Refresh()));
+        // Структурные правки из карты публикуются через ProjectChanged.
+        // Панель видна и вне редактора, поэтому не ждём открытия сцены.
+        _subscriptions.Add(events.Subscribe<ProjectChanged>(_ => Refresh()));
 
         // При входе в редактор дерево показывает главу с текущей сценой и
         // сворачивает остальные — автор сразу видит контекст правки.

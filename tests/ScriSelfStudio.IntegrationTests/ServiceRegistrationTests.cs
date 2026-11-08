@@ -17,6 +17,7 @@ using ScriSelfStudio.Launcher;
 using ScriSelfStudio.Presentation.Navigation;
 using ScriSelfStudio.Presentation.Localization;
 using ScriSelfStudio.Presentation.Theme;
+using ScriSelfStudio.Presentation.Statistics;
 using ScriSelfStudio.StoryUI;
 using ScriSelfStudio.TestSupport;
 
@@ -34,6 +35,7 @@ public sealed class ServiceRegistrationTests
         Assert.NotNull(provider.GetRequiredService<IProjectStore>());
         Assert.NotNull(provider.GetRequiredService<IProjectRecoveryStore>());
         Assert.NotNull(provider.GetRequiredService<IAppSettingsService>());
+        Assert.Same(provider.GetRequiredService<UsageStatisticsService>(), provider.GetRequiredService<UsageStatisticsService>());
         Assert.NotNull(provider.GetRequiredService<INavigationService>());
         Assert.NotNull(provider.GetRequiredService<IEventBus>());
         Assert.NotNull(provider.GetRequiredService<ISystemClock>());

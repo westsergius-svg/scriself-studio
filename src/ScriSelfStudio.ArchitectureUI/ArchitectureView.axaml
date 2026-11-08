@@ -3,20 +3,20 @@
              xmlns:loc="clr-namespace:ScriSelfStudio.Presentation.Localization;assembly=ScriSelfStudio.Presentation"
              xmlns:arch="clr-namespace:ScriSelfStudio.ArchitectureUI"
              xmlns:map="clr-namespace:ScriSelfStudio.ArchitectureUI.Map"
-             x:Class="ScriSelfStudio.ArchitectureUI.ArchitectureView"
+             x:Class="ScriSelfStudio.ArchitectureUI.ArchitectureView" x:Name="ArchitectureRoot"
              x:DataType="arch:ArchitectureViewModel">
   <UserControl.Styles>
     <Style Selector="Border.mapPanel">
       <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}" />
       <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="CornerRadius" Value="12" />
+      <Setter Property="CornerRadius" Value="{DynamicResource MapPanelRadius}" />
     </Style>
     <Style Selector="Border.mapColumn">
       <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}" />
       <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="CornerRadius" Value="{DynamicResource MapCardRadius}" />
       <Setter Property="Padding" Value="10" />
     </Style>
     <Style Selector="Border.mapColumn.active">
@@ -26,7 +26,7 @@
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}" />
       <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="CornerRadius" Value="{DynamicResource MapCardRadius}" />
       <Setter Property="Padding" Value="12" />
       <Setter Property="Margin" Value="0,8" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
@@ -68,7 +68,7 @@
       <Setter Property="Background" Value="{DynamicResource SurfaceFieldBrush}" />
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}" />
-      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="CornerRadius" Value="{DynamicResource MapCardRadius}" />
       <Setter Property="Padding" Value="10" />
       <Setter Property="HorizontalContentAlignment" Value="Left" />
       <Setter Property="VerticalContentAlignment" Value="Top" />
@@ -95,7 +95,7 @@
       <Setter Property="TextWrapping" Value="Wrap" />
       <Setter Property="AcceptsReturn" Value="True" />
       <Setter Property="VerticalContentAlignment" Value="Top" />
-      <Setter Property="Foreground" Value="{DynamicResource PaperTextBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource SidebarTextBrush}" />
     </Style>
   </UserControl.Styles>
 
@@ -132,7 +132,7 @@
 
         <ToggleButton Classes="tool" IsChecked="{Binding IsCompact, Mode=TwoWay}"
                       ToolTip.Tip="{loc:Tr 'Полный холст: скрыть панель сцены'}">
-          <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="13" Text="&#xE740;" />
+          <TextBlock FontFamily="{StaticResource SymbolsFontFamily}" FontSize="13" Text="&#xE740;" />
         </ToggleButton>
       </StackPanel>
     </Grid>
@@ -142,7 +142,7 @@
             x:Name="MapActionsPanel">
       <Grid ColumnDefinitions="Auto,*,Auto">
         <Button Grid.Column="0" Classes="tool" ToolTip.Tip="{loc:Tr 'Действия с книгой и сценами'}">
-          <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="14" Text="&#xE712;" />
+          <TextBlock FontFamily="{StaticResource SymbolsFontFamily}" FontSize="14" Text="&#xE712;" />
           <Button.Flyout>
             <MenuFlyout>
               <MenuItem Header="{loc:Tr 'Создать книгу'}" Command="{Binding CreateBookCommand}" />
@@ -157,10 +157,17 @@
               <MenuItem Header="{loc:Tr 'Удалить'}" Command="{Binding DeleteCommand}" />
               <Separator />
               <MenuItem Header="{loc:Tr 'Показать список'}" Command="{Binding ShowListCommand}" />
+              <MenuItem Header="{loc:Tr 'Показать карту'}" Command="{Binding ShowMapCommand}" />
             </MenuFlyout>
           </Button.Flyout>
         </Button>
 
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" Margin="8,0" VerticalAlignment="Center">
+          <ToggleButton x:Name="MapModeButton" Content="{loc:Tr 'Карта'}" MinHeight="32"
+                        IsChecked="{Binding IsMapMode, Mode=OneWay}" Command="{Binding ShowMapCommand}" />
+          <ToggleButton x:Name="ListModeButton" Content="{loc:Tr 'Список'}" MinHeight="32"
+                        IsChecked="{Binding IsListMode, Mode=OneWay}" Command="{Binding ShowListCommand}" />
+        </StackPanel>
         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
                     IsVisible="{Binding HasBooks}">
           <TextBlock Classes="muted" Text="{loc:Tr 'Книга:'}" VerticalAlignment="Center" />
@@ -179,7 +186,16 @@
     </Border>
 
     <!-- Карта: доска столбцов, правая панель сцены, полоса «Быстрый обзор». -->
-    <Grid Grid.Row="2" ColumnDefinitions="*,Auto" IsVisible="{Binding IsMapMode}">
+    <Grid Grid.Row="2" IsVisible="{Binding IsMapMode}" x:Name="MapWorkspace">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="2.5*" MinWidth="200" />
+        <ColumnDefinition Width="6" />
+        <ColumnDefinition Width="1*" MinWidth="270" />
+      </Grid.ColumnDefinitions>
+      <GridSplitter x:Name="MapRightSplitter" Grid.Column="1"
+                    IsVisible="{Binding !IsCompact}"
+                    Classes="workspaceSplitter" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" KeyboardIncrement="10"
+                    AutomationProperties.Name="{loc:Tr 'Изменить ширину правой панели'}" ToolTip.Tip="{loc:Tr 'Изменить ширину правой панели'}" />
       <Grid Grid.Column="0" RowDefinitions="Auto,*,Auto">
         <StackPanel Grid.Row="0" Spacing="4" Margin="0,0,0,8">
           <TextBlock Classes="error" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" TextWrapping="Wrap" />
@@ -195,12 +211,12 @@
             <ScrollViewer x:Name="MapScroll"
                           HorizontalScrollBarVisibility="Auto"
                           VerticalScrollBarVisibility="Auto">
-              <Canvas Width="{Binding MapBoardContentWidth}" Height="520">
-                <ItemsControl ItemsSource="{Binding MapColumns}"
+              <Canvas Width="{Binding MapBoardContentWidth}" Height="520" HorizontalAlignment="Left">
+                <ItemsControl Classes="mapColumns" ItemsSource="{Binding MapColumns}"
                               Width="{Binding MapContentWidth}"
                               MinHeight="520">
                 <ItemsControl.Styles>
-                  <Style Selector="ItemsControl > ContentPresenter" x:DataType="map:BookMapColumnViewModel">
+                  <Style Selector="ItemsControl.mapColumns > ContentPresenter" x:DataType="map:BookMapColumnViewModel">
                     <Setter Property="Canvas.Left" Value="{Binding X}" />
                     <Setter Property="Canvas.Top" Value="0" />
                     <Setter Property="Width" Value="{Binding Width}" />
@@ -218,6 +234,14 @@
                         <Grid ColumnDefinitions="*,Auto">
                           <Button Grid.Column="0" Classes="columnHead"
                                   Command="{Binding SelectCommand}" CommandParameter="{Binding Node}">
+                            <Button.ContextMenu>
+                              <ContextMenu>
+                                <MenuItem Header="{loc:Tr 'Поднять выше'}" Command="{Binding #ArchitectureRoot.((arch:ArchitectureViewModel)DataContext).MoveNodeUpCommand}" CommandParameter="{Binding Node}" />
+                                <MenuItem Header="{loc:Tr 'Опустить ниже'}" Command="{Binding #ArchitectureRoot.((arch:ArchitectureViewModel)DataContext).MoveNodeDownCommand}" CommandParameter="{Binding Node}" />
+                                <Separator />
+                                <MenuItem Header="{loc:Tr 'Удалить'}" Command="{Binding #ArchitectureRoot.((arch:ArchitectureViewModel)DataContext).DeleteNodeCommand}" CommandParameter="{Binding Node}" />
+                              </ContextMenu>
+                            </Button.ContextMenu>
                             <StackPanel Spacing="2">
                               <TextBlock Text="{Binding HeaderLabel}" FontSize="13" FontWeight="SemiBold"
                                          TextWrapping="Wrap" />
@@ -227,7 +251,7 @@
                           <Button Grid.Column="1" Classes="tool" VerticalAlignment="Top"
                                   Command="{Binding AddSceneCommand}" CommandParameter="{Binding}"
                                   ToolTip.Tip="{loc:Tr 'Новая сцена в главе'}">
-                            <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE710;" FontSize="12" />
+                            <TextBlock FontFamily="{StaticResource SymbolsFontFamily}" Text="&#xE710;" FontSize="12" />
                           </Button>
                         </Grid>
 
@@ -247,7 +271,7 @@
                                                TextWrapping="Wrap" />
                                     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4"
                                                 Margin="6,0,0,0" VerticalAlignment="Center">
-                                      <TextBlock Text="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="11"
+                                      <TextBlock Text="&#xE72E;" FontFamily="{StaticResource SymbolsFontFamily}" FontSize="11"
                                                  Foreground="{DynamicResource SidebarSubTextBrush}"
                                                  ToolTip.Tip="{loc:Tr 'Сцена заблокирована'}" IsVisible="{Binding IsLocked}" />
                                       <TextBlock Text="★" FontSize="12"
@@ -288,7 +312,7 @@
                         Command="{Binding CreateChapterInBookCommand}"
                         ToolTip.Tip="{loc:Tr 'Добавить главу'}">
                   <StackPanel Spacing="8" HorizontalAlignment="Center">
-                    <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE710;" FontSize="16"
+                    <TextBlock FontFamily="{StaticResource SymbolsFontFamily}" Text="&#xE710;" FontSize="16"
                                HorizontalAlignment="Center" />
                     <TextBlock Text="{loc:Tr 'Добавить главу'}" HorizontalAlignment="Center" />
                   </StackPanel>
@@ -316,7 +340,7 @@
               <Button Background="Transparent" BorderThickness="0" Padding="0" Cursor="Hand"
                       Command="{Binding ToggleOverviewCommand}" ToolTip.Tip="{loc:Tr 'Свернуть или развернуть'}">
                 <StackPanel Orientation="Horizontal" Spacing="6">
-                  <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="11" VerticalAlignment="Center"
+                  <TextBlock FontFamily="{StaticResource SymbolsFontFamily}" FontSize="11" VerticalAlignment="Center"
                              Text="{Binding OverviewChevron}" />
                   <TextBlock Classes="section-title" FontSize="13" Text="{loc:Tr 'Обзор книги'}" />
                 </StackPanel>
@@ -359,7 +383,7 @@
                   </ItemsControl>
                   <Button Classes="overviewCard" Width="60" Command="{Binding CreateChapterInBookCommand}"
                           ToolTip.Tip="{loc:Tr 'Новая глава'}">
-                    <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE710;" FontSize="14"
+                    <TextBlock FontFamily="{StaticResource SymbolsFontFamily}" Text="&#xE710;" FontSize="14"
                                HorizontalAlignment="Center" VerticalAlignment="Center" />
                   </Button>
                 </StackPanel>
@@ -375,7 +399,7 @@
                       <Border Width="9" Height="9" CornerRadius="4.5" Background="{Binding Brush}"
                               VerticalAlignment="Center" />
                       <TextBlock Classes="muted" Text="{Binding Name}" VerticalAlignment="Center" />
-                      <TextBlock Text="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="10"
+                      <TextBlock Text="&#xE72E;" FontFamily="{StaticResource SymbolsFontFamily}" FontSize="10"
                                  Foreground="{DynamicResource SidebarSubTextBrush}"
                                  ToolTip.Tip="{loc:Tr 'Линия завершена'}" VerticalAlignment="Center"
                                  IsVisible="{Binding IsClosed}" />
@@ -389,28 +413,26 @@
       </Grid>
 
       <!-- Правая панель «Сцена» (ТЗ п. 27). -->
-      <Border Grid.Column="1" Classes="mapPanel" Width="300" Margin="12,0,0,0"
-              IsVisible="{Binding ShowSceneDetails}">
-        <ScrollViewer>
+      <Border Grid.Column="2" x:Name="MapScenePanel" Classes="mapPanel" Margin="8,0,0,0" IsVisible="{Binding !IsCompact}">
+        <Grid>
+        <TextBlock Text="{loc:Tr 'Выберите сцену на карте.'}" Classes="muted" Margin="14"
+                   TextWrapping="Wrap" IsVisible="{Binding !HasSceneDetails}" />
+        <ScrollViewer IsVisible="{Binding HasSceneDetails}">
           <StackPanel DataContext="{Binding SceneDetails}" x:DataType="map:SceneDetailsViewModel"
                       Margin="14,10" Spacing="12">
-            <Grid ColumnDefinitions="*,Auto">
+            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
               <StackPanel Grid.Column="0" Spacing="8">
-                <StackPanel Orientation="Horizontal" Spacing="8">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
                   <TextBlock Classes="cardHeading" Text="{Binding NumberLabel}" />
-                  <TextBlock Classes="cardHeading" Text="{Binding Title}" TextWrapping="Wrap"
+                  <TextBlock Grid.Column="1" Classes="cardHeading" Text="{Binding Title}" TextWrapping="Wrap"
                              VerticalAlignment="Center" />
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" Spacing="7">
-                  <TextBlock Text="&#xE734;" FontFamily="Segoe MDL2 Assets" FontSize="11"
-                             Foreground="{DynamicResource SidebarSubTextBrush}" VerticalAlignment="Center" />
-                  <TextBlock Classes="muted" Text="{Binding Breadcrumb}" VerticalAlignment="Center" />
-                </StackPanel>
+                </Grid>
               </StackPanel>
+              <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Margin="0,8,0,0" Classes="muted" Text="{Binding Breadcrumb}" TextWrapping="Wrap" />
               <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2" VerticalAlignment="Top">
                 <Button Classes="tool" Classes.active="{Binding IsLocked}"
                         Command="{Binding ToggleLockCommand}" ToolTip.Tip="{loc:Tr 'Заблокировать сцену'}">
-                  <TextBlock Text="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="13" />
+                  <TextBlock Text="&#xE72E;" FontFamily="{StaticResource SymbolsFontFamily}" FontSize="13" />
                 </Button>
                 <Button Classes="tool" Classes.active="{Binding IsKey}"
                         Command="{Binding ToggleKeyCommand}" ToolTip.Tip="{loc:Tr 'Ключевая сцена'}">
@@ -430,26 +452,49 @@
             <StackPanel Spacing="9">
               <Grid ColumnDefinitions="*,Auto">
                 <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
-                  <TextBlock Text="&#xE8D7;" FontFamily="Segoe MDL2 Assets" FontSize="12"
+                  <TextBlock Text="&#xE8D7;" FontFamily="{StaticResource SymbolsFontFamily}" FontSize="12"
                              Foreground="{DynamicResource SidebarSubTextBrush}" />
                   <TextBlock Classes="mapLabel" Text="{loc:Tr 'Сюжетные линии'}" />
                 </StackPanel>
                 <Button Grid.Column="1" Classes="tool" Command="{Binding ToggleLinePickerCommand}"
                         IsEnabled="{Binding HasLineChoices}" ToolTip.Tip="{loc:Tr 'Добавить сюжетную линию'}">
-                  <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE710;" FontSize="12" />
+                  <TextBlock FontFamily="{StaticResource SymbolsFontFamily}" Text="&#xE710;" FontSize="12" />
                 </Button>
               </Grid>
               <ItemsControl ItemsSource="{Binding Lines}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="map:SceneLineEntry">
-                    <Grid ColumnDefinitions="14,*,Auto" Margin="0,0,0,3">
-                      <Border Width="13" Height="13" CornerRadius="4" Background="{Binding Brush}"
-                              VerticalAlignment="Center" />
-                      <TextBlock Grid.Column="1" Text="{Binding Name}" Margin="8,0,0,0"
-                                 VerticalAlignment="Center" TextWrapping="Wrap" />
-                      <TextBlock Grid.Column="2" Classes="muted" Text="{Binding StatusText}"
-                                 VerticalAlignment="Center" Margin="8,0,0,0" />
-                    </Grid>
+                    <Expander Classes="sceneLineDescription" HorizontalAlignment="Stretch" Margin="0,0,0,6"
+                              IsExpanded="{Binding IsExpanded, Mode=TwoWay}">
+                      <Expander.Header>
+                        <Grid ColumnDefinitions="14,*" RowDefinitions="Auto,Auto">
+                          <Border Width="10" Height="10" CornerRadius="3" Background="{Binding Brush}" VerticalAlignment="Center" />
+                          <TextBlock Grid.Column="1" Text="{Binding Name}" TextWrapping="Wrap" FontWeight="SemiBold" />
+                          <TextBlock Grid.Column="1" Grid.Row="1" Classes="muted" Text="{Binding StatusText}" TextWrapping="Wrap" />
+                        </Grid>
+                      </Expander.Header>
+                      <StackPanel Spacing="8" Margin="4,8">
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                          <Button Classes="tool" MinWidth="58" Margin="0,0,4,0" Content="{loc:Tr 'Выше'}" Command="{Binding MoveUpCommand}" MinHeight="32" ToolTip.Tip="{loc:Tr 'Поднять линию в этой сцене'}" />
+                          <Button Classes="tool" MinWidth="58" Margin="0,0,4,0" Content="{loc:Tr 'Ниже'}" Command="{Binding MoveDownCommand}" MinHeight="32" ToolTip.Tip="{loc:Tr 'Опустить линию в этой сцене'}" />
+                        </StackPanel>
+                        <TextBlock Text="{Binding Description}" TextWrapping="Wrap" IsVisible="{Binding HasDescription}" />
+                        <ItemsControl ItemsSource="{Binding Steps}">
+                          <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="map:SceneStageDescription">
+                              <StackPanel Spacing="4" Margin="0,0,0,10">
+                                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding DescriptionText}" TextWrapping="Wrap" />
+                                <WrapPanel IsVisible="{Binding HasStepActions}">
+                                  <Button Classes="tool" MinWidth="84" Content="{loc:Tr 'Снять шаг'}" Command="{Binding RemoveCommand}" MinHeight="32"
+                                          ToolTip.Tip="{loc:Tr 'Снять шаг со сцены'}" />
+                                </WrapPanel>
+                              </StackPanel>
+                            </DataTemplate>
+                          </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                      </StackPanel>
+                    </Expander>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
@@ -475,29 +520,40 @@
             <StackPanel Spacing="9">
               <Grid ColumnDefinitions="*,Auto">
                 <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
-                  <TextBlock Text="&#xE77B;" FontFamily="Segoe MDL2 Assets" FontSize="12"
+                  <TextBlock Text="&#xE77B;" FontFamily="{StaticResource SymbolsFontFamily}" FontSize="12"
                              Foreground="{DynamicResource SidebarSubTextBrush}" />
                   <TextBlock Classes="mapLabel" Text="{loc:Tr 'Персонажи'}" />
                 </StackPanel>
                 <Button Grid.Column="1" Classes="tool" Command="{Binding ToggleCharacterPickerCommand}"
                         IsEnabled="{Binding CanAssignCharacters}"
                         ToolTip.Tip="{loc:Tr 'Добавить персонажа в сцену'}">
-                  <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE710;" FontSize="12" />
+                  <TextBlock FontFamily="{StaticResource SymbolsFontFamily}" Text="&#xE710;" FontSize="12" />
                 </Button>
               </Grid>
               <ItemsControl ItemsSource="{Binding Characters}" IsVisible="{Binding HasCharacters}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="map:SceneCharacterEntry">
                     <StackPanel Spacing="3" Margin="0,0,0,8">
-                      <Grid ColumnDefinitions="Auto,*,Auto">
-                        <TextBlock Grid.Column="0" Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" />
+                      <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Grid.Column="0" Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" TextWrapping="Wrap" />
                         <TextBlock Grid.Column="1" Classes="muted" Text="{Binding RoleLabel}"
                                    VerticalAlignment="Center" Margin="8,0,0,0" />
-                        <Border Grid.Column="2" Classes="chip" IsVisible="{Binding HasStep}"
-                                Background="{Binding StepBrush}">
-                          <TextBlock Text="{Binding StepLabel}" FontSize="10" />
-                        </Border>
                       </Grid>
+                      <TextBlock Classes="muted" Text="{loc:Tr 'Этап арки не выбран'}" IsVisible="{Binding !HasStages}" TextWrapping="Wrap" />
+                      <Expander Classes="sceneCharacterDescription" HorizontalAlignment="Stretch" IsVisible="{Binding HasStages}"
+                                IsExpanded="{Binding IsExpanded, Mode=TwoWay}">
+                        <Expander.Header><TextBlock Text="{Binding StepLabel}" FontSize="12" TextWrapping="Wrap" /></Expander.Header>
+                        <ItemsControl ItemsSource="{Binding Stages}" Margin="4,8">
+                          <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="map:SceneStageDescription">
+                              <StackPanel Spacing="4" Margin="0,0,0,10">
+                                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding DescriptionText}" TextWrapping="Wrap" />
+                              </StackPanel>
+                            </DataTemplate>
+                          </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                      </Expander>
                       <TextBlock Classes="muted" Text="{Binding DetailText}" FontSize="11"
                                  TextWrapping="Wrap" IsVisible="{Binding HasDetail}" />
                     </StackPanel>
@@ -528,7 +584,7 @@
 
             <StackPanel Spacing="8">
               <StackPanel Orientation="Horizontal" Spacing="7">
-                <TextBlock Text="&#xE70B;" FontFamily="Segoe MDL2 Assets" FontSize="12"
+                <TextBlock Text="&#xE70B;" FontFamily="{StaticResource SymbolsFontFamily}" FontSize="12"
                            Foreground="{DynamicResource SidebarSubTextBrush}" />
                 <TextBlock Classes="mapLabel" Text="{loc:Tr 'Заметки'}" />
               </StackPanel>
@@ -549,13 +605,14 @@
             <Button Classes="accentBtn" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                     Command="{Binding OpenCommand}">
               <StackPanel Orientation="Horizontal" Spacing="8">
-                <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE70F;" FontSize="12"
+                <TextBlock FontFamily="{StaticResource SymbolsFontFamily}" Text="&#xE70F;" FontSize="12"
                            VerticalAlignment="Center" />
                 <TextBlock Text="{loc:Tr 'Открыть в редакторе'}" VerticalAlignment="Center" />
               </StackPanel>
             </Button>
           </StackPanel>
         </ScrollViewer>
+        </Grid>
       </Border>
     </Grid>
 
@@ -576,6 +633,14 @@
           <TreeView.ItemTemplate>
             <TreeDataTemplate x:DataType="arch:ArchitectureNodeViewModel" ItemsSource="{Binding Children}">
               <Grid ColumnDefinitions="Auto,Auto,*">
+                <Grid.ContextMenu>
+                  <ContextMenu>
+                    <MenuItem Header="{loc:Tr 'Поднять выше'}" Command="{Binding #ArchitectureRoot.((arch:ArchitectureViewModel)DataContext).MoveNodeUpCommand}" CommandParameter="{Binding}" />
+                    <MenuItem Header="{loc:Tr 'Опустить ниже'}" Command="{Binding #ArchitectureRoot.((arch:ArchitectureViewModel)DataContext).MoveNodeDownCommand}" CommandParameter="{Binding}" />
+                    <Separator />
+                    <MenuItem Header="{loc:Tr 'Удалить'}" Command="{Binding #ArchitectureRoot.((arch:ArchitectureViewModel)DataContext).DeleteNodeCommand}" CommandParameter="{Binding}" />
+                  </ContextMenu>
+                </Grid.ContextMenu>
                 <TextBlock Classes="muted" Text="{Binding KindLabel}" Margin="0,0,10,0" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="1" Text="{Binding Title}" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="2" Classes="muted" Text="{Binding Detail}" Margin="12,0,0,0" VerticalAlignment="Center" />

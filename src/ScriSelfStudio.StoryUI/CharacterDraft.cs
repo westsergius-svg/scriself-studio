@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using ScriSelfStudio.Contracts.Dtos;
 using ScriSelfStudio.Core.Model;
+using ScriSelfStudio.Presentation.Localization;
 
 /// <summary>Персонаж в списке выбора: связь и участник шага линии выбирают его по имени.</summary>
 public sealed record CharacterChoice(Guid Id, string Name)
@@ -430,7 +431,7 @@ public sealed partial class CharacterDraft : ObservableObject
             draft.ArcStages.Add(new ArcStageDraft(step.Id, step.Title, step.Kind, step.Description));
         }
 
-        if (draft.ArcStages.Count == 0)
+        if (draft.IsNew && draft.ArcStages.Count == 0)
         {
             AddCanonicalSteps(draft);
         }
@@ -580,7 +581,7 @@ public sealed partial class CharacterDraft : ObservableObject
     {
         foreach (var (kind, title) in CharacterArcStage.DefaultStages)
         {
-            draft.ArcStages.Add(new ArcStageDraft(Guid.Empty, title, kind, null));
+            draft.ArcStages.Add(new ArcStageDraft(Guid.Empty, Loc.T(title), kind, null));
         }
     }
 

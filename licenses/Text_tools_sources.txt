@@ -1,0 +1,23 @@
+Источники проверки текста
+
+WeCantSpell.Hunspell 7.0.1 — https://github.com/aarondandy/WeCantSpell.Hunspell
+Ревизия: ab5709d95b2d23541984d22baa0ab2d1e783582f.
+Библиотека используется без изменений на условиях MPL 1.1, разрешённых её
+тройной лицензией MPL 1.1 / GPL 2.0 / LGPL 2.1. Сохранены исходное уведомление
+WeCantSpell_Hunspell_Notices.txt и полный текст MPL_1.1.txt.
+Исходный код библиотеки прилагается: sources/WeCantSpell.Hunspell-7.0.1-source.tar.gz.
+Исходники библиотеки также доступны по указанной ревизии публичного репозитория.
+
+Словари взяты из LibreOffice/dictionaries без изменения файлов .aff и .dic:
+https://github.com/LibreOffice/dictionaries
+Ревизия: 4f1df64b2e8e14751aa7c2205d170ca016071315.
+ru_RU/ru_RU.aff, ru_RU/ru_RU.dic — условия Alexander I. Lebedev с уведомлением
+о правках Laszlo Nemeth, полностью сохранены в Russian_spelling_BSD.txt.
+en/en_US.aff, en/en_US.dic — американский английский, SCOWL/Ispell и другие
+источники; полный README с условиями сохранён в English_spelling_Notices.txt.
+Общая лицензия других файлов репозитория не подменяет условия этих словарей.
+
+Русские синонимы — wiki-ru-wordnet 1.0.3; атрибуция, изменения и условия
+изложены в Wiki_ru_wordnet_Notices.txt.
+
+Орфография и синонимы выполняются на устройстве. Текст на внешние серверы не отправляется.

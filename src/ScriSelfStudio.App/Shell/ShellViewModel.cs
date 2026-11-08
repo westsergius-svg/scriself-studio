@@ -1,7 +1,7 @@
 namespace ScriSelfStudio.App.Shell;
 
 using System.Collections.ObjectModel;
-using System.Diagnostics;
+using System.ComponentModel;
 using System.IO;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
@@ -13,12 +13,14 @@ using ScriSelfStudio.Contracts.Events;
 using ScriSelfStudio.Contracts.Navigation;
 using ScriSelfStudio.Contracts.Projects;
 using ScriSelfStudio.Contracts.Settings;
+using ScriSelfStudio.Contracts.Dialogs;
 using ScriSelfStudio.Core;
 using ScriSelfStudio.Core.Events;
 using ScriSelfStudio.Core.Model;
 using ScriSelfStudio.EditorUI;
 using ScriSelfStudio.Launcher;
 using ScriSelfStudio.Presentation;
+using ScriSelfStudio.Presentation.Desktop;
 using ScriSelfStudio.Presentation.Localization;
 using ScriSelfStudio.Presentation.Export;
 using ScriSelfStudio.Presentation.Theme;
@@ -52,16 +54,23 @@ public sealed partial class ShellViewModel : ViewModelBase, IDisposable
     private readonly IAppSettingsService _appSettings;
     private readonly IThemeService _theme;
     private readonly ISystemClock _clock;
+    private readonly IHelpService _help;
     private readonly List<IDisposable> _subscriptions = [];
     private readonly DispatcherTimer _autosaveTimer;
 
     private DateTimeOffset _lastProjectActivity;
     private bool _isProjectSaving;
 
-    /// <summary>Выбор тем временно отключён: доступна только стандартная тема.</summary>
-    public IReadOnlyList<ThemeOption> Themes { get; } =
+    /// <summary>Темы рабочего пространства.</summary>
+    public IReadOnlyList<ThemeOption> Themes { get; private set; } = CreateThemes();
+
+    private static IReadOnlyList<ThemeOption> CreateThemes() =>
     [
-        new(AppTheme.Starter, "Стандартная", "синяя", ThemeOption.CreateSwatch("#3B8AE5")),
+        new(AppTheme.Starter, Loc.T("Стандартная"), Loc.T("синяя"), ThemeOption.CreateSwatch("#3B8AE5")),
+        new(AppTheme.GreenStart, Loc.T("Зелёный старт"), Loc.T("зелёная"), ThemeOption.CreateSwatch("#38634F")),
+        new(AppTheme.Jam, Loc.T("Джем"), Loc.T("прозрачное стекло"), ThemeOption.CreateSwatch("#9E376D")),
+        new(AppTheme.Cabinet, Loc.T("Кабинет"), Loc.T("для рукописи"), ThemeOption.CreateSwatch("#38634F")),
+        new(AppTheme.Studio, Loc.T("Мокрый асфальт"), Loc.T("графитовое рабочее пространство"), ThemeOption.CreateSwatch("#3785DB")),
     ];
 
     [ObservableProperty]
@@ -94,7 +103,8 @@ public sealed partial class ShellViewModel : ViewModelBase, IDisposable
         BookTreeViewModel bookTree,
         SceneContextViewModel sceneContext,
         ArchitectureHostViewModel architectureHost,
-        ISystemClock clock)
+        ISystemClock clock,
+        IHelpService help)
     {
         _projects = projects;
         _launcher = launcher;
@@ -104,7 +114,10 @@ public sealed partial class ShellViewModel : ViewModelBase, IDisposable
         _navigation = navigation;
         _appSettings = appSettings;
         _theme = theme;
+        _theme.Changed += OnThemeChanged;
+        LocalizationManager.Instance.PropertyChanged += OnLanguageChanged;
         _clock = clock;
+        _help = help;
         BookTree = bookTree;
         SceneContext = sceneContext;
         _architectureHost = architectureHost;
@@ -164,15 +177,15 @@ public sealed partial class ShellViewModel : ViewModelBase, IDisposable
         LoadSavedTheme();
     }
 
-        [ObservableProperty]
+    [ObservableProperty]
     private double _bookTreeWidth = 280;
 
     [ObservableProperty]
     private double _sceneContextWidth = 340;
 
-    public void SetBookTreeWidth(double width) => BookTreeWidth = Math.Clamp(width, 180, 400);
+    public void SetBookTreeWidth(double width) => BookTreeWidth = Math.Clamp(width, MinPaneWidth, MaxPaneWidth);
 
-    public void SetSceneContextWidth(double width) => SceneContextWidth = Math.Clamp(width, 180, 400);
+    public void SetSceneContextWidth(double width) => SceneContextWidth = Math.Clamp(width, MinPaneWidth, MaxPaneWidth);
 
     public BookTreeViewModel BookTree { get; }
 
@@ -180,9 +193,9 @@ public sealed partial class ShellViewModel : ViewModelBase, IDisposable
 
     public bool IsProjectOpen => _projects.Current is not null;
 
-    public string ProjectName => _projects.Current?.Name ?? "Проект не открыт";
+    public string ProjectName => _projects.Current?.Name ?? Loc.T("Проект не открыт");
 
-        public bool IsFullCanvas
+    public bool IsFullCanvas
     {
         get => _editor.IsFullCanvas;
         set => _editor.IsFullCanvas = value;
@@ -198,22 +211,73 @@ public sealed partial class ShellViewModel : ViewModelBase, IDisposable
     public bool ShowWorkspace => IsProjectOpen
         && (CurrentScreen != AppScreen.Editor || !IsFullCanvas);
 
-        public const double MinPaneWidth = 180;
+    public const double MinPaneWidth = 180;
     public const double MaxPaneWidth = 400;
 
     public bool ShowScenePanel => ShowWorkspace
         && CurrentScreen == AppScreen.Editor
-        && !IsFullCanvas;
+        && !IsFullCanvas
+        && IsScenePanelRequested;
 
-    public bool ShowBookTree => ShowWorkspace
-        && CurrentScreen == AppScreen.Editor
-        && !IsFullCanvas;
+    public bool IsBookTreeAvailable => ShowWorkspace
+        && (CurrentScreen == AppScreen.Editor || (IsCompactLayout && !IsStudioTheme && CurrentScreen is
+            AppScreen.Architecture or AppScreen.Characters or AppScreen.Timeline or AppScreen.Export));
+
+    public bool ShowBookTree => IsBookTreeAvailable
+        && IsBookTreeRequested && (!ShowScenePanel || _windowWidth >= 1120);
 
     public bool ShowStatusBar => ShowWorkspace && CurrentScreen == AppScreen.Editor;
 
+    public bool IsCabinetTheme => SelectedTheme?.Value == AppTheme.Cabinet;
+    public bool IsJamTheme => SelectedTheme?.Value == AppTheme.Jam;
+    public bool IsStudioTheme => SelectedTheme?.Value == AppTheme.Studio;
+    public bool IsCompactLayout => IsCabinetTheme || IsJamTheme || IsStudioTheme;
+    public bool UseDropdownNavigation => (_appSettings.Current.NavigationMode
+        ?? (IsCompactLayout ? AppNavigationMode.Menu : AppNavigationMode.Tabs)) == AppNavigationMode.Menu;
+    public bool ShowClassicHeader => ShowWorkspace && !UseDropdownNavigation && !IsStudioTheme;
+    public bool ShowCabinetChrome => UseDropdownNavigation && !IsFullCanvas && !IsStudioTheme;
+    public bool ShowStudioChrome => IsStudioTheme && !IsFullCanvas;
+
+    private double _windowWidth = 1440;
+    private bool _bookTreePreference = true;
+    public bool IsBookTreeRequested => _bookTreePreference;
+
+    private bool? _scenePanelPreference;
+    public bool IsScenePanelRequested
+    {
+        get => _scenePanelPreference ?? (!IsCompactLayout || IsStudioTheme);
+        set
+        {
+            if (_scenePanelPreference == value) return;
+            _scenePanelPreference = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(ShowBookTree));
+            OnPropertyChanged(nameof(ShowScenePanel));
+        }
+    }
+
+    public void UpdateWindowWidth(double width)
+    {
+        _windowWidth = width;
+        OnPropertyChanged(nameof(ShowBookTree));
+    }
+
+    [RelayCommand]
+    private void ToggleBookTree()
+    {
+        _bookTreePreference = !ShowBookTree;
+        if (_bookTreePreference && _windowWidth < 1120) IsScenePanelRequested = false;
+        OnPropertyChanged(nameof(IsBookTreeRequested));
+        OnPropertyChanged(nameof(ShowBookTree));
+    }
+
+    [RelayCommand]
+    private void ToggleScenePanel() => IsScenePanelRequested = !IsScenePanelRequested;
+
+
     public bool IsFullCanvasAvailable => IsProjectOpen && CurrentScreen == AppScreen.Editor;
 
-    public string CurrentThemeName => SelectedTheme?.Title ?? "Тема";
+    public string CurrentThemeName => SelectedTheme?.Title ?? Loc.T("Тема");
 
     public string? StatusMessage { get; private set; }
 
@@ -223,10 +287,14 @@ public sealed partial class ShellViewModel : ViewModelBase, IDisposable
         {
             OnPropertyChanged(nameof(IsFullCanvas));
             OnPropertyChanged(nameof(ShowWorkspace));
+            OnPropertyChanged(nameof(IsBookTreeAvailable));
             OnPropertyChanged(nameof(ShowBookTree));
             OnPropertyChanged(nameof(ShowScenePanel));
             OnPropertyChanged(nameof(ShowStatusBar));
             OnPropertyChanged(nameof(IsFullCanvasAvailable));
+            OnPropertyChanged(nameof(ShowClassicHeader));
+            OnPropertyChanged(nameof(ShowCabinetChrome));
+            OnPropertyChanged(nameof(ShowStudioChrome));
         }
     }
 
@@ -259,6 +327,10 @@ public sealed partial class ShellViewModel : ViewModelBase, IDisposable
         OpenProjectFolderCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(IsProjectOpen));
         OnPropertyChanged(nameof(ShowWorkspace));
+        OnPropertyChanged(nameof(ShowClassicHeader));
+        OnPropertyChanged(nameof(ShowCabinetChrome));
+        OnPropertyChanged(nameof(ShowStudioChrome));
+        OnPropertyChanged(nameof(IsBookTreeAvailable));
         OnPropertyChanged(nameof(ShowBookTree));
         OnPropertyChanged(nameof(ShowStatusBar));
         OnPropertyChanged(nameof(IsFullCanvasAvailable));
@@ -372,7 +444,7 @@ public sealed partial class ShellViewModel : ViewModelBase, IDisposable
 
     public bool CanOpenProjectFolder => !string.IsNullOrEmpty(_projects.CurrentFilePath);
 
-    /// <summary>Показывает файл проекта в проводнике (макет: кнопка с папкой).</summary>
+    /// <summary>Показывает файл проекта в системном файловом менеджере.</summary>
     [RelayCommand(CanExecute = nameof(CanOpenProjectFolder))]
     private void OpenProjectFolder()
     {
@@ -381,18 +453,7 @@ public sealed partial class ShellViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        var directory = Path.GetDirectoryName(path);
-        if (string.IsNullOrEmpty(directory) || !Directory.Exists(directory))
-        {
-            return;
-        }
-
-        Process.Start(new ProcessStartInfo
-        {
-            FileName = "explorer.exe",
-            Arguments = $"/select,\"{path}\"",
-            UseShellExecute = true,
-        });
+        DesktopFileManager.RevealFile(path);
     }
 
     [RelayCommand]
@@ -417,23 +478,61 @@ public sealed partial class ShellViewModel : ViewModelBase, IDisposable
     private void OpenSettings() => _navigation.NavigateTo(AppScreen.Settings);
 
     [RelayCommand]
+    private void OpenHelp() => _help.Show();
+
+    [RelayCommand]
+    private void OpenAbout() => _help.Show("about");
+
+    [RelayCommand]
+    private void OpenLicenses() => _help.Show("licenses");
+
+    [RelayCommand]
     private void ToggleThemeMenu() => IsThemeMenuOpen = !IsThemeMenuOpen;
 
     [RelayCommand]
     private async Task SelectThemeAsync(ThemeOption theme, CancellationToken cancellationToken)
     {
         IsThemeMenuOpen = false;
-        SelectedTheme = theme;
-        _theme.Apply(theme.Value);
-        await _appSettings.UpdateAsync(
-            preferences => preferences.Theme = theme.Value,
-            cancellationToken);
+        _settings.Load();
+        _settings.SelectedTheme = _settings.Themes.Single(option => option.Value == theme.Value);
+        if (_settings.PendingApply is { } pending) await pending;
     }
 
     private void LoadSavedTheme()
     {
-        SelectedTheme = Themes[0];
-        _theme.Apply(AppTheme.Starter);
+        _theme.Apply(_appSettings.Current.Theme is AppTheme.Studio or AppTheme.GreenStart or AppTheme.Cabinet or AppTheme.Jam
+            ? _appSettings.Current.Theme : AppTheme.Starter);
+    }
+
+    private void OnThemeChanged(object? sender, EventArgs e)
+    {
+        var wasCompact = IsCompactLayout;
+        SelectedTheme = Themes.FirstOrDefault(option => option.Value == _theme.Current) ?? Themes[0];
+        _editor.IsCabinetLayout = IsCompactLayout;
+        _editor.IsJamLayout = IsJamTheme;
+        _editor.IsStudioLayout = IsStudioTheme;
+        if (wasCompact != IsCompactLayout)
+        {
+            BookTreeWidth = IsCompactLayout ? 232 : 280;
+            SceneContextWidth = IsCompactLayout ? 300 : 340;
+        }
+        OnPropertyChanged(nameof(IsCabinetTheme));
+        OnPropertyChanged(nameof(IsJamTheme));
+        OnPropertyChanged(nameof(IsStudioTheme));
+        OnPropertyChanged(nameof(IsCompactLayout));
+        OnPropertyChanged(nameof(UseDropdownNavigation));
+        OnPropertyChanged(nameof(IsScenePanelRequested));
+        RaiseShellState();
+    }
+
+    private void OnLanguageChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(LocalizationManager.Language)) return;
+        var value = SelectedTheme?.Value ?? _theme.Current;
+        Themes = CreateThemes();
+        OnPropertyChanged(nameof(Themes));
+        SelectedTheme = Themes.FirstOrDefault(option => option.Value == value) ?? Themes[0];
+        RaiseShellState();
     }
 
     /// <summary>Есть ли правки, которые не дошли до проекта и могут потеряться при выходе.</summary>
@@ -454,8 +553,14 @@ public sealed partial class ShellViewModel : ViewModelBase, IDisposable
         // редактора, поэтому финальную запись на диск делаем последней.
         if (_projects.IsDirty)
         {
-            await _projects.SaveAsync(cancellationToken);
+            var saved = await _projects.SaveAsync(cancellationToken);
+            if (!saved.IsSuccess)
+            {
+                return;
+            }
         }
+
+        await _launcher.RefreshRecentProjectSummaryAsync(cancellationToken);
     }
 
     /// <summary>Сохранение из верхней строки или по Ctrl+S: сцена сохраняется вместе с проектом.</summary>
@@ -466,13 +571,23 @@ public sealed partial class ShellViewModel : ViewModelBase, IDisposable
         {
             // Команда сохранения редактора сама доносит отмену изменения в проект.
             await _editor.SaveCommand.ExecuteAsync(null);
-            return;
+        }
+        else
+        {
+            var result = await _projects.SaveAsync(cancellationToken);
+            // Ошибка отражается событием SaveFailed, строку состояния обновляет оболочка.
+            StatusMessage = result.IsSuccess ? Loc.T("Проект сохранён.") : result.Error?.UserMessage;
+            RaiseShellState();
+            if (!result.IsSuccess)
+            {
+                return;
+            }
         }
 
-        var result = await _projects.SaveAsync(cancellationToken);
-        // Ошибка отражается событием SaveFailed, строку состояния обновляет оболочка.
-        StatusMessage = result.IsSuccess ? Loc.T("Проект сохранён.") : result.Error?.UserMessage;
-        RaiseShellState();
+        if (!_projects.IsDirty)
+        {
+            await _launcher.RefreshRecentProjectSummaryAsync(cancellationToken);
+        }
     }
 
     /// <summary>Таймер автосохранения работает, пока проект открыт и настройка включена.</summary>
@@ -537,27 +652,15 @@ public sealed partial class ShellViewModel : ViewModelBase, IDisposable
         => number.ToString("N0", System.Globalization.CultureInfo.CurrentCulture);
 
     private static string Plural(int number, string one, string few, string many)
-    {
-        var mod10 = number % 10;
-        var mod100 = number % 100;
-        if (mod100 is >= 11 and <= 14)
-        {
-            return Loc.T(many);
-        }
-
-        return mod10 switch
-        {
-            1 => Loc.T(one),
-            >= 2 and <= 4 => Loc.T(few),
-            _ => Loc.T(many),
-        };
-    }
+        => Loc.Plural(number, one, few, many);
 
     public void Dispose()
     {
         _autosaveTimer.Stop();
         _navigation.Navigated -= OnNavigated;
         _editor.PropertyChanged -= OnEditorPropertyChanged;
+        _theme.Changed -= OnThemeChanged;
+        LocalizationManager.Instance.PropertyChanged -= OnLanguageChanged;
         foreach (var subscription in _subscriptions)
         {
             subscription.Dispose();

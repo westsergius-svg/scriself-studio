@@ -20,6 +20,7 @@ using ScriSelfStudio.Core.Model;
 using ScriSelfStudio.Core.Security;
 using ScriSelfStudio.Core.Updates;
 using ScriSelfStudio.Presentation;
+using ScriSelfStudio.Presentation.Desktop;
 using ScriSelfStudio.Presentation.Localization;
 using ScriSelfStudio.Presentation.Theme;
 
@@ -35,9 +36,6 @@ public sealed partial class LauncherViewModel : ViewModelBase, IDisposable
     /// <summary>Блог автора: раздел «Блог» открывает сайт, экрана блога в приложении нет.</summary>
     public const string BlogUrl = "https://scriborium.ru/blog";
 
-    /// <summary>Сообщество автора во ВКонтакте.</summary>
-    public const string VkUrl = "https://vk.com/scriborium";
-
     /// <summary>Страница создания паролей приложений Яндекса.</summary>
     public const string YandexAppPasswordsUrl = "https://id.yandex.ru/security/app-passwords";
 
@@ -46,6 +44,7 @@ public sealed partial class LauncherViewModel : ViewModelBase, IDisposable
     private readonly IFileDialogService _dialogs;
     private readonly INavigationService _navigation;
     private readonly IThemeService _theme;
+    private readonly ICultureService _culture;
     private readonly IEditorEngine _editor;
     private readonly IUpdateService _updates;
     private readonly ICloudStorageCatalog _cloudCatalog;
@@ -81,13 +80,15 @@ public sealed partial class LauncherViewModel : ViewModelBase, IDisposable
         IEventBus events,
         IEditorEngine editor,
         IUpdateService updates,
-        ICloudStorageCatalog cloudCatalog)
+        ICloudStorageCatalog cloudCatalog,
+        ICultureService culture)
     {
         _projects = projects;
         _settings = settings;
         _dialogs = dialogs;
         _navigation = navigation;
         _theme = theme;
+        _culture = culture;
         _editor = editor;
         _updates = updates;
         _cloudCatalog = cloudCatalog;
@@ -210,7 +211,7 @@ public sealed partial class LauncherViewModel : ViewModelBase, IDisposable
 
     public bool HasUnsavedChanges => IsProjectOpen && IsDirty;
 
-    public string CurrentProjectTitle => CurrentProject?.Name ?? "Проект не открыт";
+    public string CurrentProjectTitle => CurrentProject?.Name ?? Loc.T("Проект не открыт");
 
     public string CurrentProjectPath => CurrentProject?.FilePath ?? string.Empty;
 
@@ -220,8 +221,7 @@ public sealed partial class LauncherViewModel : ViewModelBase, IDisposable
     /// </summary>
     public string? FormatNotice => _projects.CurrentSourceFormat is null
         ? null
-        : "Проект открыт в старом формате (ZIP: manifest.json + content.json). "
-          + "Сохранение запишет файл в этом же формате, предыдущая версия останется в .bak.";
+        : Loc.T("Проект открыт в старом формате (ZIP: manifest.json + content.json). Сохранение запишет файл в этом же формате, предыдущая версия останется в .bak.");
 
     public bool HasFormatNotice => FormatNotice is not null;
 
@@ -382,7 +382,9 @@ public sealed partial class LauncherViewModel : ViewModelBase, IDisposable
 
         var install = await _dialogs.ConfirmAsync(
             UpdateTitle,
-            Loc.T("Обновление скачано.\n\nУстановить сейчас? Перед этим закройте все открытые проекты."),
+            Loc.T(OperatingSystem.IsMacOS()
+                ? "Обновление скачано.\n\nЗакройте все проекты. Приложение завершится и откроет загрузку. Перенесите новую версию ScriSelf Studio в папку «Программы», заменив прежнюю."
+                : "Обновление скачано.\n\nУстановить сейчас? Перед этим закройте все открытые проекты."),
             Loc.T("Установить"),
             Loc.T("Позже"),
             cancellationToken);
@@ -425,7 +427,7 @@ public sealed partial class LauncherViewModel : ViewModelBase, IDisposable
     {
         if (SelectedProject is { } item)
         {
-            RevealInExplorer(item);
+            DesktopFileManager.RevealFile(item.FilePath);
         }
     }
 
@@ -435,24 +437,8 @@ public sealed partial class LauncherViewModel : ViewModelBase, IDisposable
     {
         if (item is not null)
         {
-            RevealInExplorer(item);
+            DesktopFileManager.RevealFile(item.FilePath);
         }
-    }
-
-    private static void RevealInExplorer(RecentProjectItem item)
-    {
-        var directory = Path.GetDirectoryName(item.FilePath);
-        if (string.IsNullOrEmpty(directory) || !Directory.Exists(directory))
-        {
-            return;
-        }
-
-        Process.Start(new ProcessStartInfo
-        {
-            FileName = "explorer.exe",
-            Arguments = $"/select,\"{item.FilePath}\"",
-            UseShellExecute = true,
-        });
     }
 
     /// <summary>Убрать выбранный проект из списка последних (файл на диске не трогаем).</summary>
@@ -954,9 +940,9 @@ public sealed partial class LauncherViewModel : ViewModelBase, IDisposable
             ErrorMessage = Loc.T(loaded.Error!.UserMessage);
         }
 
-        // Выбор тем временно отключён: всегда используется стандартная тема,
-        // даже если в старых настройках сохранена другая.
-        _theme.Apply(AppTheme.Starter);
+        _culture.Apply(_settings.Current.Language);
+        _theme.Apply(_settings.Current.Theme is AppTheme.GreenStart or AppTheme.Cabinet or AppTheme.Jam or AppTheme.Studio
+            ? _settings.Current.Theme : AppTheme.Starter);
 
         RefreshRecentProjects();
         CurrentProject = _projects.Current;
@@ -978,7 +964,7 @@ public sealed partial class LauncherViewModel : ViewModelBase, IDisposable
     {
         ClearMessages();
         var path = await _dialogs.PickProjectToCreateAsync(
-            "Новый проект.scri",
+            Loc.T("Новый проект") + ".scri",
             SuggestedDirectory(),
             cancellationToken);
         if (string.IsNullOrEmpty(path))
@@ -994,10 +980,12 @@ public sealed partial class LauncherViewModel : ViewModelBase, IDisposable
         }
 
         var name = Path.GetFileNameWithoutExtension(path);
+        StatusMessage = Loc.T("Создание проекта…");
         var created = await _projects.CreateAsync(
             new CreateProjectRequest { FilePath = path, Name = name },
             cancellationToken);
 
+        StatusMessage = null;
         await HandleLoadedProjectAsync(created, path, cancellationToken);
     }
 
@@ -1061,7 +1049,7 @@ public sealed partial class LauncherViewModel : ViewModelBase, IDisposable
         StatusMessage = Loc.T("Проект сохранён.");
         if (CurrentProject is { } project)
         {
-            await RememberProjectAsync(project, project.FilePath, CancellationToken.None);
+            await RememberProjectAsync(project, project.FilePath, CancellationToken.None, updateLastOpenedAt: false);
         }
     }
 
@@ -1135,6 +1123,13 @@ public sealed partial class LauncherViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(HasProjects));
         OnPropertyChanged(nameof(ProjectCount));
         RefreshVisibleProjects();
+    }
+
+    public Task RefreshRecentProjectSummaryAsync(CancellationToken cancellationToken = default)
+    {
+        return _projects.Current is { } project
+            ? RememberProjectAsync(project, project.FilePath, cancellationToken, updateLastOpenedAt: false)
+            : Task.CompletedTask;
     }
 
     /// <summary>
@@ -1276,7 +1271,7 @@ public sealed partial class LauncherViewModel : ViewModelBase, IDisposable
             {
                 var restore = await _dialogs.ConfirmAsync(
                     "Найдено восстановление",
-                    $"Найден файл восстановления от {info.WrittenAt.ToLocalTime():g}. Открыть восстановленные данные?",
+                    Loc.F("Найден файл восстановления от {0:g}. Открыть восстановленные данные?", info.WrittenAt.ToLocalTime()),
                     "Открыть восстановление",
                     "Открыть файл проекта");
 
@@ -1359,7 +1354,11 @@ public sealed partial class LauncherViewModel : ViewModelBase, IDisposable
     /// Кэширует сводку проекта в списке последних, чтобы лаунчер показывал карточку
     /// без чтения файла проекта (макет «Мои проекты»).
     /// </summary>
-    private async Task RememberProjectAsync(ProjectDto project, string path, CancellationToken cancellationToken)
+    private async Task RememberProjectAsync(
+        ProjectDto project,
+        string path,
+        CancellationToken cancellationToken,
+        bool updateLastOpenedAt = true)
     {
         var books = project.Series.Sum(series => series.Books.Count);
         var chapters = project.Series
@@ -1369,12 +1368,14 @@ public sealed partial class LauncherViewModel : ViewModelBase, IDisposable
             .SelectMany(series => series.Books)
             .SelectMany(book => book.Chapters)
             .Sum(chapter => chapter.Scenes.Count);
+        var existing = _settings.Current.RecentProjects.FirstOrDefault(
+            item => string.Equals(item.FilePath, path, StringComparison.OrdinalIgnoreCase));
 
         var saved = await _settings.AddRecentProjectAsync(new RecentProjectEntry
         {
             FilePath = path,
             Name = project.Name,
-            LastOpenedAt = DateTimeOffset.UtcNow,
+            LastOpenedAt = updateLastOpenedAt ? DateTimeOffset.UtcNow : existing?.LastOpenedAt ?? DateTimeOffset.UtcNow,
             Description = project.Description,
             BookCount = books,
             ChapterCount = chapters,

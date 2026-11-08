@@ -299,6 +299,16 @@ internal static class SqliteProjectWriter
 
     private static void InsertSceneDocument(SqliteConnection connection, SqliteTransaction transaction, Scene scene, DateTimeOffset now)
     {
+        foreach (var version in scene.Versions)
+        {
+            using var insert = connection.CreateCommand();
+            insert.Transaction = transaction;
+            insert.CommandText = "INSERT INTO scene_version (id, scene_id, data_json) VALUES ($id, $scene, $data);";
+            insert.Parameters.AddWithValue("$id", SqlValue.ToDb(version.Id));
+            insert.Parameters.AddWithValue("$scene", SqlValue.ToDb(scene.Id));
+            insert.Parameters.AddWithValue("$data", JsonSerializer.Serialize(version, CoreJsonContext.Default.SceneVersion));
+            insert.ExecuteNonQuery();
+        }
         using var command = connection.CreateCommand();
         command.Transaction = transaction;
         command.CommandText =

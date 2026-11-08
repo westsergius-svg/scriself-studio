@@ -106,7 +106,17 @@ internal static class ProjectSchema
         Execute(connection, transaction, EntitiesSql);
         Execute(connection, transaction, StorySql);
         Execute(connection, transaction, LibrarySql);
+        Execute(connection, transaction, VersionsSql);
     }
+
+    internal const string VersionsSql = """
+        CREATE TABLE IF NOT EXISTS scene_version (
+            id TEXT PRIMARY KEY,
+            scene_id TEXT NOT NULL,
+            data_json TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS ix_scene_version_scene ON scene_version (scene_id);
+        """;
 
     /// <summary>
     /// Таблицы сюжетных сущностей (персонажи, шаги линий). Добавлены в версии схемы 2:

@@ -29,6 +29,16 @@
 | [020](decisions/020-editor-scene-ribbon-and-editable-scene-panel.md) | Лента сцен и редактируемая панель контекста; выбор TextBox для редактора заменён ADR 022 | Частично заменено |
 | [021](decisions/021-architect-three-tabs.md) | Архитектор — один главный экран с тремя вкладками: Карта, Персонажи, Сюжетные линии | Принято |
 | [022](decisions/022-wysiwyg-rich-text-editor.md) | WYSIWYG редактор на AvaloniaRichEditor с сохранением форматирования | Принято |
+| [025](decisions/025-usage-statistics-and-public-downloads.md) | Статистика установок и скачиваний, открытый доступ без VK | Принято |
+| [026](decisions/026-resizable-workspaces-navigation-chinese.md) | Изменяемые панели, независимая навигация, четыре темы и китайский | Принято |
+| [027](decisions/027-user-feedback-scene-order.md) | Локальный порядок шагов сцены, перестановка линий и одинаковые названия глав | Принято |
+| [028](decisions/028-studio-workspace.md) | Графитовое рабочее пространство «Мокрый асфальт», меню и полоса инструментов | Принято |
+| [029](decisions/029-offline-help-and-licenses.md) | Встроенная справка, About и лицензии; MIT для собственного кода | Принято |
+| [030](decisions/030-local-proofreading-and-sentence-case.md) | Локальная RU/EN-орфография, wiki-ru-wordnet и заглавная по пробелу с сохранением ручной правки | Принято |
+| [031](decisions/031-scene-versions.md) | Версии сцен, сравнение и восстановление со страховочной копией | Принято |
+| [032](decisions/032-review-comments.md) | Комментарии и правки с диапазонами UTF-16, оформлением и штатным Undo/Redo | Принято |
+| [033](decisions/033-local-grammar.md) | Локальный LanguageTool как отдельно включаемые подсказки, отмена и жизненный цикл процесса | Принято |
+| [034](decisions/034-offline-training.md) | Обучающая презентация в справке на реальных экранах программы, офлайн и без изменения книги | Принято |
 
 ## Шаблон новой записи
 

@@ -1,0 +1,50 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="using:ScriSelfStudio.Presentation.Localization"
+             xmlns:shell="using:ScriSelfStudio.App.Shell"
+             x:Class="ScriSelfStudio.App.Views.StudioToolRail"
+             x:DataType="shell:ShellViewModel">
+  <Border Background="{DynamicResource SurfaceChromeBrush}" BorderBrush="{DynamicResource ChromeBorderBrush}"
+          BorderThickness="0,0,1,0" Width="48" Padding="5,10">
+    <DockPanel>
+      <StackPanel DockPanel.Dock="Bottom" Spacing="8">
+        <Button x:Name="StudioExportButton" Classes="studioTool" Classes.active="{Binding IsExportActive}"
+                Command="{Binding OpenExportCommand}" IsEnabled="{Binding IsProjectOpen}"
+                AutomationProperties.Name="{loc:Tr 'Экспорт'}" ToolTip.Tip="{loc:Tr 'Экспорт'}">
+          <Path Data="M10,13 V2 M6,6 L10,2 L14,6 M3,11 V18 H17 V11" />
+        </Button>
+        <Button x:Name="StudioSettingsButton" Classes="studioTool" Classes.active="{Binding IsSettingsActive}"
+                Command="{Binding OpenSettingsCommand}" AutomationProperties.Name="{loc:Tr 'Настройки'}" ToolTip.Tip="{loc:Tr 'Настройки'}">
+          <Path Data="M3,5 H17 M3,10 H17 M3,15 H17 M7,2 V8 M13,7 V13 M8,12 V18" />
+        </Button>
+      </StackPanel>
+      <StackPanel Spacing="8">
+        <Button x:Name="StudioProjectsButton" Classes="studioTool" Classes.active="{Binding IsLauncherActive}"
+                Command="{Binding OpenLauncherCommand}" AutomationProperties.Name="{loc:Tr 'Проект'}" ToolTip.Tip="{loc:Tr 'Мои проекты'}">
+          <Path Data="M2,5 H8 L10,7 H18 V17 H2 Z M2,5 V3 H8 L10,5 H18 V7" />
+        </Button>
+        <Border Height="1" Margin="4,2" Background="{DynamicResource SurfaceBorderBrush}" />
+        <Button x:Name="StudioEditorButton" Classes="studioTool" Classes.active="{Binding IsEditorActive}"
+                Command="{Binding OpenEditorCommand}" IsEnabled="{Binding IsProjectOpen}"
+                AutomationProperties.Name="{loc:Tr 'Рукопись'}" ToolTip.Tip="{loc:Tr 'Рукопись'}">
+          <Path Data="M4,2 H16 M10,2 V18 M6,18 H14" />
+        </Button>
+        <Button x:Name="StudioMapButton" Classes="studioTool" Classes.active="{Binding IsMapActive}"
+                Command="{Binding OpenMapCommand}" IsEnabled="{Binding IsProjectOpen}"
+                AutomationProperties.Name="{loc:Tr 'Карта книги'}" ToolTip.Tip="{loc:Tr 'Карта книги'}">
+          <Path Data="M2,3 H7 V17 H2 Z M9,3 H13 V12 H9 Z M15,3 H19 V16 H15 Z" />
+        </Button>
+        <Button x:Name="StudioCharactersButton" Classes="studioTool" Classes.active="{Binding IsCharactersActive}"
+                Command="{Binding OpenCharactersCommand}" IsEnabled="{Binding IsProjectOpen}"
+                AutomationProperties.Name="{loc:Tr 'Персонажи'}" ToolTip.Tip="{loc:Tr 'Персонажи'}">
+          <Path Data="M13,6 A3,3 0 1 1 7,6 A3,3 0 1 1 13,6 M3,18 V16 C3,10 17,10 17,16 V18" />
+        </Button>
+        <Button x:Name="StudioLinesButton" Classes="studioTool" Classes.active="{Binding IsLinesActive}"
+                Command="{Binding OpenLinesCommand}" IsEnabled="{Binding IsProjectOpen}"
+                AutomationProperties.Name="{loc:Tr 'Сюжетные линии'}" ToolTip.Tip="{loc:Tr 'Сюжетные линии'}">
+          <Path Data="M2,4 H6 V8 H2 Z M14,12 H18 V16 H14 Z M6,6 H10 V14 H14 M10,6 H18" />
+        </Button>
+      </StackPanel>
+    </DockPanel>
+  </Border>
+</UserControl>

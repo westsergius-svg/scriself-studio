@@ -2,36 +2,49 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:loc="clr-namespace:ScriSelfStudio.Presentation.Localization;assembly=ScriSelfStudio.Presentation"
              xmlns:story="clr-namespace:ScriSelfStudio.StoryUI"
-             x:Class="ScriSelfStudio.StoryUI.CharactersView"
+             x:Class="ScriSelfStudio.StoryUI.CharactersView" x:Name="CharactersRoot"
              x:DataType="story:CharactersViewModel">
-  <Grid RowDefinitions="Auto,*" Margin="24">
+  <Grid RowDefinitions="Auto,*" Margin="{DynamicResource WorkspaceOuterMargin}">
     <!-- Верхняя строка: действия (название вкладки даёт хост Архитектора). -->
     <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,20">
       
       <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-        <Button Content="{loc:Tr 'Удалить'}" Command="{Binding DeleteCharacterCommand}" IsVisible="{Binding HasSelection}" Padding="12,6" Foreground="#991B1B" />
-        <Button Content="{loc:Tr 'Сохранить персонажа'}" Command="{Binding SaveCharacterCommand}" Padding="16,6" Background="#4F6D46" Foreground="White" FontWeight="Bold" />
+        <Button Content="{loc:Tr 'Удалить'}" Command="{Binding DeleteCharacterCommand}" IsVisible="{Binding HasSelection}" Padding="12,6" Foreground="{DynamicResource DangerTextBrush}" />
+        <Button Content="{loc:Tr 'Сохранить персонажа'}" Command="{Binding SaveCharacterCommand}" Padding="16,6" Background="{DynamicResource AccentBrush}" Foreground="White" FontWeight="Bold" />
       </StackPanel>
     </Grid>
 
     <!-- Главный трёхколоночный контент -->
-    <Grid Grid.Row="1" ColumnDefinitions="280,*,300">
+    <Grid Grid.Row="1" x:Name="CharactersWorkspace">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="1.1*" MinWidth="100" />
+        <ColumnDefinition Width="6" />
+        <ColumnDefinition Width="2.8*" MinWidth="220" />
+        <ColumnDefinition Width="6" />
+        <ColumnDefinition Width="1.2*" MinWidth="140" />
+      </Grid.ColumnDefinitions>
+      <GridSplitter x:Name="CharactersLeftSplitter" Grid.Column="1"
+                    Classes="workspaceSplitter" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" KeyboardIncrement="10"
+                    AutomationProperties.Name="{loc:Tr 'Изменить ширину левой панели'}" ToolTip.Tip="{loc:Tr 'Изменить ширину левой панели'}" />
+      <GridSplitter x:Name="CharactersRightSplitter" Grid.Column="3"
+                    Classes="workspaceSplitter" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" KeyboardIncrement="10"
+                    AutomationProperties.Name="{loc:Tr 'Изменить ширину правой панели'}" ToolTip.Tip="{loc:Tr 'Изменить ширину правой панели'}" />
       
       <!-- 1. ЛЕВАЯ ПАНЕЛЬ: ПОИСК И СПИСОК ПЕРСОНАЖЕЙ -->
       <Border Grid.Column="0" Background="{DynamicResource SurfaceCardBrush}"
               BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="1"
-              CornerRadius="14" Padding="14" Margin="0,0,16,0">
+              CornerRadius="{DynamicResource WorkspacePanelRadius}" Padding="10" Margin="0,0,8,0">
         <DockPanel>
           <!-- Добавить персонажа -->
-          <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
-            <TextBlock Grid.Column="0" Text="{loc:Tr 'Персонажи'}" FontSize="14" FontWeight="SemiBold"
+          <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+            <TextBlock Text="{loc:Tr 'Персонажи'}" FontSize="14" FontWeight="SemiBold" Margin="0,6,10,6"
                        Foreground="{DynamicResource SidebarTextBrush}" VerticalAlignment="Center" />
-            <Button Grid.Column="1" Content="{loc:Tr '+ Добавить'}" Command="{Binding NewCharacterCommand}" Height="34" Padding="10,0" CornerRadius="8" Background="{DynamicResource SurfaceHoverBrush}" />
-          </Grid>
+            <Button Content="{loc:Tr '+ Добавить'}" Command="{Binding NewCharacterCommand}" Height="34" Padding="10,0" CornerRadius="8" Background="{DynamicResource SurfaceHoverBrush}" />
+          </WrapPanel>
 
           <!-- Список -->
           <ListBox ItemsSource="{Binding Characters}" SelectedItem="{Binding Selected, Mode=TwoWay}"
-                   Background="Transparent" BorderThickness="0">
+                   Background="Transparent" BorderThickness="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
             <ListBox.ItemContainerTheme>
               <ControlTheme TargetType="ListBoxItem">
                 <Setter Property="Padding" Value="0" />
@@ -40,7 +53,7 @@
                 <Setter Property="BorderThickness" Value="0" />
                 <Setter Property="Template">
                   <ControlTemplate>
-                    <Border Name="Root" CornerRadius="10" Padding="8,8" Background="{TemplateBinding Background}">
+                    <Border Name="Root" CornerRadius="10" Padding="0" Background="{TemplateBinding Background}">
                       <ContentPresenter Content="{TemplateBinding Content}"
                                         ContentTemplate="{TemplateBinding ContentTemplate}" />
                     </Border>
@@ -50,19 +63,19 @@
             </ListBox.ItemContainerTheme>
             <ListBox.ItemTemplate>
               <DataTemplate DataType="story:CharacterListItem">
-                <Border CornerRadius="10" Padding="8,8" Margin="0,2" Background="Transparent">
-                  <Grid ColumnDefinitions="Auto,*,Auto">
-                    <Border Grid.Column="0" Width="36" Height="36" CornerRadius="18" Background="#7A6857" Margin="0,0,10,0">
+                <Border CornerRadius="10" Padding="4,8" Margin="0,2" Background="Transparent">
+                  <Grid ColumnDefinitions="Auto,*">
+                    <Border Grid.Column="0" Width="28" Height="28" CornerRadius="14" Background="{DynamicResource AvatarBrush}" Margin="0,0,6,0" VerticalAlignment="Top">
                       <TextBlock Text="👤" Foreground="White" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                      <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource HeadingBrush}" />
-                      <TextBlock Text="{Binding RoleLabel}" FontSize="12" Foreground="{DynamicResource SidebarSubTextBrush}" />
-                    </StackPanel>
-                    <Border Grid.Column="2" CornerRadius="8" Background="{DynamicResource SurfaceFieldBrush}" Padding="6,2" VerticalAlignment="Center">
+                      <TextBlock Text="{Binding Name}" TextWrapping="Wrap" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource HeadingBrush}" />
+                      <TextBlock Text="{Binding RoleLabel}" TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource SidebarSubTextBrush}" />
+                    <Border CornerRadius="8" Background="{DynamicResource SurfaceFieldBrush}" Padding="6,2" HorizontalAlignment="Left" Margin="0,4,0,0">
                       <TextBlock Text="{Binding StatusLabel}" FontSize="10"
                                  Foreground="{DynamicResource SidebarTextBrush}" VerticalAlignment="Center" />
                     </Border>
+                    </StackPanel>
                   </Grid>
                 </Border>
               </DataTemplate>
@@ -72,30 +85,30 @@
       </Border>
 
       <!-- 2. ЦЕНТРАЛЬНАЯ ПАНЕЛЬ: ДЕТАЛИ ПЕРСОНАЖАИ ТАБЫ -->
-      <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+      <ScrollViewer Grid.Column="2" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
         <Border Background="{DynamicResource SurfaceCardBrush}"
                 BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="1"
-                CornerRadius="14" Padding="20" Margin="0,0,16,0">
+                CornerRadius="{DynamicResource WorkspacePanelRadius}" Padding="16" Margin="0,0,8,0">
           <StackPanel Spacing="16">
             
             <!-- Карточка шапки персонажа (Аватар + Имя + Роль + Теги) -->
             <Grid ColumnDefinitions="Auto,*" Margin="0,0,0,8">
-              <Border Grid.Column="0" Width="72" Height="72" CornerRadius="36" Background="#5B4A3E" Margin="0,0,16,0">
-                <TextBlock Text="👤" FontSize="36" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              <Border Grid.Column="0" Width="72" Height="72" CornerRadius="36" Background="{DynamicResource AvatarBrush}" Margin="0,0,16,0">
+                <Path Data="M13,6 A3,3 0 1 1 7,6 A3,3 0 1 1 13,6 M3,18 V16 C3,10 17,10 17,16 V18" Width="28" Height="28" Stretch="Uniform" Stroke="{DynamicResource AvatarTextBrush}" StrokeThickness="1.3" HorizontalAlignment="Center" VerticalAlignment="Center" />
               </Border>
               <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                  <TextBox Text="{Binding Draft.Name, Mode=TwoWay}" FontSize="20" FontWeight="Bold" BorderThickness="0" Background="Transparent" Foreground="{DynamicResource HeadingBrush}" PlaceholderText="{loc:Tr 'Имя персонажа...'}" Width="320" />
-                  <Border Padding="8,3" CornerRadius="8" Background="#E9F3EA">
-                    <TextBlock Text="{Binding Draft.Status.Label}" FontSize="11" Foreground="#2F6C44" FontWeight="SemiBold" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                  <TextBox Text="{Binding Draft.Name, Mode=TwoWay}" FontSize="20" FontWeight="Bold" BorderThickness="0" Background="Transparent" Foreground="{DynamicResource HeadingBrush}" PlaceholderText="{loc:Tr 'Имя персонажа...'}" MinWidth="0" />
+                  <Border Grid.Column="1" Padding="8,3" CornerRadius="8" Background="{DynamicResource StatusActiveFillBrush}">
+                    <TextBlock Text="{Binding Draft.Status.Label}" FontSize="11" Foreground="{DynamicResource StatusActiveTextBrush}" FontWeight="SemiBold" />
                   </Border>
-                </StackPanel>
+                </Grid>
                 <ComboBox ItemsSource="{Binding Roles}"
                           SelectedItem="{Binding Draft.Role, Mode=TwoWay}"
                           PlaceholderText="{loc:Tr 'Роль персонажа...'}"
-                          Width="240"
+                          MinWidth="0"
                           Height="30"
-                          HorizontalAlignment="Left" />
+                          HorizontalAlignment="Stretch" />
                 <TextBlock Text="{Binding Draft.Importance.Label}"
                            FontSize="11"
                            Foreground="{DynamicResource SidebarSubTextBrush}" />
@@ -103,6 +116,15 @@
             </Grid>
 
             <TabControl TabStripPlacement="Top" Background="Transparent" BorderThickness="0">
+              <TabControl.Styles>
+                <Style Selector="TabItem">
+                  <Setter Property="FontSize" Value="14" />
+                  <Setter Property="Padding" Value="8,6" />
+                </Style>
+              </TabControl.Styles>
+              <TabControl.ItemsPanel>
+                <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+              </TabControl.ItemsPanel>
               
               <!-- Таб 1: Основное -->
               <TabItem Header="{loc:Tr 'Основное'}">
@@ -185,16 +207,16 @@
                   <!-- Арка персонажа (Путь героя) -->
                   <Border Background="{DynamicResource SurfaceCanvasBrush}" BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="1" CornerRadius="10" Padding="14">
                     <StackPanel Spacing="10">
-                      <Grid ColumnDefinitions="*,Auto">
-                        <TextBlock Grid.Column="0" Text="{loc:Tr 'Арка персонажа'}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource SidebarTextBrush}" />
-                        <Button Grid.Column="1"
+                      <WrapPanel>
+                        <TextBlock Text="{loc:Tr 'Арка персонажа'}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource SidebarTextBrush}" Margin="0,6,10,6" />
+                        <Button
                                 Content="{loc:Tr '＋ Добавить шаг'}"
                                 Command="{Binding AddArcStageCommand}"
                                 Padding="10,4"
                                 CornerRadius="8"
                                 Background="{DynamicResource SurfaceHoverBrush}"
                                 Foreground="{DynamicResource SidebarTextBrush}" />
-                      </Grid>
+                      </WrapPanel>
 
                       <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
                         <StackPanel Grid.Column="0" Spacing="6">
@@ -217,20 +239,19 @@
                                  Background="{DynamicResource SurfaceFieldBrush}" />
                       </StackPanel>
 
-                      <ItemsControl ItemsSource="{Binding Draft.ArcStages}">
+                      <ItemsControl x:Name="ArcStagesList" ItemsSource="{Binding Draft.ArcStages}" Tag="{Binding RemoveArcStageCommand}">
                         <ItemsControl.ItemTemplate>
                           <DataTemplate x:DataType="story:ArcStageDraft">
                             <Border CornerRadius="8" Padding="10,8" Margin="0,0,0,6" Background="{DynamicResource SurfaceFieldBrush}" BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="1">
-                              <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
-                                <Border Grid.Column="0" Width="8" Height="8" CornerRadius="4" Background="#5B7BB2" VerticalAlignment="Center" Margin="2,0,0,0" />
-                                <StackPanel Grid.Column="1" Spacing="4">
-                                  <TextBox Text="{Binding Title, Mode=TwoWay}" BorderThickness="0" Background="Transparent" FontWeight="SemiBold" Foreground="{DynamicResource HeadingBrush}" />
-                                  <ComboBox ItemsSource="{Binding $parent[UserControl].DataContext.ArcStageKinds}"
+                              <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="8" RowSpacing="6">
+                                  <TextBox Text="{Binding Title, Mode=TwoWay}" MinWidth="0" BorderThickness="0" Background="Transparent" FontWeight="SemiBold" Foreground="{DynamicResource HeadingBrush}" />
+                                  <ComboBox Grid.Row="1" Grid.ColumnSpan="2" ItemsSource="{x:Static story:StoryLabels.ArcStageKinds}"
                                             SelectedItem="{Binding Kind, Mode=TwoWay}"
-                                            MinWidth="180"
+                                            MinWidth="0"
+                                            HorizontalAlignment="Stretch"
                                             Height="28"
                                             FontSize="12" />
-                                  <TextBox Text="{Binding Description, Mode=TwoWay}"
+                                  <TextBox Grid.Row="2" Grid.ColumnSpan="2" Text="{Binding Description, Mode=TwoWay}"
                                             PlaceholderText="{loc:Tr 'Описание этапа…'}"
                                             AcceptsReturn="True"
                                             TextWrapping="Wrap"
@@ -239,16 +260,13 @@
                                             CornerRadius="6"
                                             Background="{DynamicResource SurfaceCanvasBrush}"
                                             BorderBrush="{DynamicResource SurfaceBorderBrush}" />
-                                </StackPanel>
-                                <Button Grid.Column="2"
-                                        Content="✕"
-                                        Command="{Binding $parent[UserControl].DataContext.RemoveArcStageCommand}"
+                                <Button Grid.Column="1" Classes="removeIcon" VerticalAlignment="Top"
+                                        Command="{Binding #ArcStagesList.Tag}"
                                         CommandParameter="{Binding}"
-                                        Width="28"
-                                        Height="28"
-                                        CornerRadius="14"
-                                        Background="Transparent"
-                                        Foreground="{DynamicResource SidebarSubTextBrush}" />
+                                        ToolTip.Tip="{loc:Tr 'Удалить этап арки'}"
+                                        AutomationProperties.Name="{loc:Tr 'Удалить этап арки'}">
+                                  <PathIcon Data="{StaticResource RemoveIconGeometry}" Width="14" Height="14" />
+                                </Button>
                               </Grid>
                             </Border>
                           </DataTemplate>
@@ -283,14 +301,18 @@
                     <ListBox.ItemTemplate>
                       <DataTemplate DataType="story:RelationDraft">
                         <StackPanel Spacing="6" Margin="0,4">
-                          <Grid ColumnDefinitions="160,140,*,Auto" ColumnSpacing="8">
-                            <ComboBox Grid.Column="0" ItemsSource="{Binding AvailableCharacters}" SelectedItem="{Binding Character, Mode=TwoWay}" />
-                            <ComboBox Grid.Column="1" ItemsSource="{Binding $parent[UserControl].DataContext.RelationTypes}" SelectedItem="{Binding Type, Mode=TwoWay}" />
-                            <TextBox Grid.Column="2" Text="{Binding Dynamic, Mode=TwoWay}" PlaceholderText="{loc:Tr 'Динамика отношений'}" />
-                            <Button Grid.Column="3" Content="✕" Width="30" Height="30" CornerRadius="15"
-                                    Background="Transparent" Foreground="{DynamicResource SidebarSubTextBrush}"
-                                    Command="{Binding $parent[UserControl].DataContext.RemoveRelationCommand}"
-                                    CommandParameter="{Binding}" />
+                          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <StackPanel Spacing="6">
+                              <ComboBox MinWidth="0" HorizontalAlignment="Stretch" ItemsSource="{Binding AvailableCharacters}" SelectedItem="{Binding Character, Mode=TwoWay}" />
+                              <ComboBox MinWidth="0" HorizontalAlignment="Stretch" ItemsSource="{Binding #CharactersRoot.DataContext.RelationTypes}" SelectedItem="{Binding Type, Mode=TwoWay}" />
+                              <TextBox Text="{Binding Dynamic, Mode=TwoWay}" PlaceholderText="{loc:Tr 'Динамика отношений'}" />
+                            </StackPanel>
+                            <Button Grid.Column="1" Classes="removeIcon" VerticalAlignment="Top"
+                                    ToolTip.Tip="{loc:Tr 'Удалить связь'}" AutomationProperties.Name="{loc:Tr 'Удалить связь'}"
+                                    Command="{Binding #CharactersRoot.DataContext.RemoveRelationCommand}"
+                                    CommandParameter="{Binding}">
+                              <PathIcon Data="{StaticResource RemoveIconGeometry}" Width="14" Height="14" />
+                            </Button>
                           </Grid>
                           <TextBox Text="{Binding Status, Mode=TwoWay}" PlaceholderText="{loc:Tr 'Статус связи'}" />
                         </StackPanel>
@@ -352,9 +374,9 @@
       </ScrollViewer>
 
       <!-- 3. ПРАВАЯ ПАНЕЛЬ: СВЯЗИ, ЛИНИИ И ПРИСУТСТВИЕ В СЦЕНАХ (данные проекта) -->
-      <Border Grid.Column="2" Background="{DynamicResource SurfaceCardBrush}"
+      <Border Grid.Column="4" Background="{DynamicResource SurfaceCardBrush}"
               BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="1"
-              CornerRadius="14" Padding="16">
+              CornerRadius="{DynamicResource WorkspacePanelRadius}" Padding="16">
         <ScrollViewer VerticalScrollBarVisibility="Auto">
           <StackPanel Spacing="18">
             <!-- Связанные персонажи -->

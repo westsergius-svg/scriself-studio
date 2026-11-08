@@ -218,6 +218,38 @@ public sealed class BookArchitectureServiceTests
         return new TestContext(projects, architecture);
     }
 
+    [Fact]
+    public async Task Chapters_can_repeat_titles_on_creation_and_rename()
+    {
+        var context = await CreateContextAsync();
+        var firstId = await CreateChapterAsync(context);
+        var bookId = context.Architecture.GetBooks()[0].Id;
+        var second = (await context.Architecture.CreateChapterAsync(new CreateChapterRequest
+        { BookId = bookId, Title = "Глава" })).Require().Series[0].Books[0].Chapters[1];
+        Assert.NotEqual(firstId, second.Id);
+        Assert.True((await context.Architecture.RenameEntityAsync(new RenameEntityRequest
+        { Kind = EntityKind.Chapter, Id = second.Id, Title = " Глава " })).IsSuccess);
+        Assert.Equal(2, context.Architecture.GetBooks()[0].Chapters.Count(chapter => chapter.Title == "Глава"));
+    }
+
+    [Fact]
+    public async Task Plot_lines_move_among_live_items_and_survive_reopen()
+    {
+        var context = await CreateContextAsync();
+        foreach (var name in new[] { "Первая", "Удалённая", "Последняя" })
+            Assert.True((await context.Architecture.SavePlotLineAsync(new ScriSelfStudio.Contracts.Dtos.PlotLineDto { Name = name })).IsSuccess);
+        var lines = context.Architecture.GetPlotLines();
+        await context.Architecture.DeletePlotLineAsync(lines[1].Id);
+        Assert.True((await context.Architecture.MoveEntityAsync(new MoveEntityRequest
+        { Kind = EntityKind.PlotLine, Id = lines[2].Id, NewOrder = 0 })).IsSuccess);
+        Assert.Equal(new[] { "Последняя", "Первая" }, context.Architecture.GetPlotLines().Select(line => line.Name));
+        Assert.Equal(new[] { 0, 1 }, context.Architecture.GetPlotLines().Select(line => line.Order));
+        await context.Projects.SaveAsync();
+        await context.Projects.CloseAsync(true);
+        await context.Projects.OpenAsync(ProjectPath);
+        Assert.Equal(new[] { "Последняя", "Первая" }, context.Architecture.GetPlotLines().Select(line => line.Name));
+    }
+
     private static async Task<Guid> CreateChapterAsync(TestContext context)
     {
         var seriesId = context.Architecture.GetSeries()[0].Id;

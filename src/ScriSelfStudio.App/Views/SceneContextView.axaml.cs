@@ -1,10 +1,7 @@
 namespace ScriSelfStudio.App.Views;
 
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
-using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.VisualTree;
 using ScriSelfStudio.App.Shell;
 
 /// <summary>
@@ -29,26 +26,4 @@ public partial class SceneContextView : UserControl
         }
     }
 
-    private void OnPanelPointerPressed(object? sender, PointerPressedEventArgs e)
-    {
-        if (DataContext is not SceneContextViewModel viewModel)
-        {
-            return;
-        }
-
-        for (var control = e.Source as Control; control is not null; control = control.GetVisualParent() as Control)
-        {
-            if (control is Button or ComboBox or ScrollBar or TextBox)
-            {
-                return;
-            }
-
-            if (ReferenceEquals(control, sender))
-            {
-                break;
-            }
-        }
-
-        viewModel.CollapseDescriptions();
-    }
 }

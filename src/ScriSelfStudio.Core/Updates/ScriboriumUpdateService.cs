@@ -2,6 +2,7 @@ namespace ScriSelfStudio.Core.Updates;
 
 using System.Diagnostics;
 using System.Reflection;
+using System.Runtime.InteropServices;
 
 /// <summary>
 /// Обновление с официального канала Scriborium. Адрес и формат взяты у старого
@@ -11,7 +12,7 @@ using System.Reflection;
 public sealed class ScriboriumUpdateService : IUpdateService
 {
     /// <summary>Каталог обновлений на сайте Scriborium — тот же адрес, что и раньше.</summary>
-    public const string DefaultChannelUrl = "https://scriborium.ru/uploads/scrisoft/";
+    public const string DefaultChannelUrl = "https://scriself.com/uploads/scrisoft/";
 
     /// <summary>Имя файла-манифеста в каталоге обновлений.</summary>
     public const string ManifestName = "latest.json";
@@ -26,6 +27,7 @@ public sealed class ScriboriumUpdateService : IUpdateService
     private readonly Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> _send;
     private readonly string _currentVersion;
     private readonly Action _shutdown;
+    private readonly string _runtimeIdentifier;
 
     /// <summary>Канал обновлений приложения.</summary>
     public ScriboriumUpdateService()
@@ -38,12 +40,14 @@ public sealed class ScriboriumUpdateService : IUpdateService
         Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> send,
         string channelUrl,
         string currentVersion,
-        Action? shutdown = null)
+        Action? shutdown = null,
+        string? runtimeIdentifier = null)
     {
         _send = send;
         ChannelUrl = channelUrl;
         _currentVersion = currentVersion;
         _shutdown = shutdown ?? (() => Environment.Exit(0));
+        _runtimeIdentifier = runtimeIdentifier ?? CurrentRuntimeIdentifier();
     }
 
     /// <inheritdoc />
@@ -108,6 +112,11 @@ public sealed class ScriboriumUpdateService : IUpdateService
         IProgress<double>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        if (!UpdateFeedParser.SupportsRuntime(latest.FileName, _runtimeIdentifier))
+        {
+            throw new InvalidOperationException("Сборка обновления не подходит для этой платформы.");
+        }
+
         var directory = Path.Combine(Path.GetTempPath(), UpdateFolderName);
         Directory.CreateDirectory(directory);
 
@@ -145,21 +154,34 @@ public sealed class ScriboriumUpdateService : IUpdateService
     public void LaunchInstaller(string installerPath)
     {
         // Установщик заменяет файлы приложения: сначала запускаем его, затем выходим.
-        using var process = Process.Start(new ProcessStartInfo(installerPath) { UseShellExecute = true });
+        ProcessStartInfo startInfo;
+        if (OperatingSystem.IsMacOS())
+        {
+            startInfo = new ProcessStartInfo("/usr/bin/open");
+            startInfo.ArgumentList.Add(installerPath);
+        }
+        else
+        {
+            startInfo = new ProcessStartInfo(installerPath) { UseShellExecute = true };
+        }
+
+        using var process = Process.Start(startInfo);
         _shutdown();
     }
 
     private async Task<UpdateInfo?> FetchManifestAsync(CancellationToken cancellationToken)
     {
-        var url = UpdateFeedParser.JoinUrl(ChannelUrl, ManifestName);
+        var manifestName = _runtimeIdentifier.StartsWith("osx-", StringComparison.Ordinal)
+            ? "latest-" + _runtimeIdentifier + ".json" : ManifestName;
+        var url = UpdateFeedParser.JoinUrl(ChannelUrl, manifestName);
         var body = await ReadTextAsync(url, cancellationToken).ConfigureAwait(false);
-        return UpdateFeedParser.ParseManifest(body, ChannelUrl);
+        return UpdateFeedParser.ParseManifest(body, ChannelUrl, _runtimeIdentifier);
     }
 
     private async Task<IReadOnlyList<UpdateInfo>> FetchListingAsync(CancellationToken cancellationToken)
     {
         var body = await ReadTextAsync(ChannelUrl, cancellationToken).ConfigureAwait(false);
-        return UpdateFeedParser.ParseListing(body, ChannelUrl);
+        return UpdateFeedParser.ParseListing(body, ChannelUrl, _runtimeIdentifier);
     }
 
     private async Task<string> ReadTextAsync(string url, CancellationToken cancellationToken)
@@ -203,4 +225,8 @@ public sealed class ScriboriumUpdateService : IUpdateService
         var metadata = version.IndexOf('+', StringComparison.Ordinal);
         return metadata < 0 ? version : version[..metadata];
     }
+
+    private static string CurrentRuntimeIdentifier() => OperatingSystem.IsMacOS()
+        ? RuntimeInformation.ProcessArchitecture == Architecture.Arm64 ? "osx-arm64" : "osx-x64"
+        : OperatingSystem.IsWindows() ? "win-x64" : "linux-x64";
 }

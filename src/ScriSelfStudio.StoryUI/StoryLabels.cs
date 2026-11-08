@@ -144,8 +144,9 @@ public static class StoryLabels
 }
 
 /// <summary>Пара «значение перечисления — русская подпись» для выпадающих списков.</summary>
-public sealed record Choice<T>(T Value, string Label)
+public sealed record Choice<T>(T Value, string LabelKey)
 {
+    public string Label => Loc.T(LabelKey);
     /// <summary>ComboBox показывает элемент через <c>ToString</c>: без этого был бы тип записи.</summary>
-    public override string ToString() => Loc.T(Label);
+    public override string ToString() => Label;
 }

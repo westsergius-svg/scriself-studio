@@ -1,0 +1,103 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="using:ScriSelfStudio.Presentation.Localization"
+        xmlns:help="using:ScriSelfStudio.Presentation.Help"
+        x:Class="ScriSelfStudio.App.Views.HelpWindow"
+        x:DataType="help:HelpViewModel"
+        Title="{loc:Tr 'Справка — ScriSelf Studio'}" Icon="/Assets/scriself.png"
+        Width="1040" Height="760" MinWidth="700" MinHeight="480"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource SurfaceChromeBrush}">
+  <Window.Styles>
+    <Style Selector="TextBlock, SelectableTextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource SidebarTextBrush}" />
+    </Style>
+    <Style Selector="ListBoxItem">
+      <Setter Property="Padding" Value="12,9" />
+      <Setter Property="Margin" Value="0,2" />
+    </Style>
+    <Style Selector="Button.helpShortcut">
+      <Setter Property="Padding" Value="12,7" />
+      <Setter Property="MinHeight" Value="34" />
+    </Style>
+  </Window.Styles>
+  <Grid RowDefinitions="Auto,*,Auto">
+    <Border Padding="22,16" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource SurfaceBorderBrush}">
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+        <StackPanel Spacing="3">
+          <TextBlock Text="ScriSelf Studio" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource HeadingBrush}" />
+          <TextBlock Text="{loc:Tr 'Справочник писателя · статьи на русском языке'}" FontSize="12" Foreground="{DynamicResource SidebarSubTextBrush}" />
+        </StackPanel>
+        <WrapPanel Grid.Column="1" VerticalAlignment="Center" MaxWidth="448">
+          <Button Name="HelpTrainingButton" Classes="helpShortcut" Content="{loc:Tr 'Обучение'}" Command="{Binding OpenTrainingCommand}" Margin="0,0,6,0" />
+          <Button Name="HelpStartButton" Classes="helpShortcut" Content="{loc:Tr 'Руководство'}" Command="{Binding SelectTopicCommand}" CommandParameter="start" Margin="0,0,6,0" />
+          <Button Name="HelpAboutButton" Classes="helpShortcut" Content="{loc:Tr 'О программе'}" Command="{Binding SelectTopicCommand}" CommandParameter="about" Margin="0,0,6,0" />
+          <Button Name="HelpLicensesButton" Classes="helpShortcut" Content="{loc:Tr 'Лицензии'}" Command="{Binding SelectTopicCommand}" CommandParameter="licenses" />
+        </WrapPanel>
+      </Grid>
+    </Border>
+    <Grid Grid.Row="1">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="250" MinWidth="200" MaxWidth="360" />
+        <ColumnDefinition Width="4" />
+        <ColumnDefinition Width="*" MinWidth="340" />
+      </Grid.ColumnDefinitions>
+      <Grid RowDefinitions="Auto,*" Margin="12,16,10,12">
+        <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+          <TextBox Name="HelpSearchBox" Text="{Binding SearchQuery}" PlaceholderText="{loc:Tr 'Поиск в справке'}" AutomationProperties.Name="{loc:Tr 'Поиск в справке'}" />
+          <Button Grid.Column="1" Content="×" Command="{Binding ClearSearchCommand}" ToolTip.Tip="{loc:Tr 'Очистить поиск'}" AutomationProperties.Name="{loc:Tr 'Очистить поиск'}" Margin="4,0,0,0" />
+        </Grid>
+        <ListBox Name="HelpTopicsList" Grid.Row="1" ItemsSource="{Binding FilteredTopics}" SelectedItem="{Binding SelectedTopic}" Background="Transparent" BorderThickness="0" AutomationProperties.Name="{loc:Tr 'Темы справки'}">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="help:HelpTopic">
+              <StackPanel Spacing="3">
+                <TextBlock Text="{Binding Title}" TextWrapping="Wrap" FontWeight="Medium" />
+                <TextBlock Text="{Binding Category}" FontSize="11" Foreground="{DynamicResource SidebarSubTextBrush}" />
+              </StackPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </Grid>
+      <GridSplitter Grid.Column="1" ResizeDirection="Columns" Background="{DynamicResource SurfaceBorderBrush}" />
+      <Border Grid.Column="2" Background="{DynamicResource SurfaceCardBrush}">
+        <Panel>
+          <ScrollViewer Name="HelpArticleScroll" IsVisible="{Binding HasTopic}" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="30,26" Spacing="18" MaxWidth="760" HorizontalAlignment="Stretch">
+              <TextBlock Name="HelpArticleTitle" Text="{Binding SelectedTitle}" FontSize="28" FontWeight="SemiBold" Foreground="{DynamicResource HeadingBrush}" TextWrapping="Wrap" />
+              <SelectableTextBlock Text="{Binding SelectedSummary}" FontSize="15" LineHeight="24" TextWrapping="Wrap" Foreground="{DynamicResource SidebarSubTextBrush}" />
+              <ItemsControl ItemsSource="{Binding SelectedBlocks}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="help:HelpBlock">
+                    <StackPanel Spacing="8" Margin="0,0,0,22">
+                      <TextBlock Text="{Binding Heading}" FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap" Foreground="{DynamicResource HeadingBrush}" />
+                      <SelectableTextBlock Text="{Binding Text}" FontSize="14" LineHeight="23" TextWrapping="Wrap" />
+                    </StackPanel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <StackPanel IsVisible="{Binding ShowLicenses}" Spacing="14">
+                <ComboBox Name="HelpLicensePicker" ItemsSource="{Binding Licenses}" SelectedItem="{Binding SelectedLicense}" HorizontalAlignment="Stretch" AutomationProperties.Name="{loc:Tr 'Компонент и лицензия'}">
+                  <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="help:LicenseDocument"><TextBlock Text="{Binding Title}" TextWrapping="Wrap" /></DataTemplate>
+                  </ComboBox.ItemTemplate>
+                </ComboBox>
+                <SelectableTextBlock Name="HelpLicenseText" Text="{Binding SelectedLicense.Text}" FontSize="12" LineHeight="19" TextWrapping="Wrap" />
+              </StackPanel>
+            </StackPanel>
+          </ScrollViewer>
+          <StackPanel IsVisible="{Binding !HasTopic}" Margin="32" Spacing="12" VerticalAlignment="Center">
+            <TextBlock Text="{loc:Tr 'Ничего не найдено'}" FontSize="22" FontWeight="SemiBold" />
+            <TextBlock Text="{loc:Tr 'Попробуйте русские слова «сохранение», «сцены» или «экспорт».'}" TextWrapping="Wrap" />
+            <Button Content="{loc:Tr 'Показать все темы'}" Command="{Binding ClearSearchCommand}" HorizontalAlignment="Left" />
+          </StackPanel>
+        </Panel>
+      </Border>
+    </Grid>
+    <Border Grid.Row="2" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource SurfaceBorderBrush}" Padding="22,10">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Text="{loc:Tr 'Справка доступна без интернета · F1 — открыть'}" FontSize="12" Foreground="{DynamicResource SidebarSubTextBrush}" />
+        <TextBlock Grid.Column="1" Text="{Binding VersionText}" FontSize="12" Foreground="{DynamicResource SidebarSubTextBrush}" />
+      </Grid>
+    </Border>
+  </Grid>
+</Window>

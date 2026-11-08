@@ -7,15 +7,22 @@ using CommunityToolkit.Mvvm.Input;
 public sealed partial class PromptDialogViewModel : ViewModelBase
 {
     private readonly Action<string?> _close;
+    private readonly string _initialValue;
 
     [ObservableProperty]
-    private string _value;
+    private string _value = string.Empty;
 
-    public PromptDialogViewModel(string title, string message, string initialValue, Action<string?> close)
+    public PromptDialogViewModel(
+        string title,
+        string message,
+        string initialValue,
+        Action<string?> close,
+        bool prefillInitialValue = false)
     {
         Title = title;
         Message = message;
-        _value = initialValue;
+        _initialValue = initialValue;
+        _value = prefillInitialValue ? initialValue : string.Empty;
         _close = close;
     }
 
@@ -23,13 +30,15 @@ public sealed partial class PromptDialogViewModel : ViewModelBase
 
     public string Message { get; }
 
+    public string InitialValue => _initialValue;
+
     /// <summary>Запрос на закрытие окна. Подписку выполняет View.</summary>
     public event EventHandler? CloseRequested;
 
     [RelayCommand]
     private void Confirm()
     {
-        _close(string.IsNullOrWhiteSpace(Value) ? null : Value.Trim());
+        _close(string.IsNullOrWhiteSpace(Value) ? InitialValue : Value.Trim());
         CloseRequested?.Invoke(this, EventArgs.Empty);
     }
 

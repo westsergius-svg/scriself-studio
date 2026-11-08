@@ -1,0 +1,171 @@
+Компоненты ScriSelf Studio 1.2.0
+
+ Инвентаризация Release-зависимостей. Тестовые и отладочные инструменты не входят в список. Пакеты без собственных библиотек могут связывать другие компоненты. Нативные файлы выбираются под платформу; установщик этой сборки — Windows x64.
+
+Avalonia.Angle.Windows.Natives/2.1.27548.20260419
+  ANGLE_BSD.txt
+
+Avalonia.Desktop/12.1.4
+  Avalonia_MIT.txt
+
+Avalonia.Fonts.Inter/12.1.4
+  Avalonia_MIT.txt; Inter_OFL.txt
+
+Avalonia.FreeDesktop.AtSpi/12.1.4
+  Avalonia_MIT.txt
+
+Avalonia.FreeDesktop/12.1.4
+  Avalonia_MIT.txt
+
+Avalonia.HarfBuzz/12.1.4
+  Avalonia_MIT.txt
+
+Avalonia.Native/12.1.4
+  Avalonia_MIT.txt
+
+Avalonia.Remote.Protocol/12.1.4
+  Avalonia_MIT.txt
+
+Avalonia.Skia/12.1.4
+  Avalonia_MIT.txt
+
+Avalonia.Themes.Fluent/12.1.4
+  Avalonia_MIT.txt
+
+Avalonia.Win32/12.1.4
+  Avalonia_MIT.txt
+
+Avalonia.X11/12.1.4
+  Avalonia_MIT.txt
+
+Avalonia/12.1.4
+  Avalonia_MIT.txt
+
+AvaloniaMcp.Diagnostics/0.4.0
+  Avalonia_MIT.txt
+
+CommunityToolkit.Mvvm/8.4.2
+  CommunityToolkit_MIT.txt; CommunityToolkit_Notices.txt
+
+DocumentFormat.OpenXml.Framework/3.5.1
+  OpenXML_MIT.txt
+
+DocumentFormat.OpenXml/3.5.1
+  OpenXML_MIT.txt
+
+HarfBuzzSharp.NativeAssets.Linux/8.3.1.3
+  HarfBuzzSharp_MIT.txt; HarfBuzzSharp_Native_Notices.txt
+
+HarfBuzzSharp.NativeAssets.macOS/8.3.1.3
+  HarfBuzzSharp_MIT.txt; HarfBuzzSharp_Native_Notices.txt
+
+HarfBuzzSharp.NativeAssets.Win32/8.3.1.3
+  HarfBuzzSharp_MIT.txt; HarfBuzzSharp_Native_Notices.txt
+
+HarfBuzzSharp/8.3.1.3
+  HarfBuzzSharp_MIT.txt; HarfBuzzSharp_Native_Notices.txt
+
+HtmlAgilityPack/1.12.4
+  HtmlAgilityPack_MIT.txt
+
+MicroCom.Runtime/0.11.6
+  MicroCom_MIT.txt
+
+Microsoft.Data.Sqlite.Core/8.0.31
+  Microsoft_Data_Sqlite_MIT.txt
+
+Microsoft.Data.Sqlite/8.0.31
+  Microsoft_Data_Sqlite_MIT.txt
+
+Microsoft.Extensions.Configuration.Abstractions/8.0.0
+  Microsoft_Extensions_MIT.txt; Microsoft_Extensions_Notices.txt
+
+Microsoft.Extensions.Configuration.Binder/8.0.2
+  Microsoft_Extensions_MIT.txt; Microsoft_Extensions_Notices.txt
+
+Microsoft.Extensions.Configuration/8.0.0
+  Microsoft_Extensions_MIT.txt; Microsoft_Extensions_Notices.txt
+
+Microsoft.Extensions.DependencyInjection.Abstractions/8.0.2
+  Microsoft_Extensions_MIT.txt; Microsoft_Extensions_Notices.txt
+
+Microsoft.Extensions.DependencyInjection/8.0.1
+  Microsoft_Extensions_MIT.txt; Microsoft_Extensions_Notices.txt
+
+Microsoft.Extensions.Logging.Abstractions/8.0.3
+  Microsoft_Extensions_MIT.txt; Microsoft_Extensions_Notices.txt
+
+Microsoft.Extensions.Logging.Configuration/8.0.1
+  Microsoft_Extensions_MIT.txt; Microsoft_Extensions_Notices.txt
+
+Microsoft.Extensions.Logging.Console/8.0.1
+  Microsoft_Extensions_MIT.txt; Microsoft_Extensions_Notices.txt
+
+Microsoft.Extensions.Logging.Debug/8.0.1
+  Microsoft_Extensions_MIT.txt; Microsoft_Extensions_Notices.txt
+
+Microsoft.Extensions.Logging/8.0.1
+  Microsoft_Extensions_MIT.txt; Microsoft_Extensions_Notices.txt
+
+Microsoft.Extensions.Options.ConfigurationExtensions/8.0.0
+  Microsoft_Extensions_MIT.txt; Microsoft_Extensions_Notices.txt
+
+Microsoft.Extensions.Options/8.0.2
+  Microsoft_Extensions_MIT.txt; Microsoft_Extensions_Notices.txt
+
+Microsoft.Extensions.Primitives/8.0.0
+  Microsoft_Extensions_MIT.txt; Microsoft_Extensions_Notices.txt
+
+PDFsharp/6.2.4
+  PDFsharp_MIT.txt
+
+SkiaSharp.NativeAssets.Linux/3.119.4
+  SkiaSharp_MIT.txt; SkiaSharp_Native_Notices.txt
+
+SkiaSharp.NativeAssets.macOS/3.119.4
+  SkiaSharp_MIT.txt; SkiaSharp_Native_Notices.txt
+
+SkiaSharp.NativeAssets.Win32/3.119.4
+  SkiaSharp_MIT.txt; SkiaSharp_Native_Notices.txt
+
+SkiaSharp/3.119.4
+  SkiaSharp_MIT.txt; SkiaSharp_Native_Notices.txt
+
+SQLitePCLRaw.bundle_e_sqlite3/2.1.12
+  SQLitePCLRaw_Apache_2.0.txt; SQLitePCLRaw_Notices.txt
+
+SQLitePCLRaw.core/2.1.12
+  SQLitePCLRaw_Apache_2.0.txt; SQLitePCLRaw_Notices.txt
+
+SQLitePCLRaw.lib.e_sqlite3/2.1.12
+  SQLitePCLRaw_Apache_2.0.txt; SQLitePCLRaw_Notices.txt
+
+SQLitePCLRaw.provider.e_sqlite3/2.1.12
+  SQLitePCLRaw_Apache_2.0.txt; SQLitePCLRaw_Notices.txt
+
+System.IO.Packaging/10.0.2
+  NET_Runtime_MIT.txt; System_IO_Packaging_Notices.txt
+
+System.Security.Cryptography.Pkcs/8.0.2
+  System_Security_Cryptography_Pkcs_MIT.txt; System_Security_Cryptography_Pkcs_Notices.txt
+
+Tmds.DBus.Protocol/0.94.1
+  Tmds_DBus_MIT.txt
+
+WeCantSpell.Hunspell/7.0.1
+  WeCantSpell_Hunspell_Notices.txt; MPL_1.1.txt
+
+Дополнительно в поставке:
+.NET Runtime 10.0.12 — NET_Runtime_MIT.txt; NET_Runtime_Notices.txt
+Inter — Inter_OFL.txt (OFL 1.1, отдельно от MIT оболочки Avalonia.Fonts.Inter)
+ScriSelf Symbols — подмножество Fluent System Icons; Fluent_System_Icons_MIT.txt. Исходная ревизия 463d58b8186f874ab2f51cf0a08b4ff5097c912f; шрифт переименован, коды символов изменены.
+
+SQLite: отказ от авторских прав на ядро воспроизведён в SQLitePCLRaw_Notices.txt. Обёртка SQLitePCLRaw распространяется по Apache-2.0.
+
+AvaloniaRichEditor 1.2.1 (локальное расширение ScriSelf): AvaloniaRichEditor_MIT.txt; AvaloniaRichEditor_Notices.txt. Исходники и описание изменений находятся в vendor/AvaloniaRichEditor.
+
+Словари русского и английского языка: Russian_spelling_BSD.txt; English_spelling_Notices.txt. Синонимы wiki-ru-wordnet: Wiki_ru_wordnet_Notices.txt; CC_BY_SA_4.0.txt.
+
+Локальный модуль грамматики (включается при сборке с -IncludeGrammarRuntime, Windows x64): LanguageTool 6.6 — LanguageTool.txt (LGPL 2.1+); Eclipse Temurin JRE 21.0.13+9 — Temurin_Java.txt (GPLv2 с Classpath Exception). Исходные COPYING, third-party-licenses, JRE legal/ и NOTICE сохранены внутри Grammar/. Источники и SHA256 архивов — tools/prepare-grammar-runtime.ps1 и Grammar/packages.json.
+
+Первичные источники и контрольные суммы: sources.json. Полные тексты уведомлений поставляются без сокращений.

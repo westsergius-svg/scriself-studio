@@ -1,0 +1,49 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="using:ScriSelfStudio.Presentation.Localization"
+             xmlns:shell="using:ScriSelfStudio.App.Shell"
+             xmlns:views="using:ScriSelfStudio.App.Views"
+             x:Class="ScriSelfStudio.App.Views.StudioCommandBar"
+             x:DataType="shell:ShellViewModel">
+  <Border Background="{DynamicResource SurfaceChromeBrush}" BorderBrush="{DynamicResource ChromeBorderBrush}"
+          BorderThickness="0,0,0,1" Padding="10,0" MinHeight="40">
+    <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="14">
+      <TextBlock Text="ScriSelf" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center"
+                 Foreground="{DynamicResource ShellTitleBrush}" Margin="4,0,4,0" />
+      <Menu Grid.Column="1" VerticalAlignment="Center" Background="Transparent">
+        <MenuItem Header="{loc:Tr 'Проект'}">
+          <MenuItem Header="{loc:Tr 'Мои проекты'}" Command="{Binding OpenLauncherCommand}" />
+          <Separator />
+          <MenuItem Header="{loc:Tr 'Сохранить проект'}" Command="{Binding SaveCommand}" InputGesture="Ctrl+S" />
+          <MenuItem Header="{loc:Tr 'Открыть папку проекта'}" Command="{Binding OpenProjectFolderCommand}" />
+          <MenuItem Header="{loc:Tr 'Экспорт'}" Command="{Binding OpenExportCommand}" IsEnabled="{Binding IsProjectOpen}" />
+        </MenuItem>
+        <MenuItem Header="{loc:Tr 'Вид'}">
+          <MenuItem Header="{loc:Tr 'Рукопись'}" Command="{Binding OpenEditorCommand}" IsEnabled="{Binding IsProjectOpen}" />
+          <MenuItem Header="{loc:Tr 'Карта книги'}" Command="{Binding OpenMapCommand}" IsEnabled="{Binding IsProjectOpen}" />
+          <MenuItem Header="{loc:Tr 'Персонажи'}" Command="{Binding OpenCharactersCommand}" IsEnabled="{Binding IsProjectOpen}" />
+          <MenuItem Header="{loc:Tr 'Сюжетные линии'}" Command="{Binding OpenLinesCommand}" IsEnabled="{Binding IsProjectOpen}" />
+          <Separator />
+          <MenuItem Header="{loc:Tr 'Настройки'}" Command="{Binding OpenSettingsCommand}" />
+        </MenuItem>
+        <MenuItem Header="{loc:Tr 'Панели'}">
+          <MenuItem Header="{loc:Tr 'Дерево проекта'}" Command="{Binding ToggleBookTreeCommand}" IsEnabled="{Binding IsBookTreeAvailable}" InputGesture="Ctrl+Shift+B" />
+          <MenuItem Header="{loc:Tr 'Контекст сцены'}" Command="{Binding ToggleScenePanelCommand}" IsEnabled="{Binding IsFullCanvasAvailable}" InputGesture="Ctrl+Shift+I" />
+        </MenuItem>
+        <MenuItem Header="{loc:Tr 'Справка'}">
+          <MenuItem Header="{loc:Tr 'Помощь по ScriSelf'}" Command="{Binding OpenHelpCommand}" InputGesture="F1" />
+          <MenuItem Header="{loc:Tr 'О программе'}" Command="{Binding OpenAboutCommand}" />
+          <MenuItem Header="{loc:Tr 'Лицензии'}" Command="{Binding OpenLicensesCommand}" />
+        </MenuItem>
+      </Menu>
+      <TextBlock Grid.Column="2" Text="{Binding ProjectName}" FontSize="12" HorizontalAlignment="Center"
+                 VerticalAlignment="Center" Foreground="{DynamicResource ShellSubtitleBrush}"
+                 TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding ProjectName}" />
+      <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+        <Button x:Name="StudioSaveButton" Classes="studioAction" Content="{loc:Tr 'Сохранить'}"
+                Command="{Binding SaveCommand}" IsVisible="{Binding IsProjectOpen}" ToolTip.Tip="{loc:Tr 'Сохранить (Ctrl+S)'}" />
+        <views:ThemeSwitcherView />
+      </StackPanel>
+    </Grid>
+  </Border>
+</UserControl>

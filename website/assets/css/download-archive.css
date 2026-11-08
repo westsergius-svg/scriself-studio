@@ -1,0 +1,18 @@
+/* The current release keeps its card; previous releases use compact rows. */
+.download-cards { grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 420px)); justify-content: center; }
+.download-repository { margin: 1.25rem 0 0; text-align: center; }
+.download-repository a, .release-download { text-decoration: underline; text-underline-offset: 0.2em; }
+.release-archive { margin-top: 3rem; }
+.release-list { list-style: none; margin: 1rem 0 0; padding: 0; border-top: 1px solid var(--line); }
+.release-row { display: flex; align-items: center; gap: 1.5rem; padding: 0.7rem 0; border-bottom: 1px solid var(--line); }
+.release-version { flex: 1; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+.release-platform { display: block; font-weight: 400; font-size: 0.85rem; color: var(--muted); }
+.release-download { display: inline-flex; align-items: center; min-height: 44px; font-weight: 600; }
+.release-size { min-width: 7rem; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--ink); }
+.release-download:focus-visible, .download-repository a:focus-visible { outline: 2px solid var(--brand); outline-offset: 5px; border-radius: 2px; }
+@media (max-width: 480px) {
+  .release-row { flex-wrap: wrap; gap: 0 1rem; }
+  .release-version { flex-basis: 100%; }
+  .release-size { margin-left: auto; }
+  .download-hero .os-note { flex-wrap: wrap; justify-content: center; }
+}

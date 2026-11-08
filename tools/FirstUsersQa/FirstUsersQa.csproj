@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsUiProject>true</IsUiProject>
+    <RootNamespace>ScriSelfStudio.FirstUsersQa</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Headless" />
+    <PackageReference Include="Avalonia.Skia" />
+    <PackageReference Include="Avalonia.Fonts.Inter" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/ScriSelfStudio.App/ScriSelfStudio.App.csproj" />
+    <ProjectReference Include="../../tests/ScriSelfStudio.TestSupport/ScriSelfStudio.TestSupport.csproj" />
+  </ItemGroup>
+</Project>

@@ -59,6 +59,7 @@ public sealed record UpdateSceneRequest
     /// <summary>
     /// Шаги сюжетных линий, к которым относится сцена (ADR 012). <c>null</c> — не менять.
     /// Список полный: этапы, которых в нём нет, теряют эту сцену.
+    /// Порядок сохраняется локально для сцены (ADR 027), дубликаты исключаются.
     /// </summary>
     public IReadOnlyList<Guid>? PlotLineStepIds { get; init; }
 }
@@ -139,6 +140,12 @@ public interface IProjectService
 
     /// <summary>Копия документа сцены для редактора; изменения не влияют на проект до Commit.</summary>
     Result<SceneDocumentDto> GetSceneDocument(Guid sceneId);
+
+    Result<IReadOnlyList<SceneVersionInfo>> GetSceneVersions(Guid sceneId);
+    Result<SceneVersionDocument> GetSceneVersion(Guid sceneId, Guid versionId);
+    Result<SceneVersionInfo> CreateSceneVersion(Guid sceneId, long baseRevision, string name);
+    Result<SceneDocumentDto> RestoreSceneVersion(Guid sceneId, Guid versionId, long baseRevision);
+    Result DeleteSceneVersion(Guid sceneId, Guid versionId);
 
     Task<Result<SceneDocumentDto>> UpdateSceneDocumentAsync(UpdateSceneDocumentRequest request, CancellationToken cancellationToken = default);
 

@@ -7,7 +7,7 @@ public sealed class SecretProtectorTests
     [Fact]
     public void Protected_password_can_be_read_back_and_is_not_plain_text()
     {
-        if (!OperatingSystem.IsWindows())
+        if (!OperatingSystem.IsWindows() && !OperatingSystem.IsMacOS())
         {
             return;
         }

@@ -1,0 +1,92 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="using:ScriSelfStudio.Presentation.Localization"
+             xmlns:editor="using:ScriSelfStudio.EditorUI"
+             x:Class="ScriSelfStudio.EditorUI.ReviewPanelView"
+             x:DataType="editor:ReviewPanelViewModel">
+  <UserControl.Styles>
+    <Style Selector="TabItem"><Setter Property="FontSize" Value="14" /></Style>
+    <Style Selector="Button"><Setter Property="FontSize" Value="12" /><Setter Property="MinHeight" Value="30" /></Style>
+    <Style Selector="TextBox"><Setter Property="FontSize" Value="12" /></Style>
+  </UserControl.Styles>
+  <Border Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource SurfaceBorderBrush}"
+          BorderThickness="0,1,0,0" Padding="12,8">
+    <Grid RowDefinitions="Auto,*,Auto" RowSpacing="6">
+      <WrapPanel>
+        <TextBlock Text="{loc:Tr 'Редактура'}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,10,5" />
+        <Button Name="TrackChangesButton" Content="{Binding TrackingLabel}" Command="{Binding ToggleTrackingCommand}"
+                Margin="0,0,10,5" ToolTip.Tip="{loc:Tr 'Записывать изменения в сцене под курсором'}" />
+        <TextBox Name="ReviewAuthorBox" Text="{Binding Author}" Width="120" MaxLength="120" Margin="0,0,6,5"
+                 AutomationProperties.Name="{loc:Tr 'Имя автора правок'}" />
+        <Button Content="{loc:Tr 'Применить имя'}" Command="{Binding ApplyAuthorCommand}" Margin="0,0,10,5" />
+        <Button Content="{loc:Tr 'Закрыть'}" Command="{Binding ToggleOpenCommand}" Margin="0,0,0,5" />
+      </WrapPanel>
+      <TabControl Grid.Row="1">
+        <TabItem Header="{loc:Tr 'Комментарии'}">
+          <Grid ColumnDefinitions="2*,4,3*" Margin="0,5,0,0">
+            <ListBox Name="ReviewCommentsList" ItemsSource="{Binding Comments}" SelectedItem="{Binding SelectedComment}"
+                     MinWidth="120" AutomationProperties.Name="{loc:Tr 'Комментарии книги'}">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="editor:ReviewCommentItem">
+                  <StackPanel Spacing="2" Margin="2">
+                    <TextBlock Text="{Binding Text}" TextWrapping="Wrap" MaxLines="2" />
+                    <TextBlock Text="{Binding State}" FontSize="11" Foreground="{DynamicResource AccentBrush}" />
+                    <TextBlock Text="{Binding Detail}" FontSize="10" Foreground="{DynamicResource MutedBrush}" />
+                  </StackPanel>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+            <GridSplitter Grid.Column="1" Width="4" ResizeDirection="Columns" Background="Transparent" />
+            <ScrollViewer Grid.Column="2" MinWidth="180" Margin="10,0,0,0" HorizontalScrollBarVisibility="Disabled">
+              <StackPanel Spacing="6">
+                <TextBox Name="CommentDraftBox" Text="{Binding Draft}" PlaceholderText="{loc:Tr 'Комментарий к выделенному тексту…'}"
+                         AcceptsReturn="True" TextWrapping="Wrap" MinHeight="42" MaxLength="10000" />
+                <Button Name="AddReviewCommentButton" Content="{loc:Tr 'Добавить комментарий'}" Command="{Binding AddCommentCommand}" HorizontalAlignment="Left" />
+                <StackPanel Spacing="6" IsVisible="{Binding HasSelectedComment}">
+                <TextBlock Text="{Binding SelectedCommentQuote}" TextWrapping="Wrap" MaxLines="3"
+                           Foreground="{DynamicResource MutedBrush}" FontStyle="Italic" />
+                <TextBox Name="CommentEditBox" Text="{Binding CommentEditText}" PlaceholderText="{loc:Tr 'Выберите комментарий для правки'}"
+                         AcceptsReturn="True" TextWrapping="Wrap" MinHeight="42" MaxLength="10000" />
+                <WrapPanel>
+                  <Button Content="{loc:Tr 'Изменить'}" Command="{Binding EditCommentCommand}" Margin="0,0,5,5" />
+                  <Button Content="{loc:Tr 'К тексту'}" Command="{Binding GoToCommentCommand}" Margin="0,0,5,5" />
+                  <Button Content="{loc:Tr 'Решён / открыть'}" Command="{Binding ResolveCommentCommand}" Margin="0,0,5,5" />
+                  <Button Content="{loc:Tr 'Удалить'}" Command="{Binding DeleteCommentCommand}" Margin="0,0,5,5" />
+                </WrapPanel>
+                </StackPanel>
+              </StackPanel>
+            </ScrollViewer>
+          </Grid>
+        </TabItem>
+        <TabItem Header="{loc:Tr 'Правки'}">
+          <Grid ColumnDefinitions="2*,4,3*" Margin="0,5,0,0">
+            <ListBox Name="ReviewChangesList" ItemsSource="{Binding Changes}" SelectedItem="{Binding SelectedChange}" MinWidth="120">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="editor:ReviewChangeItem">
+                  <StackPanel Spacing="4" Margin="2">
+                    <TextBlock Text="{Binding Summary}" TextWrapping="Wrap" MaxLines="3" />
+                    <TextBlock Text="{Binding Detail}" FontSize="10" Foreground="{DynamicResource MutedBrush}" />
+                  </StackPanel>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+            <GridSplitter Grid.Column="1" Width="4" ResizeDirection="Columns" Background="Transparent" />
+            <ScrollViewer Grid.Column="2" Margin="10,0,0,0" MinWidth="180" HorizontalScrollBarVisibility="Disabled">
+              <StackPanel Spacing="6">
+                <TextBlock Text="{loc:Tr 'Было'}" FontWeight="SemiBold" />
+                <SelectableTextBlock Text="{Binding SelectedChangeRemoved}" TextWrapping="Wrap" />
+                <TextBlock Text="{loc:Tr 'Стало'}" FontWeight="SemiBold" />
+                <SelectableTextBlock Text="{Binding SelectedChangeAdded}" TextWrapping="Wrap" />
+                <WrapPanel>
+                  <Button Name="AcceptReviewChangeButton" Content="{loc:Tr 'Принять'}" Command="{Binding AcceptChangeCommand}" Margin="0,0,8,0" />
+                  <Button Name="RejectReviewChangeButton" Content="{loc:Tr 'Отклонить'}" Command="{Binding RejectChangeCommand}" />
+                </WrapPanel>
+              </StackPanel>
+            </ScrollViewer>
+          </Grid>
+        </TabItem>
+      </TabControl>
+      <TextBlock Grid.Row="2" Text="{Binding Status}" FontSize="11" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
+    </Grid>
+  </Border>
+</UserControl>

@@ -7,7 +7,7 @@
              Background="{DynamicResource SurfaceCanvasBrush}">
   <Grid RowDefinitions="Auto,*">
     <!-- Вкладки архитектуры книги в порядке макета. -->
-    <Border Grid.Row="0" Background="{DynamicResource SurfaceChromeBrush}"
+    <Border Classes="architectureTabs" Grid.Row="0" Background="{DynamicResource SurfaceChromeBrush}"
             BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="0,0,0,1">
       <StackPanel Orientation="Horizontal" Spacing="6" Margin="24,10,24,10">
         <Button Classes="tab" Classes.active="{Binding IsMapSelected}" Content="{loc:Tr 'Карта книги'}"

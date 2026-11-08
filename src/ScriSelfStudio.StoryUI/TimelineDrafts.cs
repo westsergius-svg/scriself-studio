@@ -188,6 +188,10 @@ public sealed partial class StepDraft : ObservableObject
     [ObservableProperty]
     private bool _isExpanded;
 
+    /// <summary>Выбранная вкладка карточки сохраняется при обновлении черновика.</summary>
+    [ObservableProperty]
+    private int _selectedTabIndex;
+
     /// <summary>Последний этап ленты: у него нет соединительной стрелки вниз.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowConnector))]

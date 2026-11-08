@@ -1,4 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="WeCantSpell.Hunspell" />
+    <EmbeddedResource Include="Language\Data\*" LogicalName="ScriSelfStudio.Language.%(Filename)%(Extension)" />
+  </ItemGroup>
   <PropertyGroup>
     <RootNamespace>ScriSelfStudio.Persistence</RootNamespace>
   </PropertyGroup>

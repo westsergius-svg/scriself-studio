@@ -25,10 +25,14 @@ public static class TextExportWriter
                 builder.AppendLine($"Глава {chapterNumber++}. {chapter.Title}");
                 builder.AppendLine();
 
-                var sceneNumber = 1;
                 foreach (var scene in chapter.Scenes)
                 {
-                    builder.AppendLine($"Сцена {sceneNumber++}: {scene.Title}");
+                    if (options.IncludeSceneHeadings)
+                    {
+                        builder.AppendLine($"Сцена: {scene.Title}");
+                        builder.AppendLine();
+                    }
+
                     foreach (var paragraph in scene.Paragraphs)
                     {
                         builder.AppendLine(FormatPlain(paragraph));
@@ -39,6 +43,7 @@ public static class TextExportWriter
             }
         }
 
+        WriteCharacterCards(builder, manuscript, options, markdown: false);
         return builder.ToString();
     }
 
@@ -56,11 +61,13 @@ public static class TextExportWriter
                 builder.AppendLine($"# Глава {chapterNumber++}. {chapter.Title}");
                 builder.AppendLine();
 
-                var sceneNumber = 1;
                 foreach (var scene in chapter.Scenes)
                 {
-                    builder.AppendLine($"## Сцена {sceneNumber++}: {scene.Title}");
-                    builder.AppendLine();
+                    if (options.IncludeSceneHeadings)
+                    {
+                        builder.AppendLine($"## Сцена: {scene.Title}");
+                        builder.AppendLine();
+                    }
                     foreach (var paragraph in scene.Paragraphs)
                     {
                         builder.AppendLine(FormatMarkdown(paragraph));
@@ -70,7 +77,36 @@ public static class TextExportWriter
             }
         }
 
+        WriteCharacterCards(builder, manuscript, options, markdown: true);
         return builder.ToString();
+    }
+
+    private static void WriteCharacterCards(
+        StringBuilder builder,
+        ExportManuscript manuscript,
+        ExportOptions options,
+        bool markdown)
+    {
+        if (!options.IncludeCharacterCards || manuscript.Characters.Count == 0)
+        {
+            return;
+        }
+
+        builder.AppendLine();
+        builder.AppendLine(markdown ? "# Персонажи" : "--- ПЕРСОНАЖИ ---");
+        builder.AppendLine();
+        foreach (var character in manuscript.Characters)
+        {
+            builder.AppendLine(markdown ? $"## {character.Name}" : character.Name);
+            foreach (var field in character.Fields)
+            {
+                builder.AppendLine(markdown
+                    ? $"**{field.Label}:** {FormatMarkdownText(field.Value)}"
+                    : $"{field.Label}: {field.Value}");
+            }
+
+            builder.AppendLine();
+        }
     }
 
     private static void WriteTitlePage(StringBuilder builder, ExportManuscript manuscript, ExportOptions options)
@@ -171,4 +207,9 @@ public static class TextExportWriter
 
         return text;
     }
+
+    private static string FormatMarkdownText(string value) =>
+        value.Replace("\\", "\\\\", StringComparison.Ordinal)
+            .Replace("*", "\\*", StringComparison.Ordinal)
+            .Replace("_", "\\_", StringComparison.Ordinal);
 }

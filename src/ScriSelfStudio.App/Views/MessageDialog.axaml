@@ -5,15 +5,19 @@
         x:DataType="dialogs:MessageDialogViewModel"
         Title="{Binding Title}"
         Width="460"
-        SizeToContent="Height"
-        CanResize="False"
+        Height="280"
+        MinWidth="320"
+        MinHeight="150"
+        CanResize="True"
         ShowInTaskbar="False"
         WindowStartupLocation="CenterOwner">
-  <StackPanel Margin="20" Spacing="16">
-    <TextBlock Text="{Binding Message}" TextWrapping="Wrap" />
-    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-      <Button Content="{Binding ConfirmText}" Command="{Binding ConfirmCommand}" IsVisible="{Binding HasConfirm}" />
-      <Button Content="{Binding CancelText}" Command="{Binding CancelCommand}" IsVisible="{Binding HasCancel}" MinWidth="90" />
-    </StackPanel>
-  </StackPanel>
+  <Grid Margin="20" RowDefinitions="*,Auto" RowSpacing="16">
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+      <TextBlock Text="{Binding Message}" TextWrapping="Wrap" />
+    </ScrollViewer>
+    <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto" ColumnSpacing="8" HorizontalAlignment="Right">
+      <Button Grid.Column="{OnPlatform macOS=1, Default=0}" Content="{Binding ConfirmText}" Command="{Binding ConfirmCommand}" IsVisible="{Binding HasConfirm}" IsDefault="True" MinWidth="90" />
+      <Button Grid.Column="{OnPlatform macOS=0, Default=1}" Content="{Binding CancelText}" Command="{Binding CancelCommand}" IsVisible="{Binding HasCancel}" IsCancel="True" MinWidth="90" />
+    </Grid>
+  </Grid>
 </Window>

@@ -19,8 +19,15 @@ internal interface IDocumentChange
 /// </summary>
 internal sealed record TextChange(int Offset, string Removed, string Inserted, RichDocument Before) : IDocumentChange
 {
-    public void Apply(RichDocument document) =>
+    private RichDocument? _after;
+
+    public void Apply(RichDocument document)
+    {
+        if (_after is not null) { SnapshotChange.Replace(document, _after); return; }
         DocumentEditor.ReplaceText(document, Offset, Removed.Length, Inserted);
+        ReviewEditing.Capture(Before, document, DateTimeOffset.UtcNow);
+        _after = document.Clone();
+    }
 
     public void Revert(RichDocument document) => SnapshotChange.Replace(document, Before);
 }
@@ -32,7 +39,13 @@ internal sealed record TextChange(int Offset, string Removed, string Inserted, R
 internal sealed class SnapshotChange(RichDocument before, RichDocument after) : IDocumentChange
 {
     private readonly RichDocument _before = before;
-    private readonly RichDocument _after = after;
+    private readonly RichDocument _after = CaptureReview(before, after);
+
+    private static RichDocument CaptureReview(RichDocument previous, RichDocument current)
+    {
+        ReviewEditing.Capture(previous, current, DateTimeOffset.UtcNow);
+        return current;
+    }
 
     public void Apply(RichDocument document) => Replace(document, _after);
 
@@ -44,5 +57,6 @@ internal sealed class SnapshotChange(RichDocument before, RichDocument after) : 
         document.Blocks.Clear();
         document.Blocks.AddRange(copy.Blocks);
         document.SchemaVersion = copy.SchemaVersion;
+        document.Review = copy.Review;
     }
 }

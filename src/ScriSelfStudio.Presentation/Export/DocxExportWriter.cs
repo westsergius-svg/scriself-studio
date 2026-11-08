@@ -52,25 +52,55 @@ public static class DocxExportWriter
                 spacingBefore: 0,
                 spacingAfter: 240));
 
-            var sceneNumber = 1;
             foreach (var scene in chapter.Scenes)
             {
-                if (sceneNumber > 1)
+                if (options.IncludeSceneHeadings)
                 {
-                    body.Append(CreatePageBreak());
+                    body.Append(CreateParagraph(
+                        $"Сцена: {scene.Title}",
+                        bodyFont,
+                        baseHalfPoints + 2,
+                        bold: true,
+                        spacingBefore: 200,
+                        spacingAfter: 120));
                 }
-
-                body.Append(CreateParagraph(
-                    $"Сцена {sceneNumber++}: {scene.Title}",
-                    bodyFont,
-                    baseHalfPoints + 2,
-                    bold: true,
-                    spacingBefore: 200,
-                    spacingAfter: 120));
 
                 foreach (var paragraph in scene.Paragraphs)
                 {
                     body.Append(CreateParagraph(paragraph, bodyFont, baseHalfPoints, options.LineSpacing));
+                }
+            }
+        }
+
+        if (options.IncludeCharacterCards && manuscript.Characters.Count > 0)
+        {
+            body.Append(CreatePageBreak());
+            body.Append(CreateParagraph(
+                "Персонажи",
+                bodyFont,
+                baseHalfPoints + 8,
+                bold: true,
+                alignment: TextAlignment.Center,
+                spacingAfter: 240));
+
+            foreach (var character in manuscript.Characters)
+            {
+                body.Append(CreateParagraph(
+                    character.Name,
+                    bodyFont,
+                    baseHalfPoints + 4,
+                    bold: true,
+                    spacingBefore: 180,
+                    spacingAfter: 100));
+                foreach (var field in character.Fields)
+                {
+                    body.Append(CreateParagraph(
+                        new ExportParagraph(
+                            ExportBlockKind.Paragraph,
+                            [new ExportRun($"{field.Label}: ", Bold: true), new ExportRun(field.Value)]),
+                        bodyFont,
+                        baseHalfPoints,
+                        options.LineSpacing));
                 }
             }
         }

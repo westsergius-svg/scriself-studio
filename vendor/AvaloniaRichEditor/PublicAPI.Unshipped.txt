@@ -1,0 +1,2 @@
+﻿#nullable enable
+AvaloniaRichEditor.Controls.RichEditor.LoadDocument(AvaloniaRichEditor.Documents.FlowDocument! doc) -> void

@@ -10,4 +10,7 @@ public partial class ThemeSwitcherView : UserControl
 {
     /// <summary>Конструктор без параметров нужен загрузчику XAML и дизайнеру.</summary>
     public ThemeSwitcherView() => InitializeComponent();
+
+    private void OnThemeSelected(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+        => ThemeButton.Flyout?.Hide();
 }

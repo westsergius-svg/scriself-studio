@@ -43,13 +43,25 @@ public sealed class AppPreferences
     public const int MaxRecentProjects = 10;
 
     /// <summary>
-    /// Тема оформления. По умолчанию Paper: макеты экранов («Сюжетные линии»,
-    /// «Персонажи») выполнены в кремовой светлой палитре, поэтому приложение
-    /// должно открываться именно так.
+    /// Тема оформления. По умолчанию Starter: стандартная компоновка
+    /// со светлыми поверхностями и синим акцентом.
     /// </summary>
-    public AppTheme Theme { get; set; } = AppTheme.Starter;
+    public AppTheme Theme { get; set; } = AppTheme.Studio;
 
     public string Language { get; set; } = "ru-RU";
+
+    public bool SpellCheckEnabled { get; set; } = true;
+
+    public bool GrammarCheckEnabled { get; set; }
+
+    public string GrammarLanguage { get; set; } = "auto";
+
+    public bool AutoCapitalizeSentences { get; set; } = true;
+
+    public List<string> PersonalDictionary { get; set; } = [];
+
+    /// <summary>null сохраняет прежний вид навигации темы до первого явного выбора.</summary>
+    public AppNavigationMode? NavigationMode { get; set; }
 
     public bool OpenLastProjectOnStartup { get; set; }
 
@@ -57,6 +69,16 @@ public sealed class AppPreferences
 
     /// <summary>Проверять наличие новой сборки на сайте при каждом запуске.</summary>
     public bool CheckForUpdatesOnStartup { get; set; } = true;
+
+    /// <summary>null — пользователь ещё не выбрал, отправлять ли статистику.</summary>
+    public bool? ShareUsageStatistics { get; set; }
+
+    /// <summary>Случайный номер профиля приложения, создаваемый только после согласия.</summary>
+    public string? StatisticsInstallationId { get; set; }
+
+    public DateOnly? StatisticsLastSentDay { get; set; }
+
+    public string? StatisticsLastSentVersion { get; set; }
 
     /// <summary>Логин Яндекса для облачного хранилища (если автор подключил Диск).</summary>
     public string? YandexDiskLogin { get; set; }

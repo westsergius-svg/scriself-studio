@@ -1,7 +1,10 @@
 namespace ScriSelfStudio.UiSmokeTests;
 
+using Avalonia;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Microsoft.Extensions.DependencyInjection;
@@ -173,6 +176,86 @@ public sealed class StoryScreensTests
         var first = provider.GetRequiredService<IBookArchitectureService>()
             .GetPlotLines().Single(line => line.Id == firstId);
         Assert.Equal("Цель без кнопки сохранения", first.Goal);
+    }
+
+    [AvaloniaFact]
+    public async Task Timeline_step_tabs_survive_field_commit_and_participant_changes()
+    {
+        using var workspace = new TempWorkspace();
+        var dialogs = new StubFileDialogService { CreatePath = workspace.FilePath("Рукопись.scri") };
+        using var provider = ServiceProviderFactory.Create(workspace.Root, dialogs);
+        var launcher = provider.GetRequiredService<LauncherViewModel>();
+        await launcher.InitializeAsync();
+        await launcher.CreateProjectCommand.ExecuteAsync(null);
+
+        launcher.OpenCharactersCommand.Execute(null);
+        var characters = provider.GetRequiredService<CharactersViewModel>();
+        characters.Draft.Name = "Анна";
+        await characters.SaveCharacterCommand.ExecuteAsync(null);
+
+        launcher.OpenTimelineCommand.Execute(null);
+        var timeline = provider.GetRequiredService<TimelineViewModel>();
+        await timeline.NewLineCommand.ExecuteAsync(null);
+        timeline.Draft.Name = "Главная линия";
+        await timeline.SaveLineCommand.ExecuteAsync(null);
+        timeline.AddStepCommand.Execute(null);
+        var originalStep = timeline.SelectedStep!;
+        var originalTitle = originalStep.Title;
+
+        var window = provider.GetRequiredService<MainWindow>();
+        window.Width = 1152;
+        window.Height = 768;
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        var tabs = window.GetVisualDescendants().OfType<TabControl>()
+            .Single(control => control.Classes.Contains("stepTabs"));
+        var titleInput = tabs.GetVisualDescendants().OfType<TextBox>()
+            .Single(input => input.Classes.Contains("fieldBox") && !input.AcceptsReturn);
+        Assert.True(titleInput.Focus());
+        titleInput.CaretIndex = titleInput.Text!.Length;
+        window.KeyTextInput(" изменено");
+
+        var arcTab = (TabItem)tabs.Items[2]!;
+        var point = arcTab.TranslatePoint(new Point(arcTab.Bounds.Width / 2, arcTab.Bounds.Height / 2), window)!.Value;
+        window.MouseDown(point, MouseButton.Left);
+        window.MouseUp(point, MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+        if (timeline.CommitLineCommand.ExecutionTask is { } commit)
+        {
+            await commit;
+        }
+        Dispatcher.UIThread.RunJobs();
+
+        var savedStep = Assert.Single(provider.GetRequiredService<IBookArchitectureService>().GetPlotLines().Single().Steps);
+        Assert.Equal(originalTitle + " изменено", savedStep.Title);
+        Assert.Equal(2, timeline.SelectedStep!.SelectedTabIndex);
+        tabs = window.GetVisualDescendants().OfType<TabControl>()
+            .Single(control => control.Classes.Contains("stepTabs"));
+        Assert.Equal(2, tabs.SelectedIndex);
+
+        timeline.AddParticipantCommand.Execute(null);
+        timeline.SelectedStep.Participants.Single().Character = Assert.Single(timeline.CharacterChoices);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(2, timeline.SelectedStep.SelectedTabIndex);
+        var participant = Assert.Single(timeline.SelectedStep.Participants);
+        participant.ArcStage = participant.AvailableSteps[0];
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(2, timeline.SelectedStep.SelectedTabIndex);
+
+        await timeline.SaveLineCommand.ExecuteAsync(null);
+        Dispatcher.UIThread.RunJobs();
+        tabs = window.GetVisualDescendants().OfType<TabControl>()
+            .Single(control => control.Classes.Contains("stepTabs"));
+        Assert.Equal(2, tabs.SelectedIndex);
+        Assert.Equal("Анна", timeline.SelectedStep!.Participants.Single().Character!.Name);
+        Assert.NotNull(timeline.SelectedStep.Participants.Single().ArcStage);
+
+        timeline.ToggleHeaderEditingCommand.Execute(null);
+        Assert.True(timeline.IsHeaderEditing);
+        await timeline.CommitLineCommand.ExecuteAsync(null);
+        Assert.False(timeline.IsHeaderEditing);
+        Assert.False(timeline.HasUnsavedDraft);
+        window.Close();
     }
 
     [AvaloniaFact]

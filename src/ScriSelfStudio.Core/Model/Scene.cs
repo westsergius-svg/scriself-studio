@@ -30,4 +30,7 @@ public sealed class Scene : ProjectEntity
     public RichDocument Document { get; set; } = RichDocument.CreateEmpty();
 
     public SceneMetadata Metadata { get; set; } = new();
+
+    [System.Text.Json.Serialization.JsonObjectCreationHandling(System.Text.Json.Serialization.JsonObjectCreationHandling.Populate)]
+    public List<SceneVersion> Versions { get; } = [];
 }

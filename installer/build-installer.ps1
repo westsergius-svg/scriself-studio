@@ -17,6 +17,9 @@ param(
     [string] $Configuration = 'Release',
     [string] $Runtime = 'win-x64',
 
+    # Включает заранее подготовленные LanguageTool и Java рядом с программой.
+    [switch] $IncludeGrammarRuntime,
+
     # Путь к картинке: если задан, значки пересобираются перед публикацией.
     [string] $IconSource,
 
@@ -67,16 +70,25 @@ if ($IconSource) {
 }
 
 $publishRelative = "artifacts\publish\$Runtime-$version-installer"
-$publishDir = Join-Path $repoRoot $publishRelative
+$publishDir = [System.IO.Path]::GetFullPath((Join-Path $repoRoot $publishRelative))
+$publishRoot = [System.IO.Path]::GetFullPath((Join-Path $repoRoot 'artifacts\publish')) + [System.IO.Path]::DirectorySeparatorChar
+if (!$publishDir.StartsWith($publishRoot, [StringComparison]::OrdinalIgnoreCase)) {
+    throw "Каталог публикации должен находиться внутри $publishRoot"
+}
 
 if (Test-Path -LiteralPath $publishDir) {
-    [System.IO.Directory]::Delete($publishDir, $true)
+    $previousPublish = "$publishDir-before-$(Get-Date -Format 'yyyyMMdd-HHmmssfff')"
+    if (!$previousPublish.StartsWith($publishRoot, [StringComparison]::OrdinalIgnoreCase)) {
+        throw 'Недопустимый каталог сохранения предыдущей публикации.'
+    }
+    Move-Item -LiteralPath $publishDir -Destination $previousPublish
 }
 
 Write-Host "Публикация в $publishRelative"
 & dotnet publish (Join-Path $repoRoot 'src\ScriSelfStudio.App\ScriSelfStudio.App.csproj') `
     -c $Configuration -r $Runtime --self-contained true `
     -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
+    "-p:IncludeGrammarRuntime=$($IncludeGrammarRuntime.IsPresent.ToString().ToLowerInvariant())" `
     -p:DebugType=None -p:DebugSymbols=false `
     -o $publishDir
 if ($LASTEXITCODE -ne 0) {
@@ -92,6 +104,11 @@ Get-ChildItem -LiteralPath $publishDir -Filter *.pdb -File | ForEach-Object {
 $iscc = Get-IsccPath $IsccPath
 Write-Host "Компиляция установщика: $iscc"
 
+$setup = Join-Path $repoRoot "artifacts\installer\ScriSelfStudio-Setup-$version.exe"
+if (Test-Path -LiteralPath $setup) {
+    Move-Item -LiteralPath $setup -Destination "$setup-before-$(Get-Date -Format 'yyyyMMdd-HHmmssfff')"
+}
+
 # Версия и каталог публикации передаются в скрипт, чтобы не держать их в двух местах.
 & $iscc `
     "/DAppVersion=$version" `
@@ -101,7 +118,6 @@ if ($LASTEXITCODE -ne 0) {
     throw "ISCC завершился с кодом $LASTEXITCODE."
 }
 
-$setup = Join-Path $repoRoot "artifacts\installer\ScriSelfStudio-Setup-$version.exe"
 Write-Host ''
 Write-Host "Готово: $setup"
 Write-Host ("Размер: {0:N1} МБ" -f ((Get-Item -LiteralPath $setup).Length / 1MB))

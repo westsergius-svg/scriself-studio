@@ -1,0 +1,95 @@
+<Styles xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- Нейтральная оболочка инструментальной студии. Документ имеет собственную светлую поверхность. -->
+  <Style Selector=":is(Window).studio">
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Foreground" Value="{DynamicResource SidebarTextBrush}" />
+  </Style>
+  <Style Selector=":is(Window).studio Button">
+    <Setter Property="CornerRadius" Value="3" />
+  </Style>
+  <Style Selector=":is(Window).studio TextBox, :is(Window).studio ComboBox, :is(Window).studio NumericUpDown">
+    <Setter Property="CornerRadius" Value="3" />
+    <Setter Property="MinHeight" Value="30" />
+  </Style>
+  <Style Selector=":is(Window).studio TextBox">
+    <Setter Property="Padding" Value="9,6" />
+  </Style>
+  <Style Selector=":is(Window).studio Expander">
+    <Setter Property="Background" Value="{DynamicResource SurfaceFieldBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}" />
+  </Style>
+  <Style Selector="Button.studioAction">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}" />
+    <Setter Property="MinHeight" Value="28" />
+    <Setter Property="Padding" Value="12,4" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="CornerRadius" Value="3" />
+  </Style>
+  <Style Selector="Button.studioTool">
+    <Setter Property="Width" Value="36" /><Setter Property="Height" Value="36" />
+    <Setter Property="Padding" Value="8" /><Setter Property="CornerRadius" Value="3" />
+    <Setter Property="BorderThickness" Value="1" /><Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" /><Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Button.studioTool Path">
+    <Setter Property="Width" Value="20" /><Setter Property="Height" Value="20" />
+    <Setter Property="Stroke" Value="{DynamicResource ShellNavBrush}" /><Setter Property="StrokeThickness" Value="1.5" />
+    <Setter Property="StrokeLineCap" Value="Round" /><Setter Property="StrokeJoin" Value="Round" />
+  </Style>
+  <Style Selector="Button.studioTool.active">
+    <Setter Property="Background" Value="{DynamicResource SurfaceSelectedBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource SurfaceSelectedBorderBrush}" />
+  </Style>
+  <Style Selector="Button.studioTool.active Path">
+    <Setter Property="Stroke" Value="{DynamicResource ActiveAccentBrush}" />
+  </Style>
+  <Style Selector="Button.studioTool:pointerover /template/ ContentPresenter, Button.studioAction:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+  </Style>
+  <Style Selector="Button.studioTool:disabled">
+    <Setter Property="Opacity" Value="0.4" />
+  </Style>
+  <Style Selector=":is(Window).studio Border.projectTreeSurface">
+    <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ChromeBorderBrush}" />
+  </Style>
+  <Style Selector=":is(Window).studio Button.treeNode, :is(Window).studio Button.sceneRow">
+    <Setter Property="CornerRadius" Value="2" /><Setter Property="MinHeight" Value="30" />
+    <Setter Property="FontSize" Value="12" /><Setter Property="Padding" Value="5,5" />
+  </Style>
+  <Style Selector=":is(Window).studio Button.sceneRow.current /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource SurfaceSelectedBrush}" />
+    <Setter Property="CornerRadius" Value="2" />
+  </Style>
+  <Style Selector=":is(Window).studio TextBlock.cardHeading, :is(Window).studio TextBlock.paperHeading">
+    <Setter Property="FontFamily" Value="{StaticResource UiFontFamily}" />
+    <Setter Property="FontSize" Value="16" /><Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource HeadingBrush}" />
+  </Style>
+  <Style Selector=":is(Window).studio Border.mapColumn">
+    <Setter Property="CornerRadius" Value="3" /><Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+  <Style Selector=":is(Window).studio Button.sceneCard">
+    <Setter Property="CornerRadius" Value="3" />
+  </Style>
+  <Style Selector=":is(Window).studio Border.mapCard">
+    <Setter Property="CornerRadius" Value="3" />
+  </Style>
+  <Style Selector=":is(Window).studio Button.columnHead">
+    <Setter Property="CornerRadius" Value="2" /><Setter Property="MinHeight" Value="32" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector=":is(Window).studio Thumb.paneSplitter">
+    <Setter Property="Background" Value="{DynamicResource ChromeBorderBrush}" />
+  </Style>
+  <Style Selector=":is(Window).studio Border.architectureTabs">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
+  <Style Selector=":is(Window).studio Border.sceneContextSurface">
+    <Setter Property="BorderBrush" Value="{DynamicResource ChromeBorderBrush}" />
+  </Style>
+</Styles>

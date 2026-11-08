@@ -443,11 +443,14 @@ public sealed class SceneEditorEngine : IEditorEngine
             suffixLength--;
         }
 
+        var reviewBefore = document!.Clone();
         DocumentEditor.ReplaceText(
             document!,
             prefixLength,
             currentText.Length - prefixLength - suffixLength,
             text.Substring(prefixLength, text.Length - prefixLength - suffixLength));
+
+        ReviewEditing.Capture(reviewBefore, document, DateTimeOffset.UtcNow);
 
         PublishDocumentChanged();
         return Result.Success;

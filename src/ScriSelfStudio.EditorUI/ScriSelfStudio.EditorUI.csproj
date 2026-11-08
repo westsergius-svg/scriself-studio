@@ -6,12 +6,15 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" />
-    <PackageReference Include="AvaloniaRichEditor" />
+    <ProjectReference Include="..\..\vendor\AvaloniaRichEditor\AvaloniaRichEditor.csproj" />
     <PackageReference Include="CommunityToolkit.Mvvm" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ScriSelfStudio.Core\ScriSelfStudio.Core.csproj" />
     <ProjectReference Include="..\ScriSelfStudio.Contracts\ScriSelfStudio.Contracts.csproj" />
     <ProjectReference Include="..\ScriSelfStudio.Presentation\ScriSelfStudio.Presentation.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="ScriSelfStudio.UiSmokeTests" />
   </ItemGroup>
 </Project>

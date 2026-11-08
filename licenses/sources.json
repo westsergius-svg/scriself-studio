@@ -1,0 +1,157 @@
+[
+  {
+    "File": "Avalonia_MIT.txt",
+    "Source": "https://raw.githubusercontent.com/AvaloniaUI/Avalonia/2d79ba55fae1b1e71c69f93a668080c9029e6a31/licence.md",
+    "SHA256": "213814D306090074D234D760239FF0F67EB9B8D20EEFB4D5631BB39DBE0B769B"
+  },
+  {
+    "File": "AvaloniaRichEditor_MIT.txt",
+    "Source": "https://raw.githubusercontent.com/centwon/AvaloniaRichEditor/837242c5769407dbabd3b6c201409fb586d05905/LICENSE",
+    "SHA256": "F2CE804658738487C00205F09798CA4A6A729313149480730497DD24C9B296EE"
+  },
+  {
+    "File": "AvaloniaRichEditor_Notices.txt",
+    "Source": "avaloniaricheditor/1.2.1/THIRD-PARTY-NOTICES.md",
+    "SHA256": "FD00783EC88958A25500D4BEEA4CEDEC986255D1F258690E27AB2893ACA72F74"
+  },
+  {
+    "File": "ANGLE_BSD.txt",
+    "Source": "avalonia.angle.windows.natives/2.1.27548.20260419/LICENSE",
+    "SHA256": "54AFF7276217DF9F6B5181613999D208C9E40D2B1D51BF55217837E6871A4A63"
+  },
+  {
+    "File": "CommunityToolkit_MIT.txt",
+    "Source": "communitytoolkit.mvvm/8.4.2/License.md",
+    "SHA256": "651997EF19DBB9ECB8DD660DBC86444A65AF21F18CFE08DAA69BF201CD5CFDFC"
+  },
+  {
+    "File": "CommunityToolkit_Notices.txt",
+    "Source": "communitytoolkit.mvvm/8.4.2/ThirdPartyNotices.txt",
+    "SHA256": "7774F8B0AB66BFB47EC154CE24A2D6D574FEBC44A74D940B8A037D1C56756163"
+  },
+  {
+    "File": "OpenXML_MIT.txt",
+    "Source": "https://raw.githubusercontent.com/dotnet/Open-XML-SDK/3139fdfd27414548a41555f7848d5728f6e71a42/LICENSE",
+    "SHA256": "ED03BA352313A4BA7019D5BED4BD3218AC17F3E44442A3BB1AAFF54DCCA9A2BC"
+  },
+  {
+    "File": "HtmlAgilityPack_MIT.txt",
+    "Source": "https://raw.githubusercontent.com/zzzprojects/html-agility-pack/v1.12.4/LICENSE",
+    "SHA256": "601B80E87B30B47C7B5389D3077FDA67A37E7CB6B200405E4524217989C1FE92"
+  },
+  {
+    "File": "MicroCom_MIT.txt",
+    "Source": "https://raw.githubusercontent.com/kekekeks/MicroCom/76785efcafd91b5902fd19dd11145f6dd655b7b4/LICENSE",
+    "SHA256": "6EE769C9AC4DAC9ABB16B98B1341E9528FF9F4AB685481410D3376D14148F3A9"
+  },
+  {
+    "File": "PDFsharp_MIT.txt",
+    "Source": "https://raw.githubusercontent.com/empira/PDFsharp/v6.2.4/LICENSE",
+    "SHA256": "3C648A5072BD7F7386CA28687780489A708A57ED75F13927BC16DD3E34AF3BF7"
+  },
+  {
+    "File": "Tmds_DBus_MIT.txt",
+    "Source": "https://raw.githubusercontent.com/tmds/Tmds.DBus/b4a7fed0b878f74cb54f7cca84d2889af4e596ba/COPYING",
+    "SHA256": "ACA3B49277ABCC7886CCB2F115603A9F5B15FC3F96019A10C00F2974098B210C"
+  },
+  {
+    "File": "SQLitePCLRaw_Apache_2.0.txt",
+    "Source": "https://raw.githubusercontent.com/ericsink/SQLitePCL.raw/v2.1.12/LICENSE.TXT",
+    "SHA256": "CFC7749B96F63BD31C3C42B5C471BF756814053E847C10F3EB003417BC523D30"
+  },
+  {
+    "File": "SQLitePCLRaw_Notices.txt",
+    "Source": "https://raw.githubusercontent.com/ericsink/SQLitePCL.raw/v2.1.12/NOTICE.TXT",
+    "SHA256": "485B276B3D2BFAA26DF348E1E5C84DF3648981E09B88531A6A53006F0705C24B"
+  },
+  {
+    "File": "Inter_OFL.txt",
+    "Source": "https://raw.githubusercontent.com/rsms/inter/v3.19/LICENSE.txt",
+    "SHA256": "4D7D9C95E7D7F2F0EBF76D5E0B344826B74E903A34028EE18AB54BB639E45906"
+  },
+  {
+    "File": "Microsoft_Extensions_MIT.txt",
+    "Source": "microsoft.extensions.logging/8.0.1/LICENSE.TXT",
+    "SHA256": "D7A68596AB69B06F51CA278A6545148E4269A9381C26D597C13DF5D88E08CF5B"
+  },
+  {
+    "File": "Microsoft_Extensions_Notices.txt",
+    "Source": "microsoft.extensions.logging/8.0.1/THIRD-PARTY-NOTICES.TXT",
+    "SHA256": "B60B2912DA28EAA6518593C9E2EFB5334EE062D3C42E80D8FDFA806B3DC52977"
+  },
+  {
+    "File": "Microsoft_Data_Sqlite_MIT.txt",
+    "Source": "https://raw.githubusercontent.com/dotnet/efcore/4caf9eeca38ab8bbc8857b975a8f0ad29ad2ea7f/LICENSE.txt",
+    "SHA256": "AE48DF11A335DC1A615F4F938B69CBA73BCF4485C4F97AF49B38EFB0F216353B"
+  },
+  {
+    "File": "SkiaSharp_MIT.txt",
+    "Source": "skiasharp/3.119.4/LICENSE.txt",
+    "SHA256": "89101E35A8C66FD4D6DFFC1763259161D35CB564C169714EC227A768C89F2938"
+  },
+  {
+    "File": "SkiaSharp_Native_Notices.txt",
+    "Source": "skiasharp.nativeassets.win32/3.119.4/THIRD-PARTY-NOTICES.txt",
+    "SHA256": "21504C46C4C58AA64C1055BD2DCBC5F9A136B4B8C412ED3CC6740E22C5B127F5"
+  },
+  {
+    "File": "HarfBuzzSharp_MIT.txt",
+    "Source": "harfbuzzsharp/8.3.1.3/LICENSE.txt",
+    "SHA256": "89101E35A8C66FD4D6DFFC1763259161D35CB564C169714EC227A768C89F2938"
+  },
+  {
+    "File": "HarfBuzzSharp_Native_Notices.txt",
+    "Source": "harfbuzzsharp.nativeassets.win32/8.3.1.3/THIRD-PARTY-NOTICES.txt",
+    "SHA256": "21504C46C4C58AA64C1055BD2DCBC5F9A136B4B8C412ED3CC6740E22C5B127F5"
+  },
+  {
+    "File": "NET_Runtime_MIT.txt",
+    "Source": "microsoft.netcore.app.runtime.win-x64/10.0.12/LICENSE.TXT",
+    "SHA256": "D7A68596AB69B06F51CA278A6545148E4269A9381C26D597C13DF5D88E08CF5B"
+  },
+  {
+    "File": "NET_Runtime_Notices.txt",
+    "Source": "microsoft.netcore.app.runtime.win-x64/10.0.12/THIRD-PARTY-NOTICES.TXT",
+    "SHA256": "6D15E10A101C6BFFF2AB4429ED061BF76C456FC4B23AD6B03E0D0F8377148A21"
+  },
+  {
+    "File": "System_Security_Cryptography_Pkcs_MIT.txt",
+    "Source": "system.security.cryptography.pkcs/8.0.2/LICENSE.TXT",
+    "SHA256": "D7A68596AB69B06F51CA278A6545148E4269A9381C26D597C13DF5D88E08CF5B"
+  },
+  {
+    "File": "System_Security_Cryptography_Pkcs_Notices.txt",
+    "Source": "system.security.cryptography.pkcs/8.0.2/THIRD-PARTY-NOTICES.TXT",
+    "SHA256": "B60B2912DA28EAA6518593C9E2EFB5334EE062D3C42E80D8FDFA806B3DC52977"
+  },
+  {
+    "File": "System_IO_Packaging_Notices.txt",
+    "Source": "system.io.packaging/10.0.2/THIRD-PARTY-NOTICES.TXT",
+    "SHA256": "6D15E10A101C6BFFF2AB4429ED061BF76C456FC4B23AD6B03E0D0F8377148A21"
+  },
+  {
+    "File": "WeCantSpell_Hunspell_Notices.txt",
+    "Source": "wecantspell.hunspell/7.0.1/license.txt",
+    "SHA256": "F25E0F8A8B9D551C3D5EAD234EFB2C89E2F24A0943C4E919173C89E7D4BE9A23"
+  },
+  {
+    "File": "Russian_spelling_BSD.txt",
+    "Source": "https://raw.githubusercontent.com/LibreOffice/dictionaries/4f1df64b2e8e14751aa7c2205d170ca016071315/ru_RU/README_ru_RU.txt",
+    "SHA256": "262AF2F6AD70A61E5EE1332FF44FA8EE50EDCA819CF33207D8AD6BA6A0C9BE52"
+  },
+  {
+    "File": "English_spelling_Notices.txt",
+    "Source": "https://raw.githubusercontent.com/LibreOffice/dictionaries/4f1df64b2e8e14751aa7c2205d170ca016071315/en/README_en_US.txt",
+    "SHA256": "168B4C01CB841F766A72F310B065C04D09CFF46376C37A81D799593CE751C371"
+  },
+  {
+    "File": "MPL_1.1.txt",
+    "Source": "https://www.mozilla.org/media/MPL/1.1/index.txt",
+    "SHA256": "F849FC26A7A99981611A3A370E83078DEB617D12A45776D6C4CADA4D338BE469"
+  },
+  {
+    "File": "CC_BY_SA_4.0.txt",
+    "Source": "https://creativecommons.org/licenses/by-sa/4.0/legalcode.txt",
+    "SHA256": "28A9529C7D0BB4DC51F4BF5C116A3D16EF247A052F7591466768DDF563FD1CF5"
+  }
+]

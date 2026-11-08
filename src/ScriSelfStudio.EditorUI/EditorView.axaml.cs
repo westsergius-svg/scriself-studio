@@ -15,10 +15,20 @@ public partial class EditorView : UserControl
     private bool _updatingRichEditor;
     private bool _syncingFromRichEditor;
     private bool _richEditorSyncQueued;
+    private bool _resetUndoOnSync;
+    private readonly IBrush? _toolbarBackground;
+    private ProofreadingBehavior? _proofreading;
+    private GrammarBehavior? _grammar;
+    private ReviewEditorSession? _reviewSession;
 
     public EditorView()
     {
         InitializeComponent();
+        _toolbarBackground = (RichEditorHost.Toolbar.Content as Border)?.Background;
+        AttachedToVisualTree += (_, _) => { ApplyWorkspaceAppearance(); AttachProofreading(); AttachReview(); AttachGrammar(); };
+        DetachedFromVisualTree += (_, _) => { _proofreading?.Dispose(); _proofreading = null; _grammar?.Dispose(); _grammar = null; DetachReview(); };
+        _ = new DialogueInputBehavior(RichEditorHost.Editor);
+        _ = new SentenceCapitalizationBehavior(RichEditorHost.Editor, () => _viewModel?.TextTools.AutoCapitalizeSentences == true);
         DataContextChanged += (_, _) => AttachViewModel(DataContext as EditorViewModel);
         RichEditorHost.Editor.TextChanged += OnRichEditorTextChanged;
         RichEditorHost.Editor.SelectionChanged += OnRichEditorSelectionChanged;
@@ -33,6 +43,9 @@ public partial class EditorView : UserControl
 
     private void AttachViewModel(EditorViewModel? viewModel)
     {
+        _grammar?.Dispose();
+        _grammar = null;
+        DetachReview();
         if (_viewModel is not null)
         {
             _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
@@ -46,11 +59,80 @@ public partial class EditorView : UserControl
         }
 
         _viewModel.PropertyChanged += OnViewModelPropertyChanged;
+        UpdateReviewLayout();
+        ApplyWorkspaceAppearance();
+        ApplyToolbarLayout();
         SyncRichEditorFromEngine();
+        ApplyReadingZoom();
+        AttachProofreading();
+        AttachReview();
+        AttachGrammar();
+    }
+
+    private void AttachGrammar()
+    {
+        _grammar?.Dispose();
+        _viewModel?.Grammar.RefreshPreferences();
+        _grammar = _viewModel is null ? null : new GrammarBehavior(RichEditorHost.Editor, _viewModel.Grammar);
+    }
+
+    private void AttachProofreading()
+    {
+        _proofreading?.Dispose();
+        _viewModel?.TextTools.RefreshPreferences();
+        _proofreading = _viewModel is null ? null : new ProofreadingBehavior(RichEditorHost.Editor, _viewModel.TextTools);
+    }
+
+    private void OnReviewPanelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ReviewPanelViewModel.IsOpen)) UpdateReviewLayout();
+    }
+
+    private void UpdateReviewLayout() => EditorLayout.RowDefinitions[3].Height =
+        new GridLength(_viewModel?.ReviewPanel.IsOpen == true ? 260 : 0);
+
+    private void DetachReview()
+    {
+        if (_viewModel is not null) _viewModel.ReviewPanel.PropertyChanged -= OnReviewPanelPropertyChanged;
+        _viewModel?.ReviewPanel.Attach(null);
+        _reviewSession?.Dispose();
+        _reviewSession = null;
+    }
+
+    private void AttachReview()
+    {
+        DetachReview();
+        if (_viewModel is null) return;
+        _viewModel.ReviewPanel.PropertyChanged += OnReviewPanelPropertyChanged;
+        UpdateReviewLayout();
+        _reviewSession = new ReviewEditorSession(RichEditorHost.Editor, CreateReviewFlow,
+            () => OnRichEditorTextChanged(null, EventArgs.Empty));
+        _viewModel.ReviewPanel.Attach(_reviewSession);
+    }
+
+    private AvaloniaRichEditor.Documents.FlowDocument CreateReviewFlow(ScriSelfStudio.Core.Text.RichDocument document)
+    {
+        var headers = _viewModel?.Blocks.Select((block, index) => new RichDocumentAdapter.RibbonSceneHeader(
+            index, block.Title, block.StatusLabel, block.Words)).ToList();
+        return RichDocumentAdapter.ToRibbonFlowDocument(document, RichEditorHost.Editor.DefaultFontSize, headers);
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(EditorViewModel.RestoredDocumentGeneration))
+        {
+            _resetUndoOnSync = true;
+            QueueRichEditorSync();
+        }
+        if (e.PropertyName is nameof(EditorViewModel.IsStudioLayout) or nameof(EditorViewModel.IsFullCanvas)) ApplyWorkspaceAppearance();
+        if (e.PropertyName is nameof(EditorViewModel.IsCabinetLayout) or nameof(EditorViewModel.ReadingZoom) or nameof(EditorViewModel.IsFullCanvas))
+        {
+            ApplyReadingZoom();
+        }
+        if (e.PropertyName is nameof(EditorViewModel.IsCabinetLayout) or nameof(EditorViewModel.IsToolbarMoreOpen))
+        {
+            ApplyToolbarLayout();
+        }
         if (!_syncingFromRichEditor
             && e.PropertyName is nameof(EditorViewModel.RibbonDocument)
                 or nameof(EditorViewModel.EditorFontFamily)
@@ -59,6 +141,38 @@ public partial class EditorView : UserControl
         {
             QueueRichEditorSync();
         }
+    }
+
+    private void ApplyToolbarLayout()
+    {
+        RichEditorHost.Toolbar.ToolbarLevel = _viewModel is { IsCabinetLayout: true, IsToolbarMoreOpen: false }
+            ? ToolbarLevel.Minimal : ToolbarLevel.Normal;
+    }
+
+    private void ApplyWorkspaceAppearance()
+    {
+        var studio = _viewModel?.IsStudioLayout == true;
+        // Публичный Content штатной панели: меняется только поверхность, все команды
+        // и сам документ остаются у компонента редактора.
+        if (RichEditorHost.Toolbar.Content is Border border)
+        {
+            border.Background = studio && this.TryFindResource("PanelBrush", out var panel) && panel is IBrush brush
+                ? brush : _toolbarBackground;
+            border.Padding = studio ? new Thickness(12, 7) : new Thickness(8, 4);
+        }
+        RichEditorHost.Editor.Margin = studio ? new Thickness(12, 18, 12, 18) : new Thickness(0, 8, 0, 4);
+        ApplyPageSetup();
+        ApplyReadingZoom();
+    }
+
+    private void ApplyReadingZoom()
+    {
+        if (_viewModel is { IsStudioLayout: true })
+            RichEditorHost.FitToWidth = true;
+        else if (_viewModel is { IsCabinetLayout: true, IsFullCanvas: false })
+            RichEditorHost.ZoomFactor = _viewModel.ReadingZoom;
+        else
+            RichEditorHost.FitToWidth = true;
     }
 
     private void QueueRichEditorSync()
@@ -119,10 +233,16 @@ public partial class EditorView : UserControl
                     block.StatusLabel,
                     block.Words))
                 .ToList();
-            editor.Document = RichDocumentAdapter.ToRibbonFlowDocument(
+            var flowDocument = RichDocumentAdapter.ToRibbonFlowDocument(
                 document,
                 defaultFontSize,
                 sceneHeaders);
+            if (_resetUndoOnSync)
+            {
+                editor.LoadDocument(flowDocument);
+                _resetUndoOnSync = false;
+            }
+            else editor.Document = flowDocument;
             ApplyPageSetup();
             editor.MarkSaved();
         }
@@ -145,7 +265,7 @@ public partial class EditorView : UserControl
     /// </summary>
     private void ApplyPageSetup()
     {
-        var paged = _viewModel?.IsFullCanvas == true;
+        var paged = _viewModel is { IsFullCanvas: true } or { IsStudioLayout: true };
         var editor = RichEditorHost.Editor;
         editor.PageSize = paged ? RichEditorPageSize.A4 : RichEditorPageSize.Continuous;
         editor.PageOrientation = RichEditorPageOrientation.Portrait;

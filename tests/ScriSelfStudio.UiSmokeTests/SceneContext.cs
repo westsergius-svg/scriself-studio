@@ -28,12 +28,12 @@ public sealed class SceneContext : IDisposable
 
     public Guid SceneId { get; }
 
-    public static async Task<SceneContext> CreateAsync()
+    public static async Task<SceneContext> CreateAsync(ScriSelfStudio.Contracts.Dialogs.ISceneVersionsDialogService? versionsDialog = null)
     {
         var workspace = new TempWorkspace();
         var path = workspace.FilePath("Синхронизация.scri");
         var dialogs = new StubFileDialogService { CreatePath = path, PromptResult = "Элемент" };
-        var provider = ServiceProviderFactory.Create(workspace.Root, dialogs);
+        var provider = ServiceProviderFactory.Create(workspace.Root, dialogs, versionsDialog: versionsDialog);
         var launcher = provider.GetRequiredService<LauncherViewModel>();
         await launcher.InitializeAsync();
         await launcher.CreateProjectCommand.ExecuteAsync(null);

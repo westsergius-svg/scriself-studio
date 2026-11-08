@@ -18,6 +18,8 @@ public sealed record ThemeOption(AppTheme Value, string Title);
 /// <summary>Вариант языка приложения для списка (ТЗ п. 27).</summary>
 public sealed record LanguageOption(string Value, string Title);
 
+public sealed record NavigationOption(AppNavigationMode Value, string Title);
+
 /// <summary>Вариант шрифта для списка (ТЗ п. 27).</summary>
 public sealed record FontOption(string Value, string Title);
 
@@ -69,6 +71,8 @@ public sealed partial class SettingsViewModel : ViewModelBase
 
     private ThemeOption _selectedTheme = null!;
     private LanguageOption _selectedLanguage = null!;
+    private NavigationOption _selectedNavigation = null!;
+    private bool _navigationChoiceChanged;
     private FontOption _selectedFont = null!;
     private SettingsSectionOption? _selectedSection;
     private string? _searchQuery;
@@ -79,6 +83,12 @@ public sealed partial class SettingsViewModel : ViewModelBase
     private bool _openLastProjectOnStartup;
     private bool _checkRecoveryOnStartup;
     private bool _checkForUpdatesOnStartup;
+    private bool _shareUsageStatistics;
+    private bool _statisticsChoiceChanged;
+    private bool _spellCheckEnabled;
+    private bool _grammarCheckEnabled;
+    private LanguageOption _selectedGrammarLanguage = new("auto", Loc.T("Русский / английский автоматически"));
+    private bool _autoCapitalizeSentences;
 
     public SettingsViewModel(
         IAppSettingsService settings,
@@ -95,16 +105,21 @@ public sealed partial class SettingsViewModel : ViewModelBase
         _dialogs = dialogs;
         _culture = culture;
 
-        // Выбор тем временно отключён: используется только стандартная тема.
+        // Выбор темы сохраняется в пользовательских настройках.
         Themes =
         [
             new ThemeOption(AppTheme.Starter, Loc.T("Стандартная")),
+            new ThemeOption(AppTheme.GreenStart, Loc.T("Зелёный старт")),
+            new ThemeOption(AppTheme.Jam, Loc.T("Джем")),
+            new ThemeOption(AppTheme.Cabinet, Loc.T("Кабинет")),
+            new ThemeOption(AppTheme.Studio, Loc.T("Мокрый асфальт")),
         ];
 
         Languages =
         [
             new LanguageOption("ru-RU", "Русский (ru-RU)"),
             new LanguageOption("en-US", "English (en-US)"),
+            new LanguageOption("zh-CN", "简体中文"),
         ];
 
         Fonts =
@@ -135,6 +150,8 @@ public sealed partial class SettingsViewModel : ViewModelBase
 
     public IReadOnlyList<LanguageOption> Languages { get; }
 
+    public IReadOnlyList<NavigationOption> NavigationOptions { get; private set; } = [];
+
     public IReadOnlyList<FontOption> Fonts { get; }
 
     public IReadOnlyList<SettingsSectionOption> Sections { get; private set; } = [];
@@ -148,6 +165,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
         {
             if (SetProperty(ref _selectedSection, value))
             {
+                OnPropertyChanged(nameof(SelectedSectionTitle));
                 OnPropertyChanged(nameof(IsGeneralSection));
                 OnPropertyChanged(nameof(IsAppearanceSection));
                 OnPropertyChanged(nameof(IsEditorSection));
@@ -155,6 +173,8 @@ public sealed partial class SettingsViewModel : ViewModelBase
             }
         }
     }
+
+    public string SelectedSectionTitle => SelectedSection?.Title ?? string.Empty;
 
     public string? SearchQuery
     {
@@ -209,8 +229,17 @@ public sealed partial class SettingsViewModel : ViewModelBase
         get => _selectedTheme;
         set
         {
+            if (value is null) return;
             if (SetProperty(ref _selectedTheme, value))
             {
+                OnPropertyChanged(nameof(ThemeDescription));
+                OnPropertyChanged(nameof(IsClassicNavigationAvailable));
+                OnPropertyChanged(nameof(NavigationDescription));
+                if (!_loading && !_settings.Current.NavigationMode.HasValue && !_navigationChoiceChanged)
+                {
+                    _selectedNavigation = NavigationOptions.Single(option => option.Value == DefaultNavigation(value.Value));
+                    OnPropertyChanged(nameof(SelectedNavigation));
+                }
                 ApplyOnChange();
             }
         }
@@ -228,6 +257,19 @@ public sealed partial class SettingsViewModel : ViewModelBase
         }
     }
 
+    public NavigationOption SelectedNavigation
+    {
+        get => _selectedNavigation;
+        set
+        {
+            if (value is not null && SetProperty(ref _selectedNavigation, value))
+            {
+                if (!_loading) _navigationChoiceChanged = true;
+                ApplyOnChange();
+            }
+        }
+    }
+
     public FontOption SelectedFont
     {
         get => _selectedFont;
@@ -235,10 +277,13 @@ public sealed partial class SettingsViewModel : ViewModelBase
         {
             if (SetProperty(ref _selectedFont, value))
             {
+                OnPropertyChanged(nameof(PreviewFontFamily));
                 ApplyOnChange();
             }
         }
     }
+
+    public Avalonia.Media.FontFamily PreviewFontFamily => new(SelectedFont?.Value ?? "Inter");
 
     public decimal FontSize
     {
@@ -264,6 +309,35 @@ public sealed partial class SettingsViewModel : ViewModelBase
                 ApplyOnChange();
             }
         }
+    }
+
+    public bool SpellCheckEnabled
+    {
+        get => _spellCheckEnabled;
+        set { if (SetProperty(ref _spellCheckEnabled, value)) ApplyOnChange(); }
+    }
+
+    public IReadOnlyList<LanguageOption> GrammarLanguages { get; private set; } = CreateGrammarLanguages();
+
+    private static IReadOnlyList<LanguageOption> CreateGrammarLanguages() =>
+    [new("auto", Loc.T("Русский / английский автоматически")), new("ru", Loc.T("Русский")), new("en-US", Loc.T("English (US)"))];
+
+    public bool GrammarCheckEnabled
+    {
+        get => _grammarCheckEnabled;
+        set { if (SetProperty(ref _grammarCheckEnabled, value)) ApplyOnChange(); }
+    }
+
+    public LanguageOption SelectedGrammarLanguage
+    {
+        get => _selectedGrammarLanguage;
+        set { if (SetProperty(ref _selectedGrammarLanguage, value)) ApplyOnChange(); }
+    }
+
+    public bool AutoCapitalizeSentences
+    {
+        get => _autoCapitalizeSentences;
+        set { if (SetProperty(ref _autoCapitalizeSentences, value)) ApplyOnChange(); }
     }
 
     public decimal AutoSaveIntervalSeconds
@@ -327,6 +401,19 @@ public sealed partial class SettingsViewModel : ViewModelBase
         }
     }
 
+    public bool ShareUsageStatistics
+    {
+        get => _shareUsageStatistics;
+        set
+        {
+            if (SetProperty(ref _shareUsageStatistics, value) && !_loading)
+            {
+                _statisticsChoiceChanged = true;
+                ApplyOnChange();
+            }
+        }
+    }
+
     /// <summary>Возврат на предыдущий экран (ТЗ п. 27).</summary>
     [RelayCommand]
     private void GoBack() => _navigation.GoBack();
@@ -373,15 +460,28 @@ public sealed partial class SettingsViewModel : ViewModelBase
 
         var theme = SelectedTheme?.Value ?? AppTheme.System;
         var language = SelectedLanguage?.Value ?? "ru-RU";
+        var previousNavigation = _settings.Current.NavigationMode;
 
         var saved = await _settings.UpdateAsync(
             preferences =>
             {
                 preferences.Theme = theme;
                 preferences.Language = language;
+                preferences.SpellCheckEnabled = SpellCheckEnabled;
+                preferences.GrammarCheckEnabled = GrammarCheckEnabled;
+                preferences.GrammarLanguage = SelectedGrammarLanguage.Value;
+                preferences.AutoCapitalizeSentences = AutoCapitalizeSentences;
+                if (_navigationChoiceChanged)
+                {
+                    preferences.NavigationMode = SelectedNavigation.Value;
+                }
                 preferences.OpenLastProjectOnStartup = OpenLastProjectOnStartup;
                 preferences.CheckRecoveryOnStartup = CheckRecoveryOnStartup;
                 preferences.CheckForUpdatesOnStartup = CheckForUpdatesOnStartup;
+                if (_statisticsChoiceChanged)
+                {
+                    preferences.ShareUsageStatistics = ShareUsageStatistics;
+                }
             },
             cancellationToken);
 
@@ -393,9 +493,16 @@ public sealed partial class SettingsViewModel : ViewModelBase
             return;
         }
 
-        _theme.Apply(theme);
+        if (_theme.Current != theme || previousNavigation != _settings.Current.NavigationMode)
+        {
+            _theme.Apply(theme);
+        }
+        var languageChanged = !string.Equals(_culture.Current, language, StringComparison.OrdinalIgnoreCase);
         _culture.Apply(language);
-        RebuildSections();
+        if (languageChanged)
+        {
+            RebuildSections();
+        }
 
         var project = _projects.Current;
         if (project is not null)
@@ -469,9 +576,16 @@ public sealed partial class SettingsViewModel : ViewModelBase
         {
             var preferences = _settings.Current;
             var projectSettings = _projects.Current?.Settings;
+            SpellCheckEnabled = preferences.SpellCheckEnabled;
+            GrammarCheckEnabled = preferences.GrammarCheckEnabled;
+            SelectedGrammarLanguage = GrammarLanguages.FirstOrDefault(l => l.Value == preferences.GrammarLanguage) ?? GrammarLanguages[0];
+            AutoCapitalizeSentences = preferences.AutoCapitalizeSentences;
 
             SelectedTheme = Themes.FirstOrDefault(option => option.Value == preferences.Theme) ?? Themes[0];
             SelectedLanguage = Languages.FirstOrDefault(option => option.Value == preferences.Language) ?? Languages[0];
+            var mode = preferences.NavigationMode ?? DefaultNavigation(preferences.Theme);
+            SelectedNavigation = NavigationOptions.FirstOrDefault(option => option.Value == mode) ?? NavigationOptions[0];
+            _navigationChoiceChanged = false;
 
             var fontFamily = projectSettings?.FontFamily ?? "Inter";
             SelectedFont = Fonts.FirstOrDefault(option => string.Equals(option.Value, fontFamily, StringComparison.OrdinalIgnoreCase))
@@ -492,6 +606,8 @@ public sealed partial class SettingsViewModel : ViewModelBase
             OpenLastProjectOnStartup = preferences.OpenLastProjectOnStartup;
             CheckRecoveryOnStartup = preferences.CheckRecoveryOnStartup;
             CheckForUpdatesOnStartup = preferences.CheckForUpdatesOnStartup;
+            ShareUsageStatistics = preferences.ShareUsageStatistics == true;
+            _statisticsChoiceChanged = false;
             HasProject = projectSettings is not null;
             StatusMessage = null;
             ErrorMessage = null;
@@ -502,8 +618,23 @@ public sealed partial class SettingsViewModel : ViewModelBase
         }
     }
 
+    public string ThemeDescription => SelectedTheme?.Value switch
+    {
+        AppTheme.Studio => Loc.T("Мокрый асфальт — графитовые панели, инструменты и светлый лист рукописи."),
+        AppTheme.Jam => Loc.T("Джем — светлое стекло, полупрозрачные панели и ягодный акцент."),
+        AppTheme.Cabinet => Loc.T("Кабинет — зелёная палитра и компактное рабочее пространство."),
+        AppTheme.GreenStart => Loc.T("Зелёный старт — привычное рабочее пространство в зелёной палитре «Кабинета»."),
+        _ => Loc.T("Стандартная — привычное рабочее пространство со светлыми поверхностями и синим акцентом."),
+    };
+
+    public bool IsClassicNavigationAvailable => SelectedTheme?.Value != AppTheme.Studio;
+    public string NavigationDescription => Loc.T(IsClassicNavigationAvailable
+        ? "Вкладки или меню «Рабочее место» — для классических тем."
+        : "В теме «Мокрый асфальт» разделы открываются на панели инструментов слева или через меню «Вид».");
+
     private void RefreshVisibleSections()
     {
+        var selected = SelectedSection;
         var query = SearchQuery?.Trim();
         var matches = string.IsNullOrEmpty(query)
             ? Sections
@@ -519,40 +650,81 @@ public sealed partial class SettingsViewModel : ViewModelBase
         }
 
         OnPropertyChanged(nameof(HasVisibleSections));
-        if (SelectedSection is null || !VisibleSections.Contains(SelectedSection))
-        {
-            SelectedSection = VisibleSections.FirstOrDefault();
-        }
+        SelectedSection = selected is not null && VisibleSections.Contains(selected)
+            ? selected : VisibleSections.FirstOrDefault();
     }
 
     /// <summary>Пересобирает разделы после смены языка: подписи создаются заново.</summary>
     private void RebuildSections()
     {
-        var selected = SelectedSection?.Section ?? SettingsSection.General;
-        Sections =
-        [
-            new(SettingsSection.General, Loc.T("Основные"), Loc.T("Язык, запуск и восстановление"), "региональный формат язык даты числа запуск последний проект восстановление"),
-            new(SettingsSection.Appearance, Loc.T("Внешний вид"), Loc.T("Тема и оформление"), "тема цвет оформление светлая тёмная"),
-            new(SettingsSection.Editor, Loc.T("Редактор"), Loc.T("Шрифт текста"), "шрифт размер текста рукопись"),
-            new(SettingsSection.Saving, Loc.T("Сохранение"), Loc.T("Автосохранение и копии"), "автосохранение интервал резервная копия backup"),
-        ];
-
-        VisibleSections.Clear();
-        foreach (var section in Sections)
+        var wasLoading = _loading;
+        _loading = true;
+        try
         {
-            VisibleSections.Add(section);
+            var selected = SelectedSection?.Section ?? SettingsSection.General;
+            Sections =
+            [
+                new(SettingsSection.General, Loc.T("Основные"), Loc.T("Язык, запуск и восстановление"), "региональный формат язык даты числа запуск последний проект восстановление language region date startup recovery 语言 区域 日期 启动 恢复"),
+                new(SettingsSection.Appearance, Loc.T("Внешний вид"), Loc.T("Тема и оформление"), "тема цвет оформление светлая тёмная theme color appearance light dark 主题 颜色 外观 浅色 深色"),
+                new(SettingsSection.Editor, Loc.T("Редактор"), Loc.T("Шрифт и проверка текста"), "шрифт размер текста рукопись орфография грамматика заглавная буква автозамена font size text manuscript spelling grammar capitalization 字体 字号 文本 拼写 语法 大写"),
+                new(SettingsSection.Saving, Loc.T("Сохранение"), Loc.T("Автосохранение и копии"), "автосохранение интервал резервная копия autosave interval backup 自动保存 间隔 备份"),
+            ];
+
+            VisibleSections.Clear();
+            foreach (var section in Sections)
+            {
+                VisibleSections.Add(section);
+            }
+
+            OnPropertyChanged(nameof(Sections));
+            OnPropertyChanged(nameof(HasVisibleSections));
+            // Restoring the selection also restores the visible section fields after
+            // ListBox clears SelectedItem while its items are being translated.
+            SelectedSection = VisibleSections.FirstOrDefault(section => section.Section == selected) ?? Sections[0];
+
+            var themeValue = _selectedTheme?.Value ?? _settings.Current.Theme;
+            Themes =
+            [
+                new ThemeOption(AppTheme.Starter, Loc.T("Стандартная")),
+                new ThemeOption(AppTheme.GreenStart, Loc.T("Зелёный старт")),
+                new ThemeOption(AppTheme.Jam, Loc.T("Джем")),
+                new ThemeOption(AppTheme.Cabinet, Loc.T("Кабинет")),
+                new ThemeOption(AppTheme.Studio, Loc.T("Мокрый асфальт")),
+            ];
+            OnPropertyChanged(nameof(Themes));
+            // Replacing ItemsSource can clear ComboBox.SelectedItem through its two-way binding.
+            // Restore the captured choice after that notification, without queuing another save.
+            _selectedTheme = Themes.FirstOrDefault(option => option.Value == themeValue) ?? Themes[0];
+            OnPropertyChanged(nameof(SelectedTheme));
+            OnPropertyChanged(nameof(ThemeDescription));
+            OnPropertyChanged(nameof(IsClassicNavigationAvailable));
+            OnPropertyChanged(nameof(NavigationDescription));
+
+            var navigationValue = _selectedNavigation?.Value
+                ?? _settings.Current.NavigationMode ?? DefaultNavigation(themeValue);
+            NavigationOptions =
+            [
+                new(AppNavigationMode.Tabs, Loc.T("Вкладки")),
+                new(AppNavigationMode.Menu, Loc.T("Выпадающее меню")),
+            ];
+            OnPropertyChanged(nameof(NavigationOptions));
+            _selectedNavigation = NavigationOptions.FirstOrDefault(option => option.Value == navigationValue) ?? NavigationOptions[0];
+            OnPropertyChanged(nameof(SelectedNavigation));
+
+            var grammarLanguage = _selectedGrammarLanguage?.Value ?? _settings.Current.GrammarLanguage;
+            GrammarLanguages = CreateGrammarLanguages();
+            OnPropertyChanged(nameof(GrammarLanguages));
+            _selectedGrammarLanguage = GrammarLanguages.FirstOrDefault(option => option.Value == grammarLanguage) ?? GrammarLanguages[0];
+            OnPropertyChanged(nameof(SelectedGrammarLanguage));
         }
-
-        OnPropertyChanged(nameof(Sections));
-        OnPropertyChanged(nameof(HasVisibleSections));
-        _selectedSection = VisibleSections.FirstOrDefault(section => section.Section == selected) ?? Sections[0];
-        OnPropertyChanged(nameof(SelectedSection));
-
-        Themes = [new ThemeOption(AppTheme.Starter, Loc.T("Стандартная"))];
-        _selectedTheme = Themes[0];
-        OnPropertyChanged(nameof(Themes));
-        OnPropertyChanged(nameof(SelectedTheme));
+        finally
+        {
+            _loading = wasLoading;
+        }
     }
+
+    private static AppNavigationMode DefaultNavigation(AppTheme theme) =>
+        theme is AppTheme.Studio or AppTheme.Cabinet or AppTheme.Jam ? AppNavigationMode.Menu : AppNavigationMode.Tabs;
 
     private async Task ReportAsync(string message)
     {

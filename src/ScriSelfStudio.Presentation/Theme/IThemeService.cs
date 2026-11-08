@@ -7,5 +7,8 @@ public interface IThemeService
 {
     AppTheme Current { get; }
 
+    /// <summary>Палитра применена; оболочка может обновить компоновку.</summary>
+    event EventHandler? Changed;
+
     void Apply(AppTheme theme);
 }

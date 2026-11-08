@@ -12,10 +12,12 @@ internal static class ServiceProviderFactory
     public static ServiceProvider Create(
         string settingsDirectory,
         IFileDialogService? dialogs = null,
-        IUpdateService? updates = null)
+        IUpdateService? updates = null,
+        ISceneVersionsDialogService? versionsDialog = null)
     {
         var services = new ServiceCollection();
         services.AddScriSelfStudio(settingsDirectory, useAvaloniaDialogs: false);
+        if (versionsDialog is not null) services.AddSingleton(versionsDialog);
         if (dialogs is not null)
         {
             services.AddSingleton(dialogs);

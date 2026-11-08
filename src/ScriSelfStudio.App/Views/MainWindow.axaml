@@ -6,22 +6,38 @@
         xmlns:views="clr-namespace:ScriSelfStudio.App.Views"
         x:Class="ScriSelfStudio.App.Views.MainWindow"
         x:DataType="shell:ShellViewModel"
+        Classes.cabinet="{Binding IsCompactLayout}"
+        Classes.jam="{Binding IsJamTheme}"
+        Classes.studio="{Binding IsStudioTheme}"
+        Classes.menuNavigation="{Binding UseDropdownNavigation}"
         Title="ScriSelf Studio"
         Icon="/Assets/scriself.png"
         Width="1536"
         Height="1024"
         MinWidth="800"
         MinHeight="480"
-        Background="{DynamicResource SurfaceChromeBrush}"
+        WindowDecorations="Full"
+        ExtendClientAreaToDecorationsHint="False"
         WindowStartupLocation="CenterScreen">
   <Window.KeyBindings>
+    <KeyBinding Gesture="F1" Command="{Binding OpenHelpCommand}" />
     <!-- Ctrl+S работает на любом экране, не только в редакторе (ТЗ п. 11). -->
     <KeyBinding Gesture="Ctrl+S" Command="{Binding SaveCommand}" />
+    <KeyBinding Gesture="Meta+S" Command="{Binding SaveCommand}" />
     <!-- Esc выключает режим «Холст»: команда редактора, доступна только внутри режима. -->
     <KeyBinding Gesture="Escape" Command="{Binding ExitFullCanvasCommand}" />
+    <KeyBinding Gesture="Ctrl+Shift+B" Command="{Binding ToggleBookTreeCommand}" />
+    <KeyBinding Gesture="Ctrl+Shift+I" Command="{Binding ToggleScenePanelCommand}" />
   </Window.KeyBindings>
 
   <Window.Styles>
+    <Style Selector=":is(Window)">
+      <Setter Property="Background" Value="{DynamicResource SurfaceChromeBrush}" />
+    </Style>
+    <Style Selector="Border.compactHeader">
+      <Setter Property="Padding" Value="18,10" />
+      <Setter Property="BorderThickness" Value="0,0,0,1" />
+    </Style>
     <!-- Разделитель панелей: тонкая линия, подсвечивается при наведении и перетаскивании. -->
     <Style Selector="Thumb.paneSplitter">
       <Setter Property="Background" Value="Transparent" />
@@ -72,7 +88,7 @@
       <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
     </Style>
     <Style Selector="Button.chapterToggle TextBlock">
-      <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
+      <Setter Property="FontFamily" Value="{StaticResource SymbolsFontFamily}" />
       <Setter Property="FontSize" Value="10" />
       <Setter Property="Foreground" Value="{DynamicResource SidebarSubTextBrush}" />
       <Setter Property="HorizontalAlignment" Value="Center" />
@@ -121,14 +137,14 @@
       <Setter Property="Background" Value="{DynamicResource SurfaceSelectedBrush}" />
     </Style>
     <Style Selector="Button.chapterAdd TextBlock">
-      <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
+      <Setter Property="FontFamily" Value="{StaticResource SymbolsFontFamily}" />
       <Setter Property="FontSize" Value="12" />
       <Setter Property="Foreground" Value="{DynamicResource ActiveAccentBrush}" />
       <Setter Property="HorizontalAlignment" Value="Center" />
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
     <Style Selector="TextBlock.treeChevron">
-      <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
+      <Setter Property="FontFamily" Value="{StaticResource SymbolsFontFamily}" />
       <Setter Property="FontSize" Value="9" />
       <Setter Property="Foreground" Value="{DynamicResource SidebarSubTextBrush}" />
       <Setter Property="VerticalAlignment" Value="Center" />
@@ -299,15 +315,87 @@
     <Style Selector="Button.panelAction:pointerover">
       <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
     </Style>
+    <StyleInclude Source="/Views/CabinetStyles.axaml" />
+    <StyleInclude Source="/Views/JamStyles.axaml" />
+    <StyleInclude Source="/Views/StudioStyles.axaml" />
+    <Style Selector=":is(Window).menuNavigation Border.architectureTabs">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="Border.compactHeader">
+      <Setter Property="Padding" Value="16,10" />
+    </Style>
   </Window.Styles>
   <Panel Container.Name="shell" Container.Sizing="Width">
+  <!-- Нативное размытие рабочего стола и мягкие цветовые отражения под стеклом.
+       FallbackColor сохраняет читаемый фон на платформах без acrylic. -->
+  <Panel x:Name="JamBackdrop" IsVisible="{Binding IsJamTheme}" IsHitTestVisible="False" ClipToBounds="True">
+    <ExperimentalAcrylicBorder>
+      <ExperimentalAcrylicBorder.Material>
+        <ExperimentalAcrylicMaterial BackgroundSource="Digger" TintColor="#EEF1FA"
+                                     TintOpacity="0.6" MaterialOpacity="0.7" FallbackColor="#EAF0FA" />
+      </ExperimentalAcrylicBorder.Material>
+    </ExperimentalAcrylicBorder>
+    <Border>
+      <Border.Background>
+        <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+          <GradientStop Color="#90EBE9F8" Offset="0" />
+          <GradientStop Color="#50F4F7FD" Offset="0.5" />
+          <GradientStop Color="#90D7EAF8" Offset="1" />
+        </LinearGradientBrush>
+      </Border.Background>
+    </Border>
+    <Border>
+      <Border.Background>
+        <RadialGradientBrush Center="0%,20%" GradientOrigin="0%,20%" RadiusX="65%" RadiusY="85%">
+          <GradientStop Color="#80EBC1DA" Offset="0" />
+          <GradientStop Color="#00EBC1DA" Offset="1" />
+        </RadialGradientBrush>
+      </Border.Background>
+    </Border>
+    <Border>
+      <Border.Background>
+        <RadialGradientBrush Center="95%,75%" GradientOrigin="95%,75%" RadiusX="65%" RadiusY="80%">
+          <GradientStop Color="#703EBBDE" Offset="0" />
+          <GradientStop Color="#003EBBDE" Offset="1" />
+        </RadialGradientBrush>
+      </Border.Background>
+    </Border>
+  </Panel>
   <DockPanel>
+    <views:StudioCommandBar DockPanel.Dock="Top" IsVisible="{Binding ShowStudioChrome}" />
+    <Menu DockPanel.Dock="Top" IsVisible="{Binding !IsStudioTheme}" Background="{DynamicResource SurfaceChromeBrush}" Padding="12,0">
+      <MenuItem Header="{loc:Tr 'Справка'}">
+        <MenuItem Header="{loc:Tr 'Помощь по ScriSelf'}" Command="{Binding OpenHelpCommand}" InputGesture="F1" />
+        <MenuItem Header="{loc:Tr 'О программе'}" Command="{Binding OpenAboutCommand}" />
+        <MenuItem Header="{loc:Tr 'Лицензии'}" Command="{Binding OpenLicensesCommand}" />
+      </MenuItem>
+    </Menu>
+    <views:StudioToolRail DockPanel.Dock="Left" IsVisible="{Binding ShowStudioChrome}" />
+    <Border Classes="compactHeader" DockPanel.Dock="Top" IsVisible="{Binding ShowCabinetChrome}"
+            Background="{DynamicResource SurfaceChromeBrush}" BorderBrush="{DynamicResource SurfaceBorderBrush}">
+      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="20">
+        <views:CabinetNavigation VerticalAlignment="Center" />
+        <TextBlock Grid.Column="1" Text="{Binding ProjectName}" FontSize="13" FontWeight="SemiBold"
+                   Foreground="{DynamicResource ShellNavBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                   ToolTip.Tip="{Binding ProjectName}" />
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6">
+          <Button x:Name="ProjectTreeToggle" Classes="cabinetHeaderAction" Classes.active="{Binding ShowBookTree}" Content="{loc:Tr 'Дерево проекта'}"
+                  Command="{Binding ToggleBookTreeCommand}" IsVisible="{Binding IsBookTreeAvailable}" ToolTip.Tip="{loc:Tr 'Дерево проекта (Ctrl+Shift+B)'}" />
+          <Button Classes="cabinetHeaderAction" Classes.active="{Binding ShowScenePanel}" Content="{loc:Tr 'Контекст сцены'}"
+                  Command="{Binding ToggleScenePanelCommand}" IsVisible="{Binding IsFullCanvasAvailable}" ToolTip.Tip="{loc:Tr 'Контекст сцены (Ctrl+Shift+I)'}" />
+          <Button Classes="cabinetHeaderAction" Content="{loc:Tr 'Сохранить'}" Command="{Binding SaveCommand}"
+                  IsVisible="{Binding IsProjectOpen}" ToolTip.Tip="{loc:Tr 'Сохранить (Ctrl+S)'}" />
+          <views:ThemeSwitcherView />
+        </StackPanel>
+      </Grid>
+    </Border>
     <!-- Шапка макета: знак, название продукта, подпись, вкладки экранов и путь к проекту. -->
     <Border DockPanel.Dock="Top"
-            IsVisible="{Binding ShowWorkspace}"
+            IsVisible="{Binding ShowClassicHeader}"
             Background="{DynamicResource SurfaceChromeBrush}">
       <StackPanel>
-        <Grid Height="52" ColumnDefinitions="Auto,*,Auto" Margin="24,0,24,0">
+        <Grid Height="52" ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="12" Margin="24,0,24,0">
+          <views:ThemeSwitcherView Grid.Column="3" VerticalAlignment="Center" />
           <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="13" VerticalAlignment="Center">
             <Viewbox Width="31" Height="31">
               <Canvas Width="32" Height="32">
@@ -323,17 +411,20 @@
             <TextBlock Classes="shellBrandTag" Text="{loc:Tr 'Всё под рукой'}" VerticalAlignment="Center" Margin="4,3,0,0" />
           </StackPanel>
           <Border Grid.Column="2" Classes="projectHeader" VerticalAlignment="Center">
-            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
               <TextBlock Grid.Column="0" Classes="projectCaption" Text="{Binding ProjectCaption}"
                          TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
                          ToolTip.Tip="{Binding ProjectCaption}" />
-              <Button Grid.Column="1" Classes="shellIcon" Command="{Binding SaveCommand}"
-                      IsVisible="{Binding IsProjectOpen}" ToolTip.Tip="{loc:Tr 'Сохранить проект (Ctrl+S)'}">
-                <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="14" Text="&#xE74E;" />
-              </Button>
-              <Button Grid.Column="2" Classes="shellIcon" Command="{Binding OpenProjectFolderCommand}"
-                      ToolTip.Tip="{loc:Tr 'Показать файл проекта в проводнике'}">
-                <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="15" Text="&#xE8B7;" />
+              <Button Grid.Column="1" Classes="shellIcon" ToolTip.Tip="{loc:Tr 'Действия проекта'}">
+                <TextBlock Text="…" FontSize="18" VerticalAlignment="Center" />
+                <Button.Flyout>
+                  <MenuFlyout>
+                    <MenuItem Header="{loc:Tr 'Сохранить проект'}" Command="{Binding SaveCommand}"
+                              IsVisible="{Binding IsProjectOpen}" />
+                    <MenuItem Header="{loc:Tr 'Открыть папку проекта'}"
+                              Command="{Binding OpenProjectFolderCommand}" />
+                  </MenuFlyout>
+                </Button.Flyout>
               </Button>
             </Grid>
           </Border>
@@ -359,7 +450,7 @@
               <Button Grid.Row="0" Classes="shellTab" Classes.active="{Binding IsMapActive}"
                       Command="{Binding OpenMapCommand}" ToolTip.Tip="{loc:Tr 'Карта книги'}">
                 <StackPanel Orientation="Horizontal" Spacing="9">
-                  <TextBlock Classes="shellTabIcon" FontFamily="Segoe MDL2 Assets" Text="&#xE736;"
+                  <TextBlock Classes="shellTabIcon" FontFamily="{StaticResource SymbolsFontFamily}" Text="&#xE736;"
                              FontSize="16" VerticalAlignment="Center" />
                   <TextBlock Classes="shellTabText" Text="{loc:Tr 'Карта'}" VerticalAlignment="Center" />
                 </StackPanel>
@@ -371,7 +462,7 @@
               <Button Grid.Row="0" Classes="shellTab" Classes.active="{Binding IsEditorActive}"
                       Command="{Binding OpenEditorCommand}" ToolTip.Tip="{loc:Tr 'Редактор'}">
                 <StackPanel Orientation="Horizontal" Spacing="9">
-                  <TextBlock Classes="shellTabIcon" FontFamily="Segoe MDL2 Assets" Text="&#xE8EF;"
+                  <TextBlock Classes="shellTabIcon" FontFamily="{StaticResource SymbolsFontFamily}" Text="&#xE8EF;"
                              FontSize="16" VerticalAlignment="Center" />
                   <TextBlock Classes="shellTabText" Text="{loc:Tr 'Редактор'}" VerticalAlignment="Center" />
                 </StackPanel>
@@ -383,7 +474,7 @@
               <Button Grid.Row="0" Classes="shellTab" Classes.active="{Binding IsCharactersActive}"
                       Command="{Binding OpenCharactersCommand}" ToolTip.Tip="{loc:Tr 'Персонажи'}">
                 <StackPanel Orientation="Horizontal" Spacing="9">
-                  <TextBlock Classes="shellTabIcon" FontFamily="Segoe MDL2 Assets" Text="&#xE77B;"
+                  <TextBlock Classes="shellTabIcon" FontFamily="{StaticResource SymbolsFontFamily}" Text="&#xE77B;"
                              FontSize="16" VerticalAlignment="Center" />
                   <TextBlock Classes="shellTabText" Text="{loc:Tr 'Персонажи'}" VerticalAlignment="Center" />
                 </StackPanel>
@@ -395,7 +486,7 @@
               <Button Grid.Row="0" Classes="shellTab" Classes.active="{Binding IsLinesActive}"
                       Command="{Binding OpenLinesCommand}" ToolTip.Tip="{loc:Tr 'Сюжетные линии'}">
                 <StackPanel Orientation="Horizontal" Spacing="9">
-                  <TextBlock Classes="shellTabIcon" FontFamily="Segoe MDL2 Assets" Text="&#xE8D4;"
+                  <TextBlock Classes="shellTabIcon" FontFamily="{StaticResource SymbolsFontFamily}" Text="&#xE8D4;"
                              FontSize="16" VerticalAlignment="Center" />
                   <TextBlock Classes="shellTabText" Text="{loc:Tr 'Линии'}" VerticalAlignment="Center" />
                 </StackPanel>
@@ -407,7 +498,7 @@
               <Button Grid.Row="0" Classes="shellTab" Classes.active="{Binding IsExportActive}"
                       Command="{Binding OpenExportCommand}" ToolTip.Tip="{loc:Tr 'Экспорт'}">
                 <StackPanel Orientation="Horizontal" Spacing="9">
-                  <TextBlock Classes="shellTabIcon" FontFamily="Segoe MDL2 Assets" Text="&#xEDE1;"
+                  <TextBlock Classes="shellTabIcon" FontFamily="{StaticResource SymbolsFontFamily}" Text="&#xEDE1;"
                              FontSize="16" VerticalAlignment="Center" />
                   <TextBlock Classes="shellTabText" Text="{loc:Tr 'Экспорт'}" VerticalAlignment="Center" />
                 </StackPanel>
@@ -419,7 +510,7 @@
               <Button Grid.Row="0" Classes="shellTab" Classes.active="{Binding IsSettingsActive}"
                       Command="{Binding OpenSettingsCommand}" ToolTip.Tip="{loc:Tr 'Настройки'}">
                 <StackPanel Orientation="Horizontal" Spacing="9">
-                  <TextBlock Classes="shellTabIcon" FontFamily="Segoe MDL2 Assets" Text="&#xE713;"
+                  <TextBlock Classes="shellTabIcon" FontFamily="{StaticResource SymbolsFontFamily}" Text="&#xE713;"
                              FontSize="16" VerticalAlignment="Center" />
                   <TextBlock Classes="shellTabText" Text="{loc:Tr 'Настройки'}" VerticalAlignment="Center" />
                 </StackPanel>
@@ -427,6 +518,14 @@
               <Border Grid.Row="1" Background="{DynamicResource ShellNavActiveBrush}"
                       IsVisible="{Binding IsSettingsActive}" />
             </Grid>
+            <Button x:Name="ClassicProjectTreeToggle" Classes="cabinetHeaderAction"
+                    Content="{loc:Tr 'Дерево проекта'}" Classes.active="{Binding ShowBookTree}"
+                    Command="{Binding ToggleBookTreeCommand}" IsVisible="{Binding IsBookTreeAvailable}"
+                    ToolTip.Tip="{loc:Tr 'Дерево проекта (Ctrl+Shift+B)'}" />
+            <Button x:Name="ClassicSceneContextToggle" Classes="cabinetHeaderAction"
+                    Content="{loc:Tr 'Контекст сцены'}" Classes.active="{Binding ShowScenePanel}"
+                    Command="{Binding ToggleScenePanelCommand}" IsVisible="{Binding IsFullCanvasAvailable}"
+                    ToolTip.Tip="{loc:Tr 'Контекст сцены (Ctrl+Shift+I)'}" />
           </StackPanel>
 
         </ScrollViewer>
@@ -434,7 +533,7 @@
     </Border>
 
     <!-- Подвал макета: статус-бар (рукопись / статус сохранения / быстрые действия). -->
-    <Border DockPanel.Dock="Bottom" Height="36" Background="{DynamicResource SurfaceChromeBrush}"
+    <Border Classes="shellStatusBar" DockPanel.Dock="Bottom" Height="36" Background="{DynamicResource SurfaceChromeBrush}"
             IsVisible="{Binding ShowStatusBar}">
       <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="24" Margin="24,0,24,0">
         <TextBlock Grid.Column="0" Text="{Binding BreadcrumbsText}" VerticalAlignment="Center"
@@ -455,7 +554,7 @@
     <!-- Основное рабочее пространство. -->
     <Grid x:Name="WorkspaceGrid" ColumnDefinitions="Auto,Auto,*,Auto,Auto">
       <!-- Левое дерево структуры книги -->
-      <ContentControl Grid.Column="0" Content="{Binding BookTree}" IsVisible="{Binding ShowBookTree}" Width="{Binding BookTreeWidth}" />
+      <ContentControl x:Name="ProjectTreePanel" Grid.Column="0" Content="{Binding BookTree}" IsVisible="{Binding ShowBookTree}" Width="{Binding BookTreeWidth}" />
       <Thumb Grid.Column="1" x:Name="BookTreeSplitter" Classes="paneSplitter" Width="6" IsVisible="{Binding ShowBookTree}" Cursor="SizeWestEast" />
 
       <!-- Основной экран -->

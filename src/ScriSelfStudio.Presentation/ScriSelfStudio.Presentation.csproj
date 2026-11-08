@@ -6,12 +6,21 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Fonts.Inter" />
     <PackageReference Include="Avalonia.Themes.Fluent" />
     <PackageReference Include="CommunityToolkit.Mvvm" />
     <PackageReference Include="DocumentFormat.OpenXml" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <PackageReference Include="PDFsharp" />
     <PackageReference Include="System.Security.Cryptography.Pkcs" />
+  </ItemGroup>
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\Fonts\*.ttf" />
+    <EmbeddedResource Include="Help\guide.json" LogicalName="ScriSelfStudio.Help.guide.json" />
+    <EmbeddedResource Include="Help\Training\training.json" LogicalName="ScriSelfStudio.Help.training.json" />
+    <AvaloniaResource Include="Help\Training\Slides\*.png" />
+    <EmbeddedResource Include="..\..\LICENSE" LogicalName="ScriSelfStudio.Help.Licenses.00_ScriSelf_MIT.txt" />
+    <EmbeddedResource Include="..\..\licenses\*.txt" LogicalName="ScriSelfStudio.Help.Licenses.%(Filename)%(Extension)" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ScriSelfStudio.Core\ScriSelfStudio.Core.csproj" />

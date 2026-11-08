@@ -43,18 +43,32 @@ public static class PdfExportWriter
         foreach (var chapter in manuscript.Books.SelectMany(book => book.Chapters))
         {
             layout.WriteHeading($"Глава {chapterNumber++}. {chapter.Title}", options.FontSize + 8);
-            var sceneNumber = 1;
             foreach (var scene in chapter.Scenes)
             {
-                if (sceneNumber > 1)
+                if (options.IncludeSceneHeadings)
                 {
-                    layout.StartNewPage();
+                    layout.WriteHeading($"Сцена: {scene.Title}", options.FontSize + 2);
                 }
 
-                layout.WriteHeading($"Сцена {sceneNumber++}: {scene.Title}", options.FontSize + 2);
                 foreach (var paragraph in scene.Paragraphs)
                 {
                     layout.WriteParagraph(paragraph);
+                }
+            }
+        }
+
+        if (options.IncludeCharacterCards && manuscript.Characters.Count > 0)
+        {
+            layout.StartNewPage();
+            layout.WriteHeading("Персонажи", options.FontSize + 8);
+            foreach (var character in manuscript.Characters)
+            {
+                layout.WriteHeading(character.Name, options.FontSize + 3);
+                foreach (var field in character.Fields)
+                {
+                    layout.WriteParagraph(new ExportParagraph(
+                        ExportBlockKind.Paragraph,
+                        [new ExportRun($"{field.Label}: ", Bold: true), new ExportRun(field.Value)]));
                 }
             }
         }
@@ -77,9 +91,17 @@ public static class PdfExportWriter
                 return;
             }
 
-            // PDFsharp ищет шрифты в системе; приложение Windows-only, поэтому
-            // этого достаточно и не нужно встраивать файлы шрифтов в поставку.
-            GlobalFontSettings.UseWindowsFontsUnderWindows = true;
+            if (OperatingSystem.IsWindows())
+            {
+                GlobalFontSettings.UseWindowsFontsUnderWindows = true;
+                GlobalFontSettings.FallbackFontResolver ??= new PortableFontResolver();
+            }
+            else
+            {
+                var fontDirectory = OperatingSystem.IsMacOS()
+                    ? "/System/Library/Fonts/Supplemental" : null;
+                GlobalFontSettings.FontResolver ??= new PortableFontResolver(fontDirectory);
+            }
             _fontsConfigured = true;
         }
     }
@@ -90,7 +112,7 @@ public static class PdfExportWriter
         "Consolas" => "Consolas",
         "Georgia" => "Georgia",
         "Segoe UI" => "Segoe UI",
-        "Inter" => "Segoe UI",
+        "Inter" => "Inter",
         _ => "Georgia",
     };
 

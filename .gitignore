@@ -37,6 +37,7 @@ desktop.ini
 ## Local diagnostics
 /$null
 /probe_reflect.csx
+/qa/first-users/runs/
 
 ## Local environment
 .env

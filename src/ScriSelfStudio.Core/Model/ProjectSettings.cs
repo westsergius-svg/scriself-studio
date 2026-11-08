@@ -14,7 +14,7 @@ public sealed class ProjectSettings
     public const int MaxAutoSaveIntervalSeconds = 3600;
 
     /// <summary>Тема оформления; по умолчанию базовая Studio (макет редактора).</summary>
-    public AppTheme Theme { get; set; } = AppTheme.Starter;
+    public AppTheme Theme { get; set; } = AppTheme.Studio;
 
     public string FontFamily { get; set; } = "Inter";
 

@@ -1,0 +1,28 @@
+[
+  {
+    "File": "ru_RU.aff",
+    "Source": "https://raw.githubusercontent.com/LibreOffice/dictionaries/4f1df64b2e8e14751aa7c2205d170ca016071315/ru_RU/ru_RU.aff",
+    "SHA256": "38CE7D4AF78E211E9BAFE4BF7E3D6A2C420591136CB738EC6648F8FDF6524CD7"
+  },
+  {
+    "File": "ru_RU.dic",
+    "Source": "https://raw.githubusercontent.com/LibreOffice/dictionaries/4f1df64b2e8e14751aa7c2205d170ca016071315/ru_RU/ru_RU.dic",
+    "SHA256": "F6047416A0204ADBECF3A451B874EC8A97EE37E2CBC714466EF04D8DBCC0D6FC"
+  },
+  {
+    "File": "en_US.aff",
+    "Source": "https://raw.githubusercontent.com/LibreOffice/dictionaries/4f1df64b2e8e14751aa7c2205d170ca016071315/en/en_US.aff",
+    "SHA256": "E746C882DD6F303C2C46E7452804B9201115A6942CFEB15F18F8EDF774D2E24E"
+  },
+  {
+    "File": "en_US.dic",
+    "Source": "https://raw.githubusercontent.com/LibreOffice/dictionaries/4f1df64b2e8e14751aa7c2205d170ca016071315/en/en_US.dic",
+    "SHA256": "F0B1A234BD178BDD01875B2A392A9647F888B8FE879F79C52AAE62C2759B3647"
+  },
+  {
+    "File": "wiki-synonyms.json.gz",
+    "Source": "wiki-ru-wordnet 1.0.3; tools/prepare-text-tools.py",
+    "SHA256": "5808332B90864CE25C73B1064A88B416D8A1041C5E4FB7F16D98ECAAF4DDFB2A",
+    "InputSHA256": "1c7d55a309f0813cf0dba1db7c814a3742fe7191e6b37ddf3293b6e8ea0b3ac8"
+  }
+]

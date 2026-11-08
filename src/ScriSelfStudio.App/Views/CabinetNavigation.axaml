@@ -1,0 +1,43 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="using:ScriSelfStudio.Presentation.Localization"
+             xmlns:shell="using:ScriSelfStudio.App.Shell"
+             x:Class="ScriSelfStudio.App.Views.CabinetNavigation"
+             x:DataType="shell:ShellViewModel">
+  <Button x:Name="WorkspaceMenuButton" Classes="cabinetHeaderAction" MinHeight="36" Padding="12,6"
+          AutomationProperties.Name="{loc:Tr 'Рабочее место'}" ToolTip.Tip="{loc:Tr 'Разделы приложения'}">
+    <StackPanel Orientation="Horizontal" Spacing="10">
+      <Path Data="M2,4 H18 M2,10 H18 M2,16 H18" Width="20" Height="20" StrokeThickness="1.4"
+            Stroke="{DynamicResource ShellNavBrush}" VerticalAlignment="Center" />
+      <TextBlock Text="{loc:Tr 'Рабочее место'}" VerticalAlignment="Center" />
+      <TextBlock Text="▾" VerticalAlignment="Center" />
+    </StackPanel>
+    <Button.Flyout>
+      <MenuFlyout Placement="BottomEdgeAlignedLeft">
+        <MenuItem Header="{loc:Tr 'Проект'}" Command="{Binding OpenLauncherCommand}">
+          <MenuItem.Icon><TextBlock Text="✓" IsVisible="{Binding IsLauncherActive}" /></MenuItem.Icon>
+        </MenuItem>
+        <MenuItem Header="{loc:Tr 'Рукопись'}" Command="{Binding OpenEditorCommand}" IsEnabled="{Binding IsProjectOpen}">
+          <MenuItem.Icon><TextBlock Text="✓" IsVisible="{Binding IsEditorActive}" /></MenuItem.Icon>
+        </MenuItem>
+        <Separator />
+        <MenuItem Header="{loc:Tr 'Карта книги'}" Command="{Binding OpenMapCommand}" IsEnabled="{Binding IsProjectOpen}">
+          <MenuItem.Icon><TextBlock Text="✓" IsVisible="{Binding IsMapActive}" /></MenuItem.Icon>
+        </MenuItem>
+        <MenuItem Header="{loc:Tr 'Персонажи'}" Command="{Binding OpenCharactersCommand}" IsEnabled="{Binding IsProjectOpen}">
+          <MenuItem.Icon><TextBlock Text="✓" IsVisible="{Binding IsCharactersActive}" /></MenuItem.Icon>
+        </MenuItem>
+        <MenuItem Header="{loc:Tr 'Сюжетные линии'}" Command="{Binding OpenLinesCommand}" IsEnabled="{Binding IsProjectOpen}">
+          <MenuItem.Icon><TextBlock Text="✓" IsVisible="{Binding IsLinesActive}" /></MenuItem.Icon>
+        </MenuItem>
+        <Separator />
+        <MenuItem Header="{loc:Tr 'Экспорт'}" Command="{Binding OpenExportCommand}" IsEnabled="{Binding IsProjectOpen}">
+          <MenuItem.Icon><TextBlock Text="✓" IsVisible="{Binding IsExportActive}" /></MenuItem.Icon>
+        </MenuItem>
+        <MenuItem Header="{loc:Tr 'Настройки'}" Command="{Binding OpenSettingsCommand}">
+          <MenuItem.Icon><TextBlock Text="✓" IsVisible="{Binding IsSettingsActive}" /></MenuItem.Icon>
+        </MenuItem>
+      </MenuFlyout>
+    </Button.Flyout>
+  </Button>
+</UserControl>

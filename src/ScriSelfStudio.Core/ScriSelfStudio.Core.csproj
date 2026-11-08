@@ -2,4 +2,7 @@
   <PropertyGroup>
     <RootNamespace>ScriSelfStudio.Core</RootNamespace>
   </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="ScriSelfStudio.Core.Tests" />
+  </ItemGroup>
 </Project>

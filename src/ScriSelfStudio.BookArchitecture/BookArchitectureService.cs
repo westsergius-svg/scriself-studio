@@ -370,12 +370,12 @@ public sealed class BookArchitectureService : IBookArchitectureService
             {
                 target.Title = step.Title.Trim();
                 target.Kind = step.Kind;
-                target.Description = step.Description;
                 target.Order = order;
                 target.Audit.IsDeleted = false;
                 target.Audit.UpdatedAt = now;
             }
 
+            target.Description = step.Description;
             kept.Add(target.Id);
             order++;
         }
@@ -500,7 +500,7 @@ public sealed class BookArchitectureService : IBookArchitectureService
                 return Result.FromError(ErrorCode.EntityNotFound, "Книга не найдена.");
             }
 
-            var title = ValidateNewTitle(request.Title, Titles(book.Chapters, exceptId: null));
+            var title = ValidateTitleFormat(request.Title);
             if (!title.IsSuccess)
             {
                 return Result.Failure(title.Error!);
@@ -538,7 +538,9 @@ public sealed class BookArchitectureService : IBookArchitectureService
                 return Result.FromError(ErrorCode.EntityNotFound, "Элемент не найден.");
             }
 
-            var title = ValidateNewTitle(request.Title, SiblingTitles(project, request.Kind, entity));
+            var title = request.Kind == EntityKind.Chapter
+                ? ValidateTitleFormat(request.Title)
+                : ValidateNewTitle(request.Title, SiblingTitles(project, request.Kind, entity));
             if (!title.IsSuccess)
             {
                 return Result.Failure(title.Error!);
@@ -591,6 +593,8 @@ public sealed class BookArchitectureService : IBookArchitectureService
     {
         switch (kind)
         {
+            case EntityKind.PlotLine:
+                return MoveWithin(project.PlotLines, (PlotLine)entity, newOrder);
             case EntityKind.Series:
                 return MoveWithin(project.Series, (Series)entity, newOrder);
             case EntityKind.Book:
@@ -618,11 +622,15 @@ public sealed class BookArchitectureService : IBookArchitectureService
             return Result.FromError(ErrorCode.EntityNotFound, "Элемент не найден в списке.");
         }
 
-        var target = Math.Clamp(newOrder, 0, items.Count);
-        items.Insert(target, entity);
-        for (var index = 0; index < items.Count; index++)
+        var active = items.Where(item => !item.IsDeleted).OrderBy(item => item.Order).ToList();
+        active.Insert(Math.Clamp(newOrder, 0, active.Count), entity);
+        var deleted = items.Where(item => item.IsDeleted).ToList();
+        items.Clear();
+        items.AddRange(active);
+        items.AddRange(deleted);
+        for (var index = 0; index < active.Count; index++)
         {
-            items[index].Order = index;
+            active[index].Order = index;
         }
 
         return Result.Success;

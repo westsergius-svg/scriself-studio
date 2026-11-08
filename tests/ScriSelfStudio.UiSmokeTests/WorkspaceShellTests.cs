@@ -17,6 +17,7 @@ using ScriSelfStudio.Core.Model;
 using ScriSelfStudio.Presentation.Theme;
 using ScriSelfStudio.TestSupport;
 using AvaloniaRichEditor.Controls;
+using ScriSelfStudio.Contracts.Navigation;
 
 /// <summary>
 /// Рабочая оболочка (ТЗ п. 27): верхняя строка, левое дерево книги,
@@ -142,25 +143,162 @@ public sealed class WorkspaceShellTests
     }
 
     [AvaloniaFact]
-    public void Theme_selection_is_temporarily_limited_to_the_standard_theme()
+    public async Task Theme_selection_changes_layout_and_can_restore_standard()
     {
         using var workspace = new TempWorkspace();
         using var provider = ServiceProviderFactory.Create(workspace.Root, new StubFileDialogService());
 
         var shell = provider.GetRequiredService<ShellViewModel>();
 
-        // Выбор тем временно отключён: осталась только стандартная тема.
-        Assert.Single(shell.Themes);
-        Assert.Equal(AppTheme.Starter, shell.Themes[0].Value);
+        Assert.Equal(new[] { AppTheme.Starter, AppTheme.GreenStart, AppTheme.Jam, AppTheme.Cabinet, AppTheme.Studio },
+            shell.Themes.Select(option => option.Value));
 
         // Кнопка раскрывает меню, выбор темы применяется и закрывает меню.
         shell.ToggleThemeMenuCommand.Execute(null);
         Assert.True(shell.IsThemeMenuOpen);
 
-        shell.SelectThemeCommand.Execute(shell.Themes[0]);
+        await shell.SelectThemeCommand.ExecuteAsync(shell.Themes.Single(option => option.Value == AppTheme.Cabinet));
+        Assert.True(shell.IsCabinetTheme);
+        Assert.True(provider.GetRequiredService<EditorViewModel>().IsCabinetLayout);
+        await shell.SelectThemeCommand.ExecuteAsync(shell.Themes[0]);
+        Assert.False(shell.IsCabinetTheme);
         Assert.False(shell.IsThemeMenuOpen);
         Assert.Equal("Стандартная", shell.CurrentThemeName);
         Assert.Equal(AppTheme.Starter, provider.GetRequiredService<IThemeService>().Current);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(AppTheme.Cabinet)]
+    [InlineData(AppTheme.Jam)]
+    public async Task Compact_menu_navigates_and_tree_remains_available_across_project_screens(AppTheme theme)
+    {
+        using var workspace = new TempWorkspace();
+        var dialogs = new StubFileDialogService { CreatePath = workspace.FilePath("Дерево.scri"), PromptResult = "Элемент" };
+        using var provider = ServiceProviderFactory.Create(workspace.Root, dialogs);
+        await CreateProjectWithSceneAsync(provider);
+        var shell = provider.GetRequiredService<ShellViewModel>();
+        await shell.SelectThemeCommand.ExecuteAsync(shell.Themes.Single(option => option.Value == theme));
+        var window = provider.GetRequiredService<MainWindow>();
+        window.Width = 1440;
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var menuButton = window.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "WorkspaceMenuButton");
+        var menu = Assert.IsType<MenuFlyout>(menuButton.Flyout);
+        var treePanel = window.FindControl<ContentControl>("ProjectTreePanel")!;
+        Assert.False(menu.IsOpen);
+        Assert.True(treePanel.IsVisible);
+        Assert.Equal(0, treePanel.TranslatePoint(default, window)!.Value.X);
+
+        var menuCenter = CenterInWindow(menuButton, window);
+        window.MouseDown(menuCenter, MouseButton.Left);
+        window.MouseUp(menuCenter, MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(menu.IsOpen);
+        var items = menu.Items.OfType<MenuItem>().ToArray();
+        Assert.Equal(7, items.Length);
+        Assert.True(Assert.IsType<TextBlock>(items[1].Icon).IsVisible);
+
+        // Native menu keyboard navigation opens the map and closes the popup.
+        items[2].Focus();
+        window.KeyPressQwerty(PhysicalKey.Enter, RawInputModifiers.None);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(AppScreen.Architecture, shell.CurrentScreen);
+        Assert.False(menu.IsOpen);
+        Assert.True(treePanel.IsVisible);
+        window.MouseDown(menuCenter, MouseButton.Left);
+        window.MouseUp(menuCenter, MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(menu.IsOpen);
+        Assert.True(Assert.IsType<TextBlock>(items[2].Icon).IsVisible);
+        Assert.False(Assert.IsType<TextBlock>(items[1].Icon).IsVisible);
+        menu.Hide();
+
+        shell.OpenCharactersCommand.Execute(null);
+        Assert.True(shell.ShowBookTree);
+        shell.OpenLinesCommand.Execute(null);
+        Assert.True(shell.ShowBookTree);
+        shell.OpenExportCommand.Execute(null);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(treePanel.IsVisible);
+        shell.OpenSettingsCommand.Execute(null);
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(treePanel.IsVisible);
+        shell.OpenEditorCommand.Execute(null);
+        Dispatcher.UIThread.RunJobs();
+
+        var collapse = window.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "CollapseProjectTree");
+        var collapseCenter = CenterInWindow(collapse, window);
+        window.MouseDown(collapseCenter, MouseButton.Left);
+        window.MouseUp(collapseCenter, MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(treePanel.IsVisible);
+        window.KeyPressQwerty(PhysicalKey.B, RawInputModifiers.Control | RawInputModifiers.Shift);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(treePanel.IsVisible);
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task Cabinet_prioritizes_tree_on_narrow_windows_and_restores_it_after_context_closes()
+    {
+        using var workspace = new TempWorkspace();
+        using var provider = ServiceProviderFactory.Create(workspace.Root,
+            new StubFileDialogService { CreatePath = workspace.FilePath("Узкое окно.scri"), PromptResult = "Элемент" });
+        await CreateProjectWithSceneAsync(provider);
+        var shell = provider.GetRequiredService<ShellViewModel>();
+        await shell.SelectThemeCommand.ExecuteAsync(shell.Themes.Single(option => option.Value == AppTheme.Cabinet));
+        shell.UpdateWindowWidth(800);
+        Assert.True(shell.ShowBookTree);
+        Assert.False(shell.ShowScenePanel);
+        shell.ToggleScenePanelCommand.Execute(null);
+        Assert.False(shell.ShowBookTree);
+        Assert.True(shell.ShowScenePanel);
+        shell.OpenMapCommand.Execute(null);
+        Assert.True(shell.ShowBookTree);
+        shell.OpenEditorCommand.Execute(null);
+        Assert.False(shell.ShowBookTree);
+        shell.ToggleBookTreeCommand.Execute(null);
+        Assert.True(shell.ShowBookTree);
+        Assert.False(shell.ShowScenePanel);
+        shell.ToggleScenePanelCommand.Execute(null);
+        shell.ToggleScenePanelCommand.Execute(null);
+        Assert.True(shell.ShowBookTree);
+        shell.ToggleBookTreeCommand.Execute(null);
+        shell.UpdateWindowWidth(1440);
+        Assert.False(shell.ShowBookTree);
+        shell.ToggleBookTreeCommand.Execute(null);
+        shell.IsFullCanvas = true;
+        Assert.False(shell.ShowBookTree);
+        shell.IsFullCanvas = false;
+        Assert.True(shell.ShowBookTree);
+    }
+
+    [AvaloniaFact]
+    public async Task Project_tree_updates_while_structure_is_edited_on_the_map()
+    {
+        using var workspace = new TempWorkspace();
+        using var provider = ServiceProviderFactory.Create(workspace.Root,
+            new StubFileDialogService { CreatePath = workspace.FilePath("Карта.scri"), PromptResult = "Элемент" });
+        var launcher = provider.GetRequiredService<LauncherViewModel>();
+        var tree = provider.GetRequiredService<BookTreeViewModel>();
+        await launcher.InitializeAsync();
+        await launcher.CreateProjectCommand.ExecuteAsync(null);
+        launcher.OpenArchitectureCommand.Execute(null);
+        var architecture = provider.GetRequiredService<ArchitectureViewModel>();
+        architecture.Selected = architecture.Roots[0];
+        await architecture.CreateBookCommand.ExecuteAsync(null);
+        Assert.Single(tree.Series[0].Books);
+        tree.Series[0].Books[0].ToggleCommand!.Execute(null);
+        Assert.True(tree.Series[0].Books[0].IsExpanded);
+        architecture.Selected = architecture.Roots[0].Children[0];
+        await architecture.CreateChapterCommand.ExecuteAsync(null);
+        Assert.Single(tree.Series[0].Books[0].Chapters);
+        Assert.True(tree.Series[0].Books[0].IsExpanded);
+        architecture.Selected = architecture.Roots[0].Children[0].Children[0];
+        await architecture.CreateSceneCommand.ExecuteAsync(null);
+        Assert.Single(tree.Series[0].Books[0].Chapters[0].Scenes);
+        Assert.Equal(AppScreen.Architecture, provider.GetRequiredService<ShellViewModel>().CurrentScreen);
     }
 
     [AvaloniaFact]
@@ -350,11 +488,11 @@ public sealed class WorkspaceShellTests
         window.Show();
         Dispatcher.UIThread.RunJobs();
 
-        // Обычный режим: обе панели видны, у холста стандартные отступы 24px.
+        // Новая «Мокрый асфальт»: панели видны, документ и панель оформления стыкуются без внешнего отступа.
         Assert.True(shell.ShowBookTree);
         Assert.True(shell.ShowScenePanel);
         Assert.False(editor.IsFullCanvas);
-        Assert.Equal(new Avalonia.Thickness(24), editor.CanvasOuterMargin);
+        Assert.Equal(new Avalonia.Thickness(0), editor.CanvasOuterMargin);
 
         // Включение «Полного холста»: панели исчезают, холст растягивается,
         // боковые отступы становятся по 20px (ТЗ: режим холста).
@@ -373,7 +511,7 @@ public sealed class WorkspaceShellTests
         Assert.True(shell.ShowBookTree);
         Assert.True(shell.ShowScenePanel);
         Assert.False(editor.IsFullCanvas);
-        Assert.Equal(new Avalonia.Thickness(24), editor.CanvasOuterMargin);
+        Assert.Equal(new Avalonia.Thickness(0), editor.CanvasOuterMargin);
 
         window.Close();
     }
@@ -408,7 +546,7 @@ public sealed class WorkspaceShellTests
         Assert.False(editor.IsFullCanvas);
         Assert.True(shell.ShowBookTree);
         Assert.True(shell.ShowScenePanel);
-        Assert.Equal(new Avalonia.Thickness(24), editor.CanvasOuterMargin);
+        Assert.Equal(new Avalonia.Thickness(0), editor.CanvasOuterMargin);
 
         window.Close();
     }
@@ -423,6 +561,7 @@ public sealed class WorkspaceShellTests
         await CreateProjectWithSceneAsync(provider);
 
         var shell = provider.GetRequiredService<ShellViewModel>();
+        await shell.SelectThemeCommand.ExecuteAsync(shell.Themes.Single(theme => theme.Value == AppTheme.Starter));
         var window = provider.GetRequiredService<MainWindow>();
         window.Show();
         Dispatcher.UIThread.RunJobs();
@@ -461,8 +600,8 @@ public sealed class WorkspaceShellTests
         using var provider = ServiceProviderFactory.Create(workspace.Root, new StubFileDialogService());
         var shell = provider.GetRequiredService<ShellViewModel>();
 
-        Assert.Equal(280, shell.BookTreeWidth);
-        Assert.Equal(340, shell.SceneContextWidth);
+        Assert.Equal(232, shell.BookTreeWidth);
+        Assert.Equal(300, shell.SceneContextWidth);
 
         shell.SetBookTreeWidth(340);
         Assert.Equal(340, shell.BookTreeWidth);

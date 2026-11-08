@@ -11,13 +11,13 @@
       <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}" />
       <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="CornerRadius" Value="14" />
+      <Setter Property="CornerRadius" Value="{DynamicResource WorkspacePanelRadius}" />
       <Setter Property="Padding" Value="22" />
     </Style>
 
     <!-- Левая навигация макета. -->
     <Style Selector="TextBlock.railGlyph">
-      <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
+      <Setter Property="FontFamily" Value="{StaticResource SymbolsFontFamily}" />
       <Setter Property="FontSize" Value="15" />
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
@@ -69,7 +69,7 @@
     <Style Selector="TextBox.search">
       <Setter Property="CornerRadius" Value="10" />
       <Setter Property="Padding" Value="10,8" />
-      <Setter Property="MinWidth" Value="230" />
+      <Setter Property="MinWidth" Value="0" />
       <Setter Property="Background" Value="{DynamicResource SurfaceFieldBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}" />
       <Setter Property="BorderThickness" Value="1" />
@@ -243,7 +243,20 @@
     </Style>
   </UserControl.Styles>
 
-  <Grid ColumnDefinitions="228,*,336" Background="{DynamicResource SurfaceCanvasBrush}">
+  <Grid Background="{DynamicResource SurfaceCanvasBrush}" x:Name="LauncherWorkspace">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="1*" MinWidth="200" />
+        <ColumnDefinition Width="6" />
+        <ColumnDefinition Width="3*" MinWidth="240" />
+        <ColumnDefinition Width="6" />
+        <ColumnDefinition Width="1.4*" MinWidth="240" />
+      </Grid.ColumnDefinitions>
+      <GridSplitter x:Name="LauncherLeftSplitter" Grid.Column="1"
+                    Classes="workspaceSplitter" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" KeyboardIncrement="10"
+                    AutomationProperties.Name="{loc:Tr 'Изменить ширину левой панели'}" ToolTip.Tip="{loc:Tr 'Изменить ширину левой панели'}" />
+      <GridSplitter x:Name="LauncherRightSplitter" Grid.Column="3"
+                    Classes="workspaceSplitter" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" KeyboardIncrement="10"
+                    AutomationProperties.Name="{loc:Tr 'Изменить ширину правой панели'}" ToolTip.Tip="{loc:Tr 'Изменить ширину правой панели'}" />
     <!-- Левая навигация: разделы лаунчера (макет). -->
     <Border Grid.Column="0"
             Background="{DynamicResource SurfaceCanvasBrush}"
@@ -280,16 +293,6 @@
               <TextBlock Grid.Column="1" Classes="railLabel" Text="{loc:Tr 'Блог'}" />
             </Grid>
           </Button>
-          <Button Classes="railItem"
-                  Command="{Binding OpenLinkCommand}"
-                  CommandParameter="{x:Static launcher:LauncherViewModel.VkUrl}"
-                  ToolTip.Tip="{loc:Tr 'Открыть сообщество ВКонтакте'}">
-            <Grid ColumnDefinitions="24,*">
-              <TextBlock Grid.Column="0" Classes="railGlyph" Text="VK"
-                         FontFamily="Segoe UI" FontWeight="Bold" FontSize="12" />
-              <TextBlock Grid.Column="1" Classes="railLabel" Text="{loc:Tr 'Мы в ВК'}" />
-            </Grid>
-          </Button>
           <Button Classes="railItem" Command="{Binding OpenSettingsCommand}">
             <Grid ColumnDefinitions="24,*">
               <TextBlock Grid.Column="0" Classes="railGlyph" Text="&#xE713;" />
@@ -300,6 +303,9 @@
 
         <StackPanel Grid.Row="2" Margin="18,0" Spacing="10">
           <Rectangle Height="2" Fill="{DynamicResource SurfaceBorderBrush}" />
+          <Button x:Name="LanguageSettingsButton" Classes="hollow" HorizontalAlignment="Stretch"
+                  Content="Language / 语言" Command="{Binding OpenSettingsCommand}"
+                  AutomationProperties.Name="Language / 语言" />
           <TextBlock Classes="muted" Text="{Binding AppVersionText}" TextWrapping="Wrap" />
           <Button Classes="hollow" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                   Command="{Binding CheckForUpdatesCommand}" Content="{loc:Tr 'Проверить обновления'}"
@@ -309,27 +315,29 @@
     </Border>
 
     <!-- Центр: «Мои проекты» — поиск, создание и список карточек. -->
-    <Border Grid.Column="1" Classes="panel" Margin="20,20,16,20">
+    <Border Grid.Column="2" Classes="panel" Margin="20,20,16,20">
       <Grid RowDefinitions="Auto,Auto,*">
-        <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="10">
-          <TextBlock Grid.Column="0" Classes="launcherTitle" Text="{loc:Tr 'Мои проекты'}" />
-          <TextBox Grid.Column="1" Classes="search"
+        <Grid Grid.Row="0" RowDefinitions="Auto,Auto,Auto" RowSpacing="12">
+          <TextBlock Grid.Row="0" Classes="launcherTitle" Text="{loc:Tr 'Мои проекты'}" />
+          <TextBox Grid.Row="1" x:Name="ProjectSearchBox" Classes="search" HorizontalAlignment="Stretch"
                    PlaceholderText="{loc:Tr 'Поиск по проектам…'}"
                    Text="{Binding ProjectSearchQuery}">
             <TextBox.InnerLeftContent>
-              <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE721;" Margin="2,0,6,0"
+              <TextBlock FontFamily="{StaticResource SymbolsFontFamily}" Text="&#xE721;" Margin="2,0,6,0"
                          VerticalAlignment="Center" Foreground="{DynamicResource MutedBrush}" />
             </TextBox.InnerLeftContent>
           </TextBox>
-          <Button Grid.Column="2" Classes="hollow" Command="{Binding OpenProjectCommand}" Content="{loc:Tr 'Открыть проект'}" />
-          <Button Grid.Column="3" Classes="hollow" Command="{Binding CloseProjectCommand}" Content="{loc:Tr 'Закрыть проект'}"
+          <WrapPanel Grid.Row="2" x:Name="ProjectFileActions" Orientation="Horizontal">
+          <Button Classes="hollow" Margin="0,0,8,8" Command="{Binding OpenProjectCommand}" Content="{loc:Tr 'Открыть проект'}" />
+          <Button Classes="hollow" Margin="0,0,8,8" Command="{Binding CloseProjectCommand}" Content="{loc:Tr 'Закрыть проект'}"
                   IsVisible="{Binding IsProjectOpen}" ToolTip.Tip="{loc:Tr 'Сохранить и закрыть текущий проект'}" />
-          <Button Grid.Column="4" Classes="accentBtn" Command="{Binding CreateProjectCommand}">
+          <Button Classes="accentBtn" Margin="0,0,0,8" Command="{Binding CreateProjectCommand}">
             <StackPanel Orientation="Horizontal" Spacing="8">
-              <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE710;" VerticalAlignment="Center" />
+              <TextBlock FontFamily="{StaticResource SymbolsFontFamily}" Text="&#xE710;" VerticalAlignment="Center" />
               <TextBlock Text="{loc:Tr 'Новый проект'}" VerticalAlignment="Center" />
             </StackPanel>
           </Button>
+          </WrapPanel>
         </Grid>
 
         <StackPanel Grid.Row="1" Spacing="2" Margin="0,12,0,0">
@@ -352,8 +360,8 @@
                   <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3">
                     <TextBlock Text="{Binding Name}" FontSize="16" FontWeight="SemiBold"
                                Foreground="{DynamicResource HeadingBrush}" TextTrimming="CharacterEllipsis" />
-                    <TextBlock Classes="muted" Text="{Binding SummaryText}" IsVisible="{Binding HasSummary}" />
-                    <TextBlock Classes="muted" Text="{Binding LastChangedText}" />
+                    <TextBlock Classes="muted" Text="{Binding SummaryText}" IsVisible="{Binding HasSummary}" TextWrapping="Wrap" />
+                    <TextBlock Classes="muted" Text="{Binding LastChangedText}" TextWrapping="Wrap" />
                   </StackPanel>
                   <Button Grid.Column="2" Classes="cardOpen"
                           Command="{Binding OpenCommand}" CommandParameter="{Binding}">
@@ -383,6 +391,7 @@
 
           <StackPanel IsVisible="{Binding !HasVisibleProjects}" Spacing="12" Margin="0,24" HorizontalAlignment="Center">
             <TextBlock Classes="muted" HorizontalAlignment="Center"
+                       TextWrapping="Wrap" TextAlignment="Center"
                        Text="{loc:Tr 'Проектов пока нет или ничего не найдено по запросу.'}" />
             <Button Classes="accentBtn" HorizontalAlignment="Center"
                     Command="{Binding CreateProjectCommand}" Content="{loc:Tr 'Создать проект'}" />
@@ -392,37 +401,41 @@
     </Border>
 
     <!-- Справа: «Контекст проекта» выбранной карточки (макет). -->
-    <Border Grid.Column="2" Classes="panel" Margin="0,20,20,20">
+    <Border Grid.Column="4" Classes="panel" Margin="0,20,20,20">
       <!-- QR «Спасибо» закреплён у нижнего края панели: он виден и без прокрутки,
            и тогда, когда проект ещё не выбран. -->
-      <Grid RowDefinitions="Auto,*,Auto">
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="9">
-          <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="15" Text="&#xE736;"
+      <Grid RowDefinitions="Auto,*,Auto,Auto">
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,*" ColumnSpacing="9">
+          <TextBlock FontFamily="{StaticResource SymbolsFontFamily}" FontSize="15" Text="&#xE736;"
                      Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
-          <TextBlock Classes="panelTitle" Text="{loc:Tr 'Контекст проекта'}" />
-        </StackPanel>
+          <TextBlock Grid.Column="1" Classes="panelTitle" Text="{loc:Tr 'Контекст проекта'}" TextWrapping="Wrap" />
+        </Grid>
 
         <ScrollViewer Grid.Row="1" Margin="0,14,0,0"
                       HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
           <StackPanel Spacing="16">
             <StackPanel Spacing="14" IsVisible="{Binding HasSelectedProject}">
+              <ContentControl Content="{Binding SelectedProject}">
+                <ContentControl.ContentTemplate>
+                  <DataTemplate x:DataType="launcher:RecentProjectItem">
+                    <StackPanel Spacing="14">
               <Border Classes="cardField" Padding="14">
                 <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
                   <Border Grid.Column="0" Classes="cover" Width="52" Height="52"
-                          Background="{Binding SelectedProject.CoverFill}">
+                          Background="{Binding CoverFill}">
                     <TextBlock Classes="coverLetter" FontSize="20"
-                               Text="{Binding SelectedProject.Monogram}"
-                               Foreground="{Binding SelectedProject.CoverInk}" />
+                               Text="{Binding Monogram}"
+                               Foreground="{Binding CoverInk}" />
                   </Border>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3">
-                    <TextBlock Text="{Binding SelectedProject.Name}" FontSize="15" FontWeight="SemiBold"
-                               Foreground="{DynamicResource HeadingBrush}" TextTrimming="CharacterEllipsis" />
-                    <TextBlock Classes="muted" Text="{Binding SelectedProject.SummaryText}" />
+                    <TextBlock Text="{Binding Name}" FontSize="15" FontWeight="SemiBold"
+                               Foreground="{DynamicResource HeadingBrush}" TextWrapping="Wrap" />
+                    <TextBlock Classes="muted" Text="{Binding SummaryText}" TextWrapping="Wrap" />
                   </StackPanel>
                 </Grid>
               </Border>
 
-              <TextBlock Text="{Binding SelectedProject.DescriptionText}" TextWrapping="Wrap"
+              <TextBlock Text="{Binding DescriptionText}" TextWrapping="Wrap"
                          Foreground="{DynamicResource SidebarTextBrush}" />
 
               <Rectangle Height="1" Fill="{DynamicResource SurfaceBorderBrush}" />
@@ -430,37 +443,37 @@
               <StackPanel Spacing="6">
                 <Border Classes="statRow">
                   <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
-                    <TextBlock Grid.Column="0" FontFamily="Segoe MDL2 Assets" Text="&#xE8A5;"
+                    <TextBlock Grid.Column="0" FontFamily="{StaticResource SymbolsFontFamily}" Text="&#xE8A5;"
                                Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
                     <TextBlock Grid.Column="1" Text="{loc:Tr 'Главы'}" VerticalAlignment="Center" />
-                    <TextBlock Grid.Column="2" Text="{Binding SelectedProject.ChapterCount}"
+                    <TextBlock Grid.Column="2" Text="{Binding ChapterCount}"
                                FontWeight="SemiBold" VerticalAlignment="Center" />
                   </Grid>
                 </Border>
                 <Border Classes="statRow">
                   <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
-                    <TextBlock Grid.Column="0" FontFamily="Segoe MDL2 Assets" Text="&#xE7C3;"
+                    <TextBlock Grid.Column="0" FontFamily="{StaticResource SymbolsFontFamily}" Text="&#xE7C3;"
                                Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
                     <TextBlock Grid.Column="1" Text="{loc:Tr 'Сцены'}" VerticalAlignment="Center" />
-                    <TextBlock Grid.Column="2" Text="{Binding SelectedProject.SceneCount}"
+                    <TextBlock Grid.Column="2" Text="{Binding SceneCount}"
                                FontWeight="SemiBold" VerticalAlignment="Center" />
                   </Grid>
                 </Border>
                 <Border Classes="statRow">
                   <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
-                    <TextBlock Grid.Column="0" FontFamily="Segoe MDL2 Assets" Text="&#xE902;"
+                    <TextBlock Grid.Column="0" FontFamily="{StaticResource SymbolsFontFamily}" Text="&#xE902;"
                                Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
                     <TextBlock Grid.Column="1" Text="{loc:Tr 'Персонажи'}" VerticalAlignment="Center" />
-                    <TextBlock Grid.Column="2" Text="{Binding SelectedProject.CharacterCount}"
+                    <TextBlock Grid.Column="2" Text="{Binding CharacterCount}"
                                FontWeight="SemiBold" VerticalAlignment="Center" />
                   </Grid>
                 </Border>
                 <Border Classes="statRow">
                   <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
-                    <TextBlock Grid.Column="0" FontFamily="Segoe MDL2 Assets" Text="&#xE8EC;"
+                    <TextBlock Grid.Column="0" FontFamily="{StaticResource SymbolsFontFamily}" Text="&#xE8EC;"
                                Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
                     <TextBlock Grid.Column="1" Text="{loc:Tr 'Сюжетные линии'}" VerticalAlignment="Center" />
-                    <TextBlock Grid.Column="2" Text="{Binding SelectedProject.PlotLineCount}"
+                    <TextBlock Grid.Column="2" Text="{Binding PlotLineCount}"
                                FontWeight="SemiBold" VerticalAlignment="Center" />
                   </Grid>
                 </Border>
@@ -468,17 +481,10 @@
 
               <Rectangle Height="1" Fill="{DynamicResource SurfaceBorderBrush}" />
 
-              <StackPanel Spacing="9">
-                <Button Classes="accentBtn wide" Command="{Binding OpenSelectedProjectCommand}">
-                  <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
-                    <Path Classes="playIcon" Data="M0,0 L0,10 L9,5 Z" />
-                    <TextBlock Text="{loc:Tr 'Продолжить работу'}" VerticalAlignment="Center" />
-                  </StackPanel>
-                </Button>
-                <Button Classes="hollow wide" Command="{Binding OpenSelectedFolderCommand}" Content="{loc:Tr 'Открыть папку проекта'}" />
-                <Button Classes="hollow wide" Command="{Binding OpenExportCommand}" Content="{loc:Tr 'Экспорт'}" />
-                <Button Classes="hollow wide" Command="{Binding RemoveSelectedProjectCommand}" Content="{loc:Tr 'Убрать из списка'}" />
-              </StackPanel>
+                    </StackPanel>
+                  </DataTemplate>
+                </ContentControl.ContentTemplate>
+              </ContentControl>
             </StackPanel>
 
             <TextBlock Classes="muted" TextWrapping="Wrap"
@@ -487,14 +493,20 @@
           </StackPanel>
         </ScrollViewer>
 
-        <StackPanel Grid.Row="2" Spacing="12" Margin="0,14,0,0">
+        <StackPanel Grid.Row="2" x:Name="SelectedProjectActions" Spacing="8" Margin="0,12,0,0" IsVisible="{Binding HasSelectedProject}">
+          <Button Classes="accentBtn wide" Command="{Binding OpenSelectedProjectCommand}" Content="{loc:Tr 'Продолжить работу'}" />
+          <Button Classes="hollow wide" Command="{Binding OpenSelectedFolderCommand}" Content="{loc:Tr 'Открыть папку проекта'}" />
+          <Button Classes="hollow wide" Command="{Binding OpenExportCommand}" Content="{loc:Tr 'Экспорт'}" />
+          <Button Classes="hollow wide" Command="{Binding RemoveSelectedProjectCommand}" Content="{loc:Tr 'Убрать из списка'}" />
+        </StackPanel>
+        <StackPanel Grid.Row="3" Spacing="12" Margin="0,14,0,0">
           <Rectangle Height="1" Fill="{DynamicResource SurfaceBorderBrush}" />
           <Button Classes="qrTile"
                   Command="{Binding OpenLinkCommand}"
                   CommandParameter="{x:Static launcher:LauncherViewModel.ThanksUrl}"
                   ToolTip.Tip="{loc:Tr 'Сказать спасибо автору: scriborium.ru/spasibo.html'}">
             <StackPanel Spacing="8">
-              <Image Width="160" Height="160" Stretch="Uniform"
+              <Image x:Name="ThanksQr" MaxWidth="160" MaxHeight="160" Stretch="Uniform"
                      Source="avares://ScriSelfStudio.Launcher/Assets/qr-spasibo.png" />
               <TextBlock Classes="muted" HorizontalAlignment="Center" Text="{loc:Tr 'Сказать спасибо автору'}" />
             </StackPanel>

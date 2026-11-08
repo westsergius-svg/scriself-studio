@@ -12,7 +12,7 @@ using ScriSelfStudio.Core.Updates;
 /// </summary>
 public sealed class UpdateFeedTests
 {
-    /// <summary>Ответ сайта на <c>https://scriborium.ru/uploads/scrisoft/latest.json</c>.</summary>
+    /// <summary>Ответ сайта на <c>https://scriself.com/uploads/scrisoft/latest.json</c>.</summary>
     private const string ManifestJson = """
         {
           "version": "1.1.3.3S",
@@ -22,9 +22,9 @@ public sealed class UpdateFeedTests
         """;
 
     [Fact]
-    public void Channel_address_is_the_same_as_scriborium_1_1_3_3S()
+    public void Channel_address_uses_the_current_scriself_domain()
     {
-        Assert.Equal("https://scriborium.ru/uploads/scrisoft/", ScriboriumUpdateService.DefaultChannelUrl);
+        Assert.Equal("https://scriself.com/uploads/scrisoft/", ScriboriumUpdateService.DefaultChannelUrl);
         Assert.Equal("latest.json", ScriboriumUpdateService.ManifestName);
     }
 
@@ -38,7 +38,7 @@ public sealed class UpdateFeedTests
         Assert.Equal("1.1.3.3", info.VersionText);
         Assert.Equal("manifest", info.Source);
         Assert.Equal(
-            "https://scriborium.ru/uploads/scrisoft/Scriborium-Setup-Beta%201.1.3.3S.exe",
+            "https://scriself.com/uploads/scrisoft/Scriborium-Setup-Beta%201.1.3.3S.exe",
             info.Url);
     }
 

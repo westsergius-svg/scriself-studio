@@ -43,11 +43,13 @@ public sealed class ScriZipProjectStore : IProjectStore
 
         var content = read.Require();
         var version = content.Manifest["version"]?.GetValue<int>() ?? 0;
+        var mapped = MapProject(content);
+        if (!mapped.IsSuccess) return Task.FromResult(Result<StoreProbeResult>.Failure(mapped.Error!));
         return Task.FromResult(Result<StoreProbeResult>.Success(new StoreProbeResult
         {
             State = StoreFileState.Valid,
             SchemaVersion = version,
-            ProjectName = ScriZipMapper.ToProject(content.Manifest, content.Content, DateTimeOffset.UtcNow).Name,
+            ProjectName = mapped.Require().Name,
         }));
     }
 
@@ -60,8 +62,9 @@ public sealed class ScriZipProjectStore : IProjectStore
         }
 
         var content = read.Require();
-        var now = DateTimeOffset.UtcNow;
-        var project = ScriZipMapper.ToProject(content.Manifest, content.Content, now);
+        var mapped = MapProject(content);
+        if (!mapped.IsSuccess) return Task.FromResult(Result<ProjectLoadResult>.Failure(mapped.Error!));
+        var project = mapped.Require();
         project.SourceDocumentJson = Pack(content.Manifest, content.Content);
 
         return Task.FromResult(Result<ProjectLoadResult>.Success(new ProjectLoadResult
@@ -91,6 +94,21 @@ public sealed class ScriZipProjectStore : IProjectStore
 
         ScriZipMapper.ApplyToContent(request.Project, document.Manifest, document.Content, DateTimeOffset.UtcNow);
         return Task.FromResult(ScriZipFormat.Write(request.FilePath, document.Manifest, document.Content, request.CreateBackup));
+    }
+
+    private static Result<ScriSelfStudio.Core.Model.Project> MapProject(ScriZipContent content)
+    {
+        try
+        {
+            return Result<ScriSelfStudio.Core.Model.Project>.Success(
+                ScriZipMapper.ToProject(content.Manifest, content.Content, DateTimeOffset.UtcNow));
+        }
+        catch (Exception error) when (error is System.Text.Json.JsonException or System.IO.InvalidDataException)
+        {
+            return Result<ScriSelfStudio.Core.Model.Project>.FromError(ErrorCode.ProjectFormatInvalid,
+                "Не удалось прочитать данные проекта или историю сцен. Исходный файл не изменён.",
+                technicalDetails: error.Message, exception: error);
+        }
     }
 
     private static string Pack(JsonObject manifest, JsonObject content) => new JsonObject

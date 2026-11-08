@@ -17,8 +17,8 @@ public static class UpdateFeedParser
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     /// <summary>Ссылки на установщики в листинге каталога.</summary>
-    private static readonly Regex ExeHrefPattern = new(
-        "href=[\"']([^\"'#?]+?\\.exe)[\"']",
+    private static readonly Regex InstallerHrefPattern = new(
+        "href=[\"']([^\"'#?]+?\\.(?:exe|zip|dmg))[\"']",
         RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     /// <summary>Сборки не для десктопного канала: Lite, Modular и прочие варианты.</summary>
@@ -83,7 +83,7 @@ public static class UpdateFeedParser
         baseUrl.TrimEnd('/') + "/" + Uri.EscapeDataString(fileName.TrimStart('/'));
 
     /// <summary>Разбирает <c>latest.json</c>. <c>null</c> — запись без файла сборки.</summary>
-    public static UpdateInfo? ParseManifest(string json, string baseUrl)
+    public static UpdateInfo? ParseManifest(string json, string baseUrl, string runtimeIdentifier = "win-x64")
     {
         using var document = JsonDocument.Parse(json);
         var root = document.RootElement;
@@ -94,7 +94,7 @@ public static class UpdateFeedParser
 
         var versionText = ReadString(root, "version") ?? ReadString(root, "version_label");
         var fileName = ReadString(root, "file") ?? ReadString(root, "file_name") ?? ReadString(root, "setup");
-        if (string.IsNullOrWhiteSpace(fileName))
+        if (string.IsNullOrWhiteSpace(fileName) || !SupportsRuntime(fileName, runtimeIdentifier))
         {
             return null;
         }
@@ -124,7 +124,7 @@ public static class UpdateFeedParser
     /// <c>Scriborium-Setup-*</c> или <c>ScriSelfStudio-Setup-*</c>, кроме сборок
     /// Lite/Modular.
     /// </summary>
-    public static IReadOnlyList<UpdateInfo> ParseListing(string html, string baseUrl)
+    public static IReadOnlyList<UpdateInfo> ParseListing(string html, string baseUrl, string runtimeIdentifier = "win-x64")
     {
         var results = new List<UpdateInfo>();
         if (string.IsNullOrWhiteSpace(html))
@@ -132,11 +132,14 @@ public static class UpdateFeedParser
             return results;
         }
 
-        foreach (var href in ExeHrefPattern.Matches(html).Select(match => match.Groups[1].Value))
+        foreach (var href in InstallerHrefPattern.Matches(html).Select(match => match.Groups[1].Value))
         {
             var name = Uri.UnescapeDataString(href.Split('/')[^1]);
             var lower = name.ToLowerInvariant();
-            if (!SetupPrefixes.Any(prefix => lower.StartsWith(prefix, StringComparison.Ordinal)) ||
+            var recognizedName = runtimeIdentifier.StartsWith("osx-", StringComparison.Ordinal)
+                ? lower.StartsWith("scriselfstudio-", StringComparison.Ordinal)
+                : SetupPrefixes.Any(prefix => lower.StartsWith(prefix, StringComparison.Ordinal));
+            if (!recognizedName || !SupportsRuntime(name, runtimeIdentifier) ||
                 SkipTokens.Any(token => lower.Contains(token, StringComparison.Ordinal)))
             {
                 continue;
@@ -179,4 +182,22 @@ public static class UpdateFeedParser
         element.TryGetProperty(propertyName, out var value) && value.ValueKind == JsonValueKind.String
             ? value.GetString()
             : null;
+
+    /// <summary>Windows и две архитектуры Mac никогда не предлагают сборки друг друга.</summary>
+    internal static bool SupportsRuntime(string fileName, string runtimeIdentifier)
+    {
+        if (fileName.IndexOfAny(['/', '\\']) >= 0)
+        {
+            return false;
+        }
+
+        if (runtimeIdentifier.StartsWith("win-", StringComparison.Ordinal))
+        {
+            return fileName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase);
+        }
+
+        return runtimeIdentifier is "osx-arm64" or "osx-x64"
+            && (fileName.EndsWith("-" + runtimeIdentifier + ".zip", StringComparison.OrdinalIgnoreCase)
+                || fileName.EndsWith("-" + runtimeIdentifier + ".dmg", StringComparison.OrdinalIgnoreCase));
+    }
 }
