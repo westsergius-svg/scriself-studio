@@ -47,6 +47,7 @@ public sealed partial class LauncherViewModel : ViewModelBase, IDisposable
     private readonly ICultureService _culture;
     private readonly IEditorEngine _editor;
     private readonly IUpdateService _updates;
+    private readonly IWorkspaceSaveService _workspace;
     private readonly ICloudStorageCatalog _cloudCatalog;
     private ICloudStorageService _cloud;
     private readonly List<IDisposable> _subscriptions = [];
@@ -81,7 +82,8 @@ public sealed partial class LauncherViewModel : ViewModelBase, IDisposable
         IEditorEngine editor,
         IUpdateService updates,
         ICloudStorageCatalog cloudCatalog,
-        ICultureService culture)
+        ICultureService culture,
+        IWorkspaceSaveService workspace)
     {
         _projects = projects;
         _settings = settings;
@@ -91,6 +93,7 @@ public sealed partial class LauncherViewModel : ViewModelBase, IDisposable
         _culture = culture;
         _editor = editor;
         _updates = updates;
+        _workspace = workspace;
         _cloudCatalog = cloudCatalog;
         _cloud = cloudCatalog.Get(CloudProviderKind.YandexDisk);
         _suppressCloudProviderRestore = true;
@@ -364,6 +367,18 @@ public sealed partial class LauncherViewModel : ViewModelBase, IDisposable
     /// <summary>Предлагает скачать и установить найденную сборку.</summary>
     private async Task OfferUpdateAsync(UpdateInfo latest, CancellationToken cancellationToken)
     {
+        if (!latest.HasIntegrityInformation)
+        {
+            var openPage = await _dialogs.ConfirmAsync(UpdateTitle,
+                Loc.F("Доступна новая версия {0}.\n\nЭтот выпуск можно скачать с официального сайта. Открыть страницу скачивания?", latest.Display),
+                Loc.T("Открыть сайт"), Loc.T("Отмена"), cancellationToken);
+            if (openPage)
+            {
+                using var browser = Process.Start(new ProcessStartInfo(ScriboriumUpdateService.DownloadPageUrl) { UseShellExecute = true });
+            }
+            StatusMessage = null;
+            return;
+        }
         var download = await _dialogs.ConfirmAsync(
             UpdateTitle,
             Loc.F("Доступна новая версия {0} (установлена: {1}).\n{2}\n\nСкачать и установить?", latest.Display, _updates.CurrentVersion, latest.FileName),
@@ -383,8 +398,8 @@ public sealed partial class LauncherViewModel : ViewModelBase, IDisposable
         var install = await _dialogs.ConfirmAsync(
             UpdateTitle,
             Loc.T(OperatingSystem.IsMacOS()
-                ? "Обновление скачано.\n\nЗакройте все проекты. Приложение завершится и откроет загрузку. Перенесите новую версию ScriSelf Studio в папку «Программы», заменив прежнюю."
-                : "Обновление скачано.\n\nУстановить сейчас? Перед этим закройте все открытые проекты."),
+                ? "Обновление скачано и проверено.\n\nПрограмма сохранит книгу и завершится. Перенесите новую версию ScriSelf Studio в папку «Программы», заменив прежнюю."
+                : "Обновление скачано и проверено.\n\nУстановить сейчас? Программа сначала сохранит все правки книги."),
             Loc.T("Установить"),
             Loc.T("Позже"),
             cancellationToken);
@@ -395,7 +410,23 @@ public sealed partial class LauncherViewModel : ViewModelBase, IDisposable
         }
 
         // Приложение закрывается: установщик должен получить файлы свободными.
-        _updates.LaunchInstaller(installer);
+        var saved = await _workspace.SaveAsync(cancellationToken);
+        if (!saved.IsSuccess)
+        {
+            await ReportAsync(saved.Error!);
+            return;
+        }
+        try
+        {
+            _updates.LaunchInstaller(installer);
+        }
+        catch (Exception error) when (error is InvalidOperationException or IOException
+            or UnauthorizedAccessException or Win32Exception)
+        {
+            await ReportUpdateErrorAsync(Loc.F(
+                "Не удалось запустить обновление. Книга сохранена и остаётся открытой. Повторите попытку.\n\n{0}",
+                error.Message));
+        }
     }
 
     private static string UpdateTitle => Loc.T("Обновление ScriSelf Studio");
@@ -1213,26 +1244,11 @@ public sealed partial class LauncherViewModel : ViewModelBase, IDisposable
             return true;
         }
 
-        // Текст сцены живёт в движке, а не в проекте: без коммита сохранение
-        /// проекта записало бы на диск старую ревизию документа.
-        if (_editor.SceneId is not null && _editor.IsDirty)
+        var saved = await _workspace.SaveAsync(cancellationToken);
+        if (!saved.IsSuccess)
         {
-            var committed = await _editor.CommitAsync(cancellationToken);
-            if (!committed.IsSuccess)
-            {
-                await ReportAsync(committed.Error!);
-                return false;
-            }
-        }
-
-        if (_projects.IsDirty)
-        {
-            var saved = await _projects.SaveAsync(cancellationToken);
-            if (!saved.IsSuccess)
-            {
-                await ReportAsync(saved.Error!);
-                return false;
-            }
+            await ReportAsync(saved.Error!);
+            return false;
         }
 
         var closed = await _projects.CloseAsync(discardChanges: false, cancellationToken);

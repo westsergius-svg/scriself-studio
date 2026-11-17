@@ -68,7 +68,7 @@ public sealed class InterfacePolishTests
                 Flush();
                 var grid = Find<Grid>(window, name);
                 Assert.True(grid.IsEffectivelyVisible, name);
-                var splitters = grid.Children.OfType<GridSplitter>().ToArray();
+                var splitters = grid.Children.OfType<GridSplitter>().Where(splitter => splitter.IsEffectivelyVisible).ToArray();
                 Assert.NotEmpty(splitters);
                 Capture(window, $"panes-{theme}-{width}-{screen}");
                 foreach (var splitter in splitters)
@@ -371,7 +371,7 @@ public sealed class InterfacePolishTests
     {
         Assert.Equal(ThemePalette.Cabinet.Brushes.OrderBy(pair => pair.Key), ThemePalette.GreenStart.Brushes.OrderBy(pair => pair.Key));
         Assert.Equal("#38634F", ThemePalette.GreenStart.Brushes["AccentBrush"]);
-        Assert.Equal("#3B8AE5", ThemePalette.Starter.Brushes["AccentBrush"]);
+        Assert.Equal("#286FBD", ThemePalette.Starter.Brushes["AccentBrush"]);
     }
 
     private static async Task ApplyThemeAsync(IServiceProvider provider, AppTheme theme)

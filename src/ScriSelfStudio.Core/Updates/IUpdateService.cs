@@ -12,15 +12,15 @@ public interface IUpdateService
     /// <summary>Адрес канала обновлений: каталог со сборками и манифестом <c>latest.json</c>.</summary>
     string ChannelUrl { get; }
 
-    /// <summary>Проверяет канал: манифест, при неудаче — листинг каталога.</summary>
+    /// <summary>Проверяет манифест; недоступный старый канал допускает ручной листинг, ошибка подписи — нет.</summary>
     Task<UpdateCheckResult> CheckAsync(CancellationToken cancellationToken = default);
 
     /// <summary>Версия в канале новее установленной.</summary>
     bool IsNewer(UpdateInfo info);
 
-    /// <summary>Скачивает установщик во временную папку и возвращает путь к файлу.</summary>
+    /// <summary>Проверяет подпись, скачивает и сверяет SHA-256; возвращает путь только к проверенному файлу.</summary>
     Task<string> DownloadAsync(UpdateInfo latest, IProgress<double>? progress = null, CancellationToken cancellationToken = default);
 
-    /// <summary>Запускает установщик и завершает процесс, чтобы файлы можно было заменить.</summary>
+    /// <summary>Повторно проверяет файл и запускает установщик. Завершает приложение только после успешного запуска.</summary>
     void LaunchInstaller(string installerPath);
 }

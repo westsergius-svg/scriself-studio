@@ -207,31 +207,32 @@
         </StackPanel>
 
         <Border Grid.Row="1" x:Name="MapBoard" Classes="mapPanel" Padding="6">
-          <Grid>
-            <ScrollViewer x:Name="MapScroll"
+          <Grid RowDefinitions="Auto,*">
+            <Button Grid.Row="0" Classes="addChapterColumn" HorizontalAlignment="Right" Margin="0,0,0,6"
+                    IsVisible="{Binding CanCreateChapterInBook}" Command="{Binding CreateChapterInBookCommand}"
+                    ToolTip.Tip="{loc:Tr 'Добавить главу'}">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock FontFamily="{StaticResource SymbolsFontFamily}" Text="&#xE710;" FontSize="14" />
+                <TextBlock Text="{loc:Tr 'Добавить главу'}" />
+              </StackPanel>
+            </Button>
+            <ScrollViewer x:Name="MapScroll" Grid.Row="1"
                           HorizontalScrollBarVisibility="Auto"
-                          VerticalScrollBarVisibility="Auto">
-              <Canvas Width="{Binding MapBoardContentWidth}" Height="520" HorizontalAlignment="Left">
-                <ItemsControl Classes="mapColumns" ItemsSource="{Binding MapColumns}"
-                              Width="{Binding MapContentWidth}"
-                              MinHeight="520">
-                <ItemsControl.Styles>
-                  <Style Selector="ItemsControl.mapColumns > ContentPresenter" x:DataType="map:BookMapColumnViewModel">
-                    <Setter Property="Canvas.Left" Value="{Binding X}" />
-                    <Setter Property="Canvas.Top" Value="0" />
-                    <Setter Property="Width" Value="{Binding Width}" />
-                  </Style>
-                </ItemsControl.Styles>
+                          VerticalScrollBarVisibility="Disabled">
+                <ItemsControl x:Name="MapColumnItems" Classes="mapColumns" ItemsSource="{Binding MapColumns}"
+                              HorizontalAlignment="Left" VerticalAlignment="Stretch">
                 <ItemsControl.ItemsPanel>
                   <ItemsPanelTemplate>
-                    <Canvas Height="520" />
+                    <VirtualizingStackPanel Orientation="Horizontal" CacheLength="0.5" />
                   </ItemsPanelTemplate>
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="map:BookMapColumnViewModel">
-                    <Border Classes="mapColumn" Classes.active="{Binding IsActive}" Margin="0,8,0,8">
-                      <StackPanel Spacing="8">
-                        <Grid ColumnDefinitions="*,Auto">
+                    <Grid Width="{Binding SlotWidth}">
+                    <Border Classes="mapColumn" Classes.active="{Binding IsActive}" Width="{Binding Width}"
+                            HorizontalAlignment="Left" Margin="0,8,0,8">
+                      <Grid RowDefinitions="Auto,*">
+                        <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
                           <Button Grid.Column="0" Classes="columnHead"
                                   Command="{Binding SelectCommand}" CommandParameter="{Binding Node}">
                             <Button.ContextMenu>
@@ -255,8 +256,25 @@
                           </Button>
                         </Grid>
 
-                        <ItemsControl ItemsSource="{Binding Scenes}">
-                          <ItemsControl.ItemTemplate>
+                        <ListBox Grid.Row="1" Classes="mapScenes" ItemsSource="{Binding Scenes}" Margin="0,8,0,0"
+                                 SelectedItem="{Binding SelectedScene, Mode=TwoWay}"
+                                 Background="Transparent" BorderThickness="0" Padding="0"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Auto">
+                          <ListBox.Styles>
+                            <Style Selector="ListBoxItem">
+                              <Setter Property="Theme" Value="{x:Null}" />
+                              <Setter Property="Focusable" Value="True" />
+                              <Setter Property="Padding" Value="0" />
+                              <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                              <Setter Property="Template">
+                                <ControlTemplate><ContentPresenter Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" /></ControlTemplate>
+                              </Setter>
+                            </Style>
+                          </ListBox.Styles>
+                          <ListBox.ItemsPanel>
+                            <ItemsPanelTemplate><VirtualizingStackPanel CacheLength="0.5" /></ItemsPanelTemplate>
+                          </ListBox.ItemsPanel>
+                          <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="map:BookMapSceneViewModel">
                               <Button Classes="mapCell"
                                       Classes.selected="{Binding IsSelected}"
@@ -296,31 +314,17 @@
                                 </StackPanel>
                               </Button>
                             </DataTemplate>
-                          </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                      </StackPanel>
+                          </ListBox.ItemTemplate>
+                        </ListBox>
+                      </Grid>
                     </Border>
+                    </Grid>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
                 </ItemsControl>
-                <Button Classes="addChapterColumn"
-                        Canvas.Left="{Binding MapAddChapterX}"
-                        Canvas.Top="0"
-                        Width="{Binding MapColumnWidth}"
-                        Height="520"
-                        IsVisible="{Binding CanCreateChapterInBook}"
-                        Command="{Binding CreateChapterInBookCommand}"
-                        ToolTip.Tip="{loc:Tr 'Добавить главу'}">
-                  <StackPanel Spacing="8" HorizontalAlignment="Center">
-                    <TextBlock FontFamily="{StaticResource SymbolsFontFamily}" Text="&#xE710;" FontSize="16"
-                               HorizontalAlignment="Center" />
-                    <TextBlock Text="{loc:Tr 'Добавить главу'}" HorizontalAlignment="Center" />
-                  </StackPanel>
-                </Button>
-              </Canvas>
             </ScrollViewer>
 
-            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12"
+            <StackPanel Grid.RowSpan="2" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12"
                         MaxWidth="380" IsVisible="{Binding ShowMapEmpty}">
               <TextBlock Classes="muted" Text="{Binding MapHint}" TextWrapping="Wrap"
                          TextAlignment="Center" />

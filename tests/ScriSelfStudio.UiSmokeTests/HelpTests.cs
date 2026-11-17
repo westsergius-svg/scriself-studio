@@ -83,7 +83,7 @@ public sealed class HelpTests
         Assert.Contains(help.Licenses, item => item.Title.Contains("SQLitePCLRaw Apache", StringComparison.Ordinal)
             && item.Text.Contains("END OF TERMS AND CONDITIONS", StringComparison.Ordinal));
         Assert.Contains(help.Licenses, item => item.Title.Contains("NET Runtime Notices", StringComparison.Ordinal));
-        Assert.Equal("Версия 1.2.0", help.VersionText);
+        Assert.Equal("Версия 1.2.1", help.VersionText);
     }
 
     [AvaloniaTheory]

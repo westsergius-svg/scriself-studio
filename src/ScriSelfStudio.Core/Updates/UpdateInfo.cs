@@ -18,6 +18,13 @@ public sealed record UpdateInfo(
     string Notes,
     string Source)
 {
+    /// <summary>Контрольная сумма скачанных байтов установщика.</summary>
+    public string? Sha256 { get; init; }
+    /// <summary>Подпись выпуска RSA-PSS/SHA-256 в Base64.</summary>
+    public string? Signature { get; init; }
+    /// <summary>Старые записи без проверки доступны только для ручного скачивания.</summary>
+    public bool HasIntegrityInformation => Sha256 is { Length: 64 } hash
+        && hash.All(Uri.IsHexDigit) && !string.IsNullOrWhiteSpace(Signature);
     /// <summary>Версия в виде <c>1.1.3.3</c> — для сравнения и сообщений.</summary>
     public string VersionText => string.Join('.', Version);
 }

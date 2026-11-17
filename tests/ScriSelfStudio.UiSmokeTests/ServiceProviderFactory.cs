@@ -3,6 +3,7 @@ namespace ScriSelfStudio.UiSmokeTests;
 using Microsoft.Extensions.DependencyInjection;
 using ScriSelfStudio.App.Composition;
 using ScriSelfStudio.Contracts.Dialogs;
+using ScriSelfStudio.Contracts.Storage;
 using ScriSelfStudio.Core.Updates;
 using ScriSelfStudio.TestSupport;
 
@@ -13,7 +14,8 @@ internal static class ServiceProviderFactory
         string settingsDirectory,
         IFileDialogService? dialogs = null,
         IUpdateService? updates = null,
-        ISceneVersionsDialogService? versionsDialog = null)
+        ISceneVersionsDialogService? versionsDialog = null,
+        IProjectStore? store = null)
     {
         var services = new ServiceCollection();
         services.AddScriSelfStudio(settingsDirectory, useAvaloniaDialogs: false);
@@ -27,6 +29,7 @@ internal static class ServiceProviderFactory
         {
             services.AddSingleton(updates);
         }
+        if (store is not null) services.AddSingleton(store);
 
         var provider = services.BuildServiceProvider();
         ScriSelfStudioServices.RegisterModules(provider);

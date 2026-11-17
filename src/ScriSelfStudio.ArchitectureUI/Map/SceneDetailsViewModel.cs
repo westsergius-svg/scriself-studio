@@ -173,6 +173,30 @@ public sealed partial class SceneDetailsViewModel : ObservableObject
 
     public bool CanSaveDescription => !string.Equals(Description, _savedDescription, StringComparison.Ordinal);
 
+    /// <summary>Фиксирует оба поля панели и сохраняет более новые черновики после ожидания.</summary>
+    public async Task<ScriSelfStudio.Contracts.Errors.Result> CommitPendingAsync(CancellationToken cancellationToken = default)
+    {
+        var description = Description;
+        var notes = Notes;
+        if (CanSaveDescription)
+        {
+            if (!await _saveDescription(description, cancellationToken))
+                return ScriSelfStudio.Contracts.Errors.Result.FromError(ScriSelfStudio.Contracts.Errors.ErrorCode.ValidationFailed,
+                    "Не удалось сохранить описание сцены. Черновик остался открытым.");
+            _savedDescription = description;
+            OnPropertyChanged(nameof(CanSaveDescription));
+        }
+        if (!string.Equals(notes, _savedNotes, StringComparison.Ordinal))
+        {
+            if (!await _saveNotes(notes, cancellationToken))
+                return ScriSelfStudio.Contracts.Errors.Result.FromError(ScriSelfStudio.Contracts.Errors.ErrorCode.ValidationFailed,
+                    "Не удалось сохранить заметки сцены. Черновик остался открытым.");
+            _savedNotes = notes;
+            OnPropertyChanged(nameof(CanSaveNotes));
+        }
+        return ScriSelfStudio.Contracts.Errors.Result.Success;
+    }
+
     partial void OnDescriptionChanged(string value) =>
         OnPropertyChanged(nameof(CanSaveDescription));
 
@@ -184,9 +208,10 @@ public sealed partial class SceneDetailsViewModel : ObservableObject
             return;
         }
 
-        if (await _saveDescription(Description, cancellationToken))
+        var description = Description;
+        if (await _saveDescription(description, cancellationToken))
         {
-            _savedDescription = Description;
+            _savedDescription = description;
             OnPropertyChanged(nameof(CanSaveDescription));
         }
     }
@@ -219,9 +244,10 @@ public sealed partial class SceneDetailsViewModel : ObservableObject
             return;
         }
 
-        if (await _saveNotes(Notes, cancellationToken))
+        var notes = Notes;
+        if (await _saveNotes(notes, cancellationToken))
         {
-            _savedNotes = Notes;
+            _savedNotes = notes;
             OnPropertyChanged(nameof(CanSaveNotes));
         }
     }

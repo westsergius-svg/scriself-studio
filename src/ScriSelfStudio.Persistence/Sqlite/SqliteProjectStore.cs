@@ -155,6 +155,13 @@ public sealed class SqliteProjectStore : IProjectStore
                 technicalDetails: exception.Message,
                 exception: exception);
         }
+        catch (System.Text.Json.JsonException exception)
+        {
+            _logger?.LogError(exception, "Данные JSON в файле проекта {FilePath} повреждены.", filePath);
+            return Result<ProjectLoadResult>.FromError(ErrorCode.ProjectFormatInvalid,
+                "Данные проекта повреждены. Откройте резервную копию файла; исходный проект не изменён.",
+                technicalDetails: exception.Message, exception: exception);
+        }
         catch (IOException exception)
         {
             _logger?.LogError(exception, "Ошибка ввода-вывода при чтении файла проекта {FilePath}.", filePath);
@@ -218,6 +225,12 @@ public sealed class SqliteProjectStore : IProjectStore
 
         try
         {
+            var unchanged = FileSystem.ProjectFileAccess.CheckVersion(targetPath, request.ExpectedFileVersion);
+            if (!unchanged.IsSuccess)
+            {
+                AtomicFileWriter.TryDelete(tempPath);
+                return unchanged;
+            }
             AtomicFileWriter.Replace(tempPath, targetPath, request.CreateBackup);
         }
         catch (IOException exception)

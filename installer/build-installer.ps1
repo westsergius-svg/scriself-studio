@@ -23,7 +23,10 @@ param(
     # Путь к картинке: если задан, значки пересобираются перед публикацией.
     [string] $IconSource,
 
-    [string] $IsccPath
+    [string] $IsccPath,
+
+    [string] $UpdateSigningKeyPath,
+    [string] $UpdateNotes = ''
 )
 
 Set-StrictMode -Version Latest
@@ -116,6 +119,20 @@ if (Test-Path -LiteralPath $setup) {
     (Join-Path $PSScriptRoot 'ScriSelfStudio.iss')
 if ($LASTEXITCODE -ne 0) {
     throw "ISCC завершился с кодом $LASTEXITCODE."
+}
+
+if (!$UpdateSigningKeyPath) { $UpdateSigningKeyPath = $env:SCRISELF_UPDATE_SIGNING_KEY_PATH }
+if (!$UpdateSigningKeyPath -and $env:LOCALAPPDATA) {
+    $localReleaseKey = Join-Path $env:LOCALAPPDATA 'ScriSelfStudioReleaseKeys\updates-rsa.pem'
+    if (Test-Path -LiteralPath $localReleaseKey) { $UpdateSigningKeyPath = $localReleaseKey }
+}
+if ($UpdateSigningKeyPath) {
+    & (Join-Path $PSScriptRoot 'write-update-manifest.ps1') -InstallerPath $setup -Version $version `
+        -OutputPath (Join-Path (Split-Path -Parent $setup) 'latest.json') `
+        -Notes $UpdateNotes -SigningKeyPath $UpdateSigningKeyPath
+}
+else {
+    Write-Host 'Установщик собран. Для канала обновлений отдельно создайте подписанный latest.json через write-update-manifest.ps1.'
 }
 
 Write-Host ''

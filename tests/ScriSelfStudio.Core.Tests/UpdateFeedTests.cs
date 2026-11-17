@@ -2,6 +2,7 @@ namespace ScriSelfStudio.Core.Tests;
 
 using System.Net;
 using System.Net.Http;
+using System.Security.Cryptography;
 using System.Text;
 using ScriSelfStudio.Core.Updates;
 
@@ -180,17 +181,20 @@ public sealed class UpdateFeedTests
     public async Task Download_writes_the_installer_to_the_temp_folder()
     {
         const string payload = "installer payload";
+        using var signer = RSA.Create(2048);
         var info = new UpdateInfo(
             [1, 1, 4],
             "1.1.4",
             "ScriSelfStudioUpdateTest.exe",
             "https://example.test/ScriSelfStudioUpdateTest.exe",
             string.Empty,
-            "manifest");
+            "manifest") { Sha256 = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(payload))) };
+        info = info with { Signature = Convert.ToBase64String(signer.SignData(SignedUpdateManifest.Payload(info),
+            HashAlgorithmName.SHA256, RSASignaturePadding.Pss)) };
         var service = new ScriboriumUpdateService(
             (_, _) => Task.FromResult(TextResponse(payload)),
             "https://example.test/",
-            "1.1.4");
+            "1.1.4", manifestPublicKey: signer.ExportSubjectPublicKeyInfoPem());
 
         var path = await service.DownloadAsync(info);
 
@@ -202,6 +206,7 @@ public sealed class UpdateFeedTests
         finally
         {
             File.Delete(path);
+            Directory.Delete(Path.GetDirectoryName(path)!);
         }
     }
 

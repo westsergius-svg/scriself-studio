@@ -10,7 +10,7 @@ using ScriSelfStudio.TestSupport;
 
 public sealed class BookArchitectureServiceTests
 {
-    private const string ProjectPath = @"C:\Проекты\Рукопись.scri";
+    private readonly string _projectPath = Path.Combine(Path.GetTempPath(), "ScriSelfStudioTests", Guid.NewGuid().ToString("N"), "Рукопись.scri");
 
     [Fact]
     public async Task Create_project_provides_default_series()
@@ -203,14 +203,14 @@ public sealed class BookArchitectureServiceTests
         Assert.False(result.IsSuccess);
     }
 
-    private static async Task<TestContext> CreateContextAsync()
+    private async Task<TestContext> CreateContextAsync()
     {
         var clock = new FakeClock();
         var projects = new ProjectService(new InMemoryProjectStore(), new InMemoryRecoveryStore(clock), new EventBus(), clock);
         var architecture = new BookArchitectureService(projects, clock);
         var created = await projects.CreateAsync(new CreateProjectRequest
         {
-            FilePath = ProjectPath,
+            FilePath = _projectPath,
             Name = "Рукопись",
         });
 
@@ -246,7 +246,7 @@ public sealed class BookArchitectureServiceTests
         Assert.Equal(new[] { 0, 1 }, context.Architecture.GetPlotLines().Select(line => line.Order));
         await context.Projects.SaveAsync();
         await context.Projects.CloseAsync(true);
-        await context.Projects.OpenAsync(ProjectPath);
+        await context.Projects.OpenAsync(_projectPath);
         Assert.Equal(new[] { "Последняя", "Первая" }, context.Architecture.GetPlotLines().Select(line => line.Name));
     }
 

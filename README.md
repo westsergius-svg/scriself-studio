@@ -1,6 +1,9 @@
 # ScriSelf Studio
 
-Текущая версия — **1.2.0** (Windows x64).
+Текущая версия — **1.2.1** (Windows x64).
+
+В 1.2.1 усилено сохранение рукописей и черновиков, защищено обновление программы,
+исправлено оформление PDF и улучшена работа экспорта и карты больших книг.
 
 [Скачать с сайта](https://scriself.com/download) ·
 [Выпуски и установщик на GitHub](https://github.com/westsergius-svg/scriself-studio/releases/latest)

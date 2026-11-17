@@ -570,8 +570,21 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
     /// Фиксирует текст сцены и сохраняет проект без сообщений в интерфейсе.
     /// Вызывается при закрытии приложения, когда потеря фокуса уже не срабатывает.
     /// </summary>
-    public Task FlushAsync(CancellationToken cancellationToken = default) =>
+    public Task<Result> FlushAsync(CancellationToken cancellationToken = default) =>
         SaveCoreAsync(cancellationToken, silent: true);
+
+    /// <summary>Передаёт все документы ленты проекту; запись файла выполняется после остальных панелей.</summary>
+    public async Task<Result> CommitPendingEditsAsync(CancellationToken cancellationToken = default)
+    {
+        if (!IsDirty) return Result.Success;
+        var committed = await CommitRibbonDocumentsAsync(cancellationToken);
+        if (committed.IsSuccess && _ribbonRefreshPending)
+        {
+            _ribbonRefreshPending = false;
+            RebuildRibbon();
+        }
+        return committed;
+    }
 
     public void Dispose()
     {
@@ -601,7 +614,7 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
         if (IsDirty)
         {
             var committed = await CommitRibbonDocumentsAsync(cancellationToken);
-            if (!committed)
+            if (!committed.IsSuccess)
             {
                 return false;
             }
@@ -646,7 +659,7 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
         if (IsDirty)
         {
             var committed = await CommitRibbonDocumentsAsync(cancellationToken);
-            if (!committed)
+            if (!committed.IsSuccess)
             {
                 return;
             }
@@ -670,7 +683,7 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
         if (IsDirty)
         {
             var committed = await CommitRibbonDocumentsAsync(CancellationToken.None);
-            if (!committed)
+            if (!committed.IsSuccess)
             {
                 return;
             }
@@ -1063,20 +1076,20 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
         _ = AutosaveAsync();
     }
 
-    private async Task SaveCoreAsync(CancellationToken cancellationToken, bool silent)
+    private async Task<Result> SaveCoreAsync(CancellationToken cancellationToken, bool silent)
     {
         if (_engine.SceneId is null)
         {
-            return;
+            return Result.Success;
         }
 
         ClearMessages();
         if (IsDirty)
         {
             var committed = await CommitRibbonDocumentsAsync(cancellationToken);
-            if (!committed)
+            if (!committed.IsSuccess)
             {
-                return;
+                return committed;
             }
         }
 
@@ -1084,7 +1097,7 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
         if (!saved.IsSuccess)
         {
             await ReportAsync(saved.Error!, silent);
-            return;
+            return Result.Failure(saved.Error!);
         }
 
         _lastActivity = _clock.UtcNow;
@@ -1100,9 +1113,10 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
         }
 
         RefreshState();
+        return Result.Success;
     }
 
-    private async Task<bool> CommitRibbonDocumentsAsync(CancellationToken cancellationToken)
+    private async Task<Result> CommitRibbonDocumentsAsync(CancellationToken cancellationToken)
     {
         _suppressRibbonRefresh = true;
         try
@@ -1125,7 +1139,7 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
                 if (!updated.IsSuccess)
                 {
                     ReportInPlace(updated.Error!);
-                    return false;
+                    return Result.Failure(updated.Error!);
                 }
 
                 var result = updated.Require();
@@ -1140,7 +1154,7 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
                 if (!committed.IsSuccess)
                 {
                     ReportInPlace(committed.Error!);
-                    return false;
+                    return Result.Failure(committed.Error!);
                 }
 
                 var result = committed.Require();
@@ -1151,7 +1165,7 @@ public sealed partial class EditorViewModel : ViewModelBase, IDisposable
             }
 
             RefreshState();
-            return true;
+            return Result.Success;
         }
         finally
         {

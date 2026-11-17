@@ -1,6 +1,7 @@
 namespace ScriSelfStudio.App;
 
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
@@ -20,13 +21,25 @@ public partial class App : Application
 {
     private ServiceProvider? _provider;
     private bool _shutdownFlushed;
+    private bool _shutdownInProgress;
     private DispatcherTimer? _statisticsTimer;
     private readonly CancellationTokenSource _statisticsLifetime = new();
 
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
     /// <summary>Тестовый хост может запустить тот же жизненный цикл с отдельным профилем.</summary>
-    protected virtual ServiceProvider CreateServices() => ScriSelfStudioServices.Build();
+    protected virtual ServiceProvider CreateServices()
+    {
+#if DEBUG
+        // Диагностика живого окна использует отдельный профиль, не настройки автора.
+        var diagnosticRoot = Environment.GetEnvironmentVariable("SCRISELF_DEBUG_DATA_ROOT");
+        if (!string.IsNullOrWhiteSpace(diagnosticRoot))
+        {
+            return ScriSelfStudioServices.Build(Path.GetFullPath(diagnosticRoot));
+        }
+#endif
+        return ScriSelfStudioServices.Build();
+    }
 
     public override void OnFrameworkInitializationCompleted()
     {
@@ -41,6 +54,7 @@ public partial class App : Application
             // живые привязки обновляют уже созданное главное окно.
             desktop.MainWindow = _provider.GetRequiredService<MainWindow>();
             desktop.MainWindow.WindowState = Avalonia.Controls.WindowState.Maximized;
+            desktop.MainWindow.Closing += OnMainWindowClosing;
             desktop.ShutdownRequested += OnShutdownRequested;
             desktop.Exit += (_, _) =>
             {
@@ -71,24 +85,58 @@ public partial class App : Application
         if (_shutdownFlushed
             || sender is not IClassicDesktopStyleApplicationLifetime desktop
             || desktop.MainWindow?.DataContext is not ShellViewModel shell
-            || !shell.HasPendingEdits)
+            || (!shell.HasPendingEdits && !_shutdownInProgress))
         {
             return;
         }
 
         e.Cancel = true;
-        _shutdownFlushed = true;
+        if (_shutdownInProgress) return;
+        if (await PrepareShutdownAsync(shell))
+        {
+            _shutdownFlushed = true;
+            desktop.Shutdown();
+        }
+    }
+
+    private async void OnMainWindowClosing(object? sender, WindowClosingEventArgs e)
+    {
+        if (_shutdownFlushed || e.Cancel || sender is not Window { DataContext: ShellViewModel shell }
+            || (!shell.HasPendingEdits && !_shutdownInProgress)) return;
+
+        e.Cancel = true;
+        if (_shutdownInProgress) return;
+        if (await PrepareShutdownAsync(shell))
+        {
+            _shutdownFlushed = true;
+            if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop) desktop.Shutdown();
+            else ((Window)sender).Close();
+        }
+    }
+
+    private async Task<bool> PrepareShutdownAsync(ShellViewModel shell)
+    {
+        _shutdownInProgress = true;
         try
         {
-            await shell.FlushPendingEditsAsync();
+            var saved = await shell.FlushPendingEditsAsync();
+            if (saved.IsSuccess) return true;
+            await _provider!.GetRequiredService<IFileDialogService>().ShowErrorAsync(
+                Loc.T("Не удалось завершить сохранение"), saved.Error!.UserMessage);
+            return false;
         }
-        catch
+        catch (OperationCanceledException)
         {
-            // Выход не должен блокироваться ошибкой сохранения: пользователь
-            // уже закрыл окно, а сообщение об ошибке некуда показать.
+            return false;
         }
-
-        desktop.Shutdown();
+        catch (Exception)
+        {
+            await _provider!.GetRequiredService<IFileDialogService>().ShowErrorAsync(
+                Loc.T("Не удалось завершить сохранение"),
+                Loc.T("Ошибка сохранения. Книга оставлена открытой; повторите сохранение или сохраните отдельную копию."));
+            return false;
+        }
+        finally { _shutdownInProgress = false; }
     }
 
     private async Task InitializeAsync()

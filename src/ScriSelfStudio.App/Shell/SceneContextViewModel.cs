@@ -8,6 +8,7 @@ using ScriSelfStudio.Contracts.Books;
 using ScriSelfStudio.Contracts.Dtos;
 using ScriSelfStudio.Contracts.Editor;
 using ScriSelfStudio.Contracts.Events;
+using ScriSelfStudio.Contracts.Errors;
 using ScriSelfStudio.Contracts.Navigation;
 using ScriSelfStudio.Contracts.Projects;
 using ScriSelfStudio.Core.Events;
@@ -299,13 +300,8 @@ public sealed partial class SceneContextViewModel : ViewModelBase, IDisposable
     public bool HasPendingChanges => HasScene && _metaDirty;
 
     /// <summary>Фиксирует контекст сцены перед закрытием приложения.</summary>
-    public async Task FlushAsync(CancellationToken cancellationToken = default)
-    {
-        if (_metaDirty)
-        {
-            await PersistAsync(cancellationToken);
-        }
-    }
+    public Task<Result> FlushAsync(CancellationToken cancellationToken = default) =>
+        _metaDirty ? PersistAsync(cancellationToken) : Task.FromResult(Result.Success);
 
     partial void OnSummaryChanged(string value)
     {
@@ -510,17 +506,17 @@ public sealed partial class SceneContextViewModel : ViewModelBase, IDisposable
     private void OpenPlanner() => _navigation.NavigateTo(AppScreen.Timeline);
 
     /// <summary>Сохраняет правки описания и статуса в проект (ТЗ п. 27).</summary>
-    private async Task PersistAsync(CancellationToken cancellationToken)
+    private async Task<Result> PersistAsync(CancellationToken cancellationToken)
     {
         if (_engine.SceneId is not { } sceneId)
         {
-            return;
+            return _metaDirty ? Result.FromError(ErrorCode.EntityNotFound, "Сцена черновика больше не открыта. Правки не сохранены.") : Result.Success;
         }
 
-        await PersistAsync(sceneId, Summary, Status, Notes, cancellationToken);
+        return await PersistAsync(sceneId, Summary, Status, Notes, cancellationToken);
     }
 
-    private async Task PersistAsync(
+    private async Task<Result> PersistAsync(
         Guid sceneId,
         string summary,
         SceneStatus status,
@@ -539,16 +535,17 @@ public sealed partial class SceneContextViewModel : ViewModelBase, IDisposable
             ErrorMessage = result.Error is null
                 ? Loc.T("Не удалось сохранить контекст сцены.")
                 : result.Error.UserMessage;
-            return;
+            return Result.Failure(result.Error!);
         }
 
         ErrorMessage = null;
-        if (sceneId == _engine.SceneId)
+        if (sceneId == _engine.SceneId && Summary == summary && Status == status && Notes == notes)
         {
             _metaDirty = false;
         }
 
         Refresh();
+        return Result.Success;
     }
 
     /// <summary>Записывает полный список этапов, к которым относится сцена (ADR 012).</summary>

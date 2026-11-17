@@ -13,7 +13,7 @@ using ScriSelfStudio.TestSupport;
 /// </summary>
 public sealed class LocationsAndObjectsTests
 {
-    private const string ProjectPath = @"C:\Проекты\Рукопись.scri";
+    private readonly string _projectPath = Path.Combine(Path.GetTempPath(), "ScriSelfStudioTests", Guid.NewGuid().ToString("N"), "Рукопись.scri");
 
     [Fact]
     public async Task New_location_is_created_with_fields()
@@ -133,14 +133,14 @@ public sealed class LocationsAndObjectsTests
         Assert.True(sameAsLocation.IsSuccess, sameAsLocation.Error?.TechnicalDetails);
     }
 
-    private static async Task<TestContext> CreateContextAsync()
+    private async Task<TestContext> CreateContextAsync()
     {
         var clock = new FakeClock();
         var projects = new ProjectService(new InMemoryProjectStore(), new InMemoryRecoveryStore(clock), new EventBus(), clock);
         var architecture = new BookArchitectureService(projects, clock);
         var created = await projects.CreateAsync(new CreateProjectRequest
         {
-            FilePath = ProjectPath,
+            FilePath = _projectPath,
             Name = "Рукопись",
         });
 

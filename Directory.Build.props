@@ -9,7 +9,7 @@
     <NeutralLanguage>ru-RU</NeutralLanguage>
     <!-- Версия приложения. Сравнивается с версией из latest.json канала обновлений:
          при выпуске сборки поднимайте её и публикуйте тот же номер на сайте. -->
-    <Version>1.2.0</Version>
+    <Version>1.2.1</Version>
     <Authors>ScriSelf Studio</Authors>
     <Product>ScriSelf Studio</Product>
     <Company>ScriSelf Studio</Company>

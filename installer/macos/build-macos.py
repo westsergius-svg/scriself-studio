@@ -5,6 +5,7 @@ from pathlib import Path
 import argparse
 import hashlib
 import json
+import os
 import plistlib
 import shutil
 import stat
@@ -127,14 +128,52 @@ def write_archive(bundle, readme, archive_path):
             raise ValueError(f"Corrupted ZIP entry: {corrupted}")
 
 
+def write_update_manifest(archive, version, runtime, output, signing_key=None):
+    with archive.open("rb") as source:
+        hasher = hashlib.sha256()
+        for chunk in iter(lambda: source.read(1024 * 1024), b""):
+            hasher.update(chunk)
+        digest = hasher.hexdigest()
+    manifest = output / f"latest-{runtime}.json"
+    notes = "Предварительная версия для macOS."
+    if signing_key:
+        subprocess.run([
+            "dotnet", "run", "--project", str(ROOT / "installer/ScriSelfStudio.UpdateManifest/ScriSelfStudio.UpdateManifest.csproj"),
+            "--configuration", "Release", "--no-launch-profile", "--",
+            "--file", str(archive), "--output", str(manifest), "--version", version,
+            "--runtime", runtime, "--notes", notes, "--signing-key", str(signing_key),
+        ], cwd=ROOT, check=True)
+        signed = json.loads(manifest.read_text(encoding="utf-8"))
+        if signed["sha256"] != digest:
+            raise ValueError("The archive changed while the update manifest was being signed")
+    else:
+        manifest.write_text(json.dumps({
+            "version": version, "file": archive.name, "runtime": runtime,
+            "notes": notes, "sha256": digest,
+        }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return digest
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--runtime", choices=RUNTIMES, nargs="+", default=list(RUNTIMES))
     parser.add_argument("--output", type=Path, help="A NEW output directory; previous builds are never deleted")
     parser.add_argument("--sign-identity", help="macOS only: '-' for ad-hoc signing, or a Developer ID identity")
+    parser.add_argument("--update-signing-key", type=Path, help="Private RSA release key for the update manifest; separate from Apple code signing")
     args = parser.parse_args()
     if args.sign_identity and sys.platform != "darwin":
         parser.error("Code signing requires macOS; cross-published Windows builds remain unsigned")
+    signing_key = args.update_signing_key
+    if signing_key is None and os.environ.get("SCRISELF_UPDATE_SIGNING_KEY_PATH"):
+        signing_key = Path(os.environ["SCRISELF_UPDATE_SIGNING_KEY_PATH"])
+    if signing_key is not None and not signing_key.is_file():
+        parser.error("The update signing key does not exist")
+    if signing_key is None and os.environ.get("LOCALAPPDATA"):
+        candidate = Path(os.environ["LOCALAPPDATA"]) / "ScriSelfStudioReleaseKeys/updates-rsa.pem"
+        if candidate.is_file():
+            signing_key = candidate
+    if signing_key is not None:
+        signing_key = signing_key.resolve()
     version = ET.parse(ROOT / "Directory.Build.props").findtext("./PropertyGroup/Version")
     if not version:
         raise ValueError("Missing application version in Directory.Build.props")
@@ -172,21 +211,12 @@ def main():
             encoding="utf-8")
         archive = output / f"{EXECUTABLE}-{version}-{runtime}.zip"
         write_archive(bundle, readme, archive)
-        digest = hashlib.file_digest(archive.open("rb"), "sha256").hexdigest() if sys.version_info >= (3, 11) else None
-        if digest is None:
-            with archive.open("rb") as source:
-                hasher = hashlib.sha256()
-                for chunk in iter(lambda: source.read(1024 * 1024), b""):
-                    hasher.update(chunk)
-                digest = hasher.hexdigest()
-        (output / f"latest-{runtime}.json").write_text(json.dumps({
-            "version": version, "file": archive.name, "runtime": runtime,
-            "notes": "Предварительная версия для macOS.",
-        }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        digest = write_update_manifest(archive, version, runtime, output, signing_key)
         (bundle.parent / "build-info.json").write_text(json.dumps({
             "version": version, "runtime": runtime, "built_on": sys.platform,
             "built_at_utc": timestamp, "signing": signing, "notarized": False,
             "macos_launch_verified": False, "archive_sha256": digest,
+            "update_manifest_signed": signing_key is not None,
         }, indent=2) + "\n", encoding="utf-8")
         print(f"macOS archive: {archive}", flush=True)
 

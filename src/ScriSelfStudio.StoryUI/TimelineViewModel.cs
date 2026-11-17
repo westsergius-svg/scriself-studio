@@ -232,7 +232,7 @@ public sealed partial class TimelineViewModel : ViewModelBase, IDisposable
             SelectedLine = null;
             Draft = new PlotLineDraft(Guid.Empty);
             SelectedStep = null;
-            _savedSignature = null;
+            _savedSignature = Signature(BuildDto());
         }
 
         OnPropertyChanged(nameof(HasProject));
@@ -296,7 +296,7 @@ public sealed partial class TimelineViewModel : ViewModelBase, IDisposable
     [RelayCommand]
     private async Task NewLineAsync(CancellationToken cancellationToken)
     {
-        await FlushDraftAsync(cancellationToken);
+        if (!(await FlushDraftAsync(cancellationToken)).IsSuccess) return;
         ClearMessages();
         IsHeaderEditing = false;
         SelectedLine = null;
@@ -307,6 +307,8 @@ public sealed partial class TimelineViewModel : ViewModelBase, IDisposable
         {
             ColorHex = StoryLabels.LineSwatches[PlotLines.Count % StoryLabels.LineSwatches.Count],
         };
+        _lineSceneIds = [];
+        _savedSignature = Signature(BuildDto());
         RebuildSwatches();
         SelectedStep = null;
         NotifyCommands();
@@ -615,24 +617,25 @@ public sealed partial class TimelineViewModel : ViewModelBase, IDisposable
     }
 
     /// <summary>Есть ли правки, которые ещё не записаны в проект.</summary>
-    public bool HasUnsavedDraft => CanPersist
-        && (Draft.IsNew || Signature(BuildDto()) != _savedSignature);
+    public bool HasUnsavedDraft => HasProject && Signature(BuildDto()) != _savedSignature;
 
     /// <summary>
     /// Фоновая фиксация линии без перечитывания выбранной строки: так клик по
     /// другой линии не теряет текст и не перетягивает выбор обратно.
     /// </summary>
-    public async Task FlushDraftAsync(CancellationToken cancellationToken = default)
+    public async Task<Result> FlushDraftAsync(CancellationToken cancellationToken = default)
     {
+        if (!HasUnsavedDraft) return Result.Success;
         if (!CanPersist)
         {
-            return;
+            return Result.FromError(ErrorCode.ValidationFailed, "Укажите название сюжетной линии, чтобы сохранить черновик.");
         }
 
+        var draft = Draft;
         var dto = BuildDto();
         if (dto.Id != Guid.Empty && Signature(dto) == _savedSignature)
         {
-            return;
+            return Result.Success;
         }
 
         var result = await _architecture.SavePlotLineAsync(dto, cancellationToken);
@@ -641,7 +644,7 @@ public sealed partial class TimelineViewModel : ViewModelBase, IDisposable
             ErrorMessage = result.Error!.SuggestedAction is null
                 ? result.Error.UserMessage
                 : $"{result.Error.UserMessage} {result.Error.SuggestedAction}";
-            return;
+            return Result.Failure(result.Error!);
         }
 
         var saved = result.Value?.PlotLines.FirstOrDefault(line =>
@@ -650,14 +653,24 @@ public sealed partial class TimelineViewModel : ViewModelBase, IDisposable
                 : line.Id == dto.Id);
         if (saved is null)
         {
-            return;
+            return Result.FromError(ErrorCode.EntityNotFound, "Сохранённая сюжетная линия не найдена. Черновик оставлен открытым.");
         }
 
         UpdateListItem(saved);
-        if (dto.Id != Guid.Empty && Draft.Id == saved.Id)
+        if (ReferenceEquals(Draft, draft))
         {
-            _savedSignature = Signature(saved);
+            if (Signature(BuildDto()) == Signature(dto))
+            {
+                // LoadDraft сохраняет подпись UI-снимка вместе с новыми ID этапов.
+                LoadDraft(saved.Id, SelectedStep?.Id, preserveStepState: true);
+            }
+            else
+            {
+                _savedSignature = Signature(saved);
+            }
         }
+        ErrorMessage = null;
+        return Result.Success;
     }
 
     /// <summary>

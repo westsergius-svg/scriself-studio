@@ -37,6 +37,9 @@ public sealed record ProjectLoadResult
     public required IReadOnlyList<string> Warnings { get; init; }
 }
 
+/// <summary>Отпечаток файла, на основе которого открыта или сохраняется книга.</summary>
+public sealed record ProjectFileVersion(bool Exists, string? Sha256);
+
 /// <summary>Запрос сохранения проекта (ТЗ п. 13, 23).</summary>
 public sealed record ProjectSaveRequest
 {
@@ -45,6 +48,9 @@ public sealed record ProjectSaveRequest
     public required string FilePath { get; init; }
 
     public required bool CreateBackup { get; init; }
+
+    /// <summary>При наличии несовпадение запрещает замену изменённого извне файла.</summary>
+    public ProjectFileVersion? ExpectedFileVersion { get; init; }
 }
 
 /// <summary>

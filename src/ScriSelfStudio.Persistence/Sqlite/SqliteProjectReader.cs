@@ -186,7 +186,12 @@ internal static class SqliteProjectReader
         while (reader.Read())
         {
             var row = new RowReader(reader);
-            var document = Deserialize(row.GetString("document_json"), CoreJsonContext.Default.RichDocument);
+            RichDocument? document;
+            try { document = Deserialize(row.GetString("document_json"), CoreJsonContext.Default.RichDocument); }
+            catch (JsonException error)
+            {
+                throw new InvalidDataException($"Повреждён JSON документа сцены {row.GetGuid("scene_id")}. Откройте резервную копию файла.", error);
+            }
             if (document is not null)
             {
                 ReviewEditing.Validate(document);

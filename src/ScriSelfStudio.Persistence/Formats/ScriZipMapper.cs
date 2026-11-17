@@ -170,6 +170,8 @@ public static class ScriZipMapper
         // остаются перенесённые из старого формата данные (ТЗ п. 5, 27; ADR 010).
         ApplyScriSelfExtras(project, content);
 
+        ValidateSceneIds([.. OrderedScenes(project)]);
+
         // Документы сцен перекрывают текст, разобранный из плоского поля `text`.
         ApplySceneDocuments(project, content);
         ApplySceneVersions(project, content);
@@ -192,6 +194,16 @@ public static class ScriZipMapper
 
         // Узлы клонируются: узел JSON имеет одного родителя, а мы пересобираем массивы.
         var legacyChapters = CloneObjects(content["chapters"] as JsonArray);
+        var activeScenes = OrderedScenes(project).ToArray();
+        ValidateSceneIds(activeScenes);
+        var reservedSceneIds = new HashSet<string>(activeScenes.Select(scene => scene.SourceId)
+            .OfType<string>().Concat(legacyChapters.SelectMany(chapter => CloneObjects(chapter["scenes"] as JsonArray))
+                .Select(scene => Text(scene, "id")).OfType<string>()), StringComparer.Ordinal);
+        var assignedSceneIds = new HashSet<string>(StringComparer.Ordinal);
+        var reservedChapterIds = new HashSet<string>(legacyChapters.Select(chapter => Text(chapter, "id"))
+            .OfType<string>().Concat(project.EnumerateSeries().SelectMany(series => series.Books)
+                .SelectMany(book => book.Chapters).Select(chapter => chapter.SourceId).OfType<string>()), StringComparer.Ordinal);
+        var assignedChapterIds = new HashSet<string>(StringComparer.Ordinal);
         var legacyBook = content["book"] as JsonObject;
         var bookTitle = project.EnumerateSeries()
             .SelectMany(series => series.Books)
@@ -211,7 +223,15 @@ public static class ScriZipMapper
         {
             chapterNumber++;
             var legacyChapter = FindBySourceId(legacyChapters, chapter.SourceId)
-                ?? new JsonObject { ["id"] = NewId("chapter", chapterNumber) };
+                ?? new JsonObject();
+            var chapterId = chapter.SourceId;
+            if (string.IsNullOrWhiteSpace(chapterId) || !assignedChapterIds.Add(chapterId))
+            {
+                chapterId = AllocateLegacyId("chapter", chapter.Id, reservedChapterIds);
+                assignedChapterIds.Add(chapterId);
+            }
+            chapter.SourceId = chapterId;
+            legacyChapter["id"] = chapterId;
 
             legacyChapter["title"] = chapter.Title;
             legacyChapter["number"] ??= chapterNumber;
@@ -229,12 +249,18 @@ public static class ScriZipMapper
             }
 
             var scenes = new JsonArray();
-            var sceneNumber = 0;
             foreach (var scene in chapter.Scenes.Where(scene => !scene.IsDeleted))
             {
-                sceneNumber++;
-                var legacyScene = FindBySourceId(legacyScenes, scene.SourceId)
-                    ?? new JsonObject { ["id"] = NewId("scene", sceneNumber) };
+                var legacyScene = legacyScenes.FirstOrDefault(node => Text(node, "scriselfId") == scene.Id.ToString())
+                    ?? FindBySourceId(legacyScenes, scene.SourceId) ?? new JsonObject();
+                var sceneId = scene.SourceId;
+                if (string.IsNullOrWhiteSpace(sceneId) || !assignedSceneIds.Add(sceneId))
+                {
+                    sceneId = AllocateLegacyId("scene", scene.Id, reservedSceneIds);
+                    assignedSceneIds.Add(sceneId);
+                }
+                scene.SourceId = sceneId;
+                legacyScene["id"] = sceneId;
 
                 legacyScene["title"] = scene.Title;
                 legacyScene["text"] = scene.Document.ToPlainText();
@@ -244,10 +270,6 @@ public static class ScriZipMapper
                     .Select(id => (JsonNode?)JsonValue.Create(id.ToString())).ToArray());
                 scenes.Add(legacyScene);
 
-                // Сцена без старого идентификатора получает его здесь. Пока SourceId
-                // пуст, при следующем открытии она получила бы новый Guid, и документ
-                // со стилом не нашёлся бы по ключу в разделе `scriself`.
-                scene.SourceId ??= NullIfEmpty(Text(legacyScene, "id"));
             }
 
             legacyChapter["scenes"] = scenes;
@@ -609,34 +631,40 @@ public static class ScriZipMapper
             ["objects"] = ToNode(
                 [.. project.StoryObjects.Where(item => !item.IsDeleted)],
                 CoreJsonContext.Default.ListStoryObject),
-            ["documents"] = WriteSceneDocuments(project),
-            ["sceneVersions"] = WriteSceneVersions(project),
+            // Прежние ключи остаются для Studio 1.2.0 и старых читателей ZIP.
+            ["documents"] = WriteSceneDocuments(project, canonical: false),
+            ["sceneVersions"] = WriteSceneVersions(project, canonical: false),
+            ["documentsBySceneId"] = WriteSceneDocuments(project, canonical: true),
+            ["sceneVersionsBySceneId"] = WriteSceneVersions(project, canonical: true),
         };
     }
 
     /// <summary>
-    /// Ключ документа сцены в разделе <c>scriself</c>. У старых сцен он уже есть
-    /// в <c>id</c>, а наш <c>Guid</c> при каждом открытии новый, поэтому ключом
-    /// служит старый идентификатор: он переживает переоткрытие файла.
+    /// Канонический ключ сохраняется в scriselfId и не зависит от главы или legacy-ID.
     /// </summary>
-    private static string DocumentKey(Scene scene) => scene.SourceId ?? scene.Id.ToString();
+    private static string DocumentKey(Scene scene) => scene.Id.ToString();
 
-    private static JsonObject WriteSceneVersions(Project project)
+    private static string LegacyDocumentKey(Scene scene) => scene.SourceId ?? DocumentKey(scene);
+
+    private static JsonObject WriteSceneVersions(Project project, bool canonical)
     {
         var versions = new JsonObject();
         foreach (var scene in OrderedScenes(project).Where(scene => scene.Versions.Count > 0))
-            versions[DocumentKey(scene)] = JsonSerializer.SerializeToNode(scene.Versions, CoreJsonContext.Default.ListSceneVersion);
+            versions[canonical ? DocumentKey(scene) : LegacyDocumentKey(scene)] = JsonSerializer.SerializeToNode(scene.Versions, CoreJsonContext.Default.ListSceneVersion);
         return versions;
     }
 
     private static void ApplySceneVersions(Project project, JsonObject content)
     {
-        var node = content[ExtrasKey]?["sceneVersions"];
-        if (node is null) return;
-        if (node is not JsonObject versions) throw new System.IO.InvalidDataException("Повреждён раздел истории сцен.");
-        foreach (var scene in OrderedScenes(project))
+        var extras = content[ExtrasKey] as JsonObject;
+        if (extras is null) return;
+        var versions = OptionalObject(extras, "sceneVersions");
+        var canonical = OptionalObject(extras, "sceneVersionsBySceneId");
+        var scenes = OrderedScenes(project).ToArray();
+        var counts = LegacyIdCounts(scenes);
+        foreach (var scene in scenes)
         {
-            if (versions[DocumentKey(scene)] is not { } saved) continue;
+            if (ScenePayload(scene, canonical, versions, counts) is not { } saved) continue;
             var items = JsonSerializer.Deserialize(saved.ToJsonString(), CoreJsonContext.Default.ListSceneVersion);
             if (items is null || items.Any(v => v is null || v.Document is null || v.Id == Guid.Empty || string.IsNullOrWhiteSpace(v.Name))
                 || items.Select(v => v.Id).Distinct().Count() != items.Count)
@@ -650,12 +678,12 @@ public static class ScriZipMapper
     /// Документы сцен. Ключ не привязан к порядку, поэтому раздел не расходится
     /// с порядком сцен в <c>content.json</c>.
     /// </summary>
-    private static JsonObject WriteSceneDocuments(Project project)
+    private static JsonObject WriteSceneDocuments(Project project, bool canonical)
     {
         var documents = new JsonObject();
         foreach (var scene in OrderedScenes(project))
         {
-            documents[DocumentKey(scene)] = JsonNode.Parse(
+            documents[canonical ? DocumentKey(scene) : LegacyDocumentKey(scene)] = JsonNode.Parse(
                 JsonSerializer.Serialize(scene.Document, CoreJsonContext.Default.RichDocument));
         }
 
@@ -668,25 +696,23 @@ public static class ScriZipMapper
     /// </summary>
     private static void ApplySceneDocuments(Project project, JsonObject content)
     {
-        if (content[ExtrasKey] is not JsonObject extras
-            || extras["documents"] is not JsonObject documents)
-        {
-            return;
-        }
+        if (content[ExtrasKey] is not JsonObject extras) return;
+        var documents = extras["documents"] as JsonObject;
+        var canonical = OptionalObject(extras, "documentsBySceneId");
+        var scenes = OrderedScenes(project).ToArray();
+        var counts = LegacyIdCounts(scenes);
 
-        foreach (var scene in OrderedScenes(project))
+        foreach (var scene in scenes)
         {
-            if (documents[DocumentKey(scene)] is not JsonNode node)
-            {
-                continue;
-            }
+            if (ScenePayload(scene, canonical, documents, counts) is not { } node) continue;
+            var canonicalDocument = canonical?.ContainsKey(DocumentKey(scene)) == true;
 
             RichDocument? document;
             try
             {
                 document = JsonSerializer.Deserialize(node.ToJsonString(), CoreJsonContext.Default.RichDocument);
             }
-            catch (JsonException) when (node is not JsonObject objectNode || objectNode["review"] is null)
+            catch (JsonException) when (!canonicalDocument && (node is not JsonObject objectNode || objectNode["review"] is null))
             {
                 // Повреждённый документ не должен отменять открытие проекта: текст
                 // из плоского поля уже загружен, теряется только оформление.
@@ -699,11 +725,48 @@ public static class ScriZipMapper
             }
 
             ReviewEditing.Validate(document);
-            if (document.IsEmpty() && !document.Review.TrackChanges && document.Review.Comments.Count == 0 && document.Review.Changes.Count == 0)
+            if (!canonicalDocument && document.IsEmpty() && !document.Review.TrackChanges && document.Review.Comments.Count == 0 && document.Review.Changes.Count == 0)
                 continue;
             scene.Document = document;
             scene.Words = WordCounting.Count(document);
         }
+    }
+
+    private static JsonObject? OptionalObject(JsonObject extras, string key)
+    {
+        if (extras[key] is null) return null;
+        return extras[key] as JsonObject ?? throw new System.IO.InvalidDataException($"Повреждён раздел {key}.");
+    }
+
+    private static Dictionary<string, int> LegacyIdCounts(IEnumerable<Scene> scenes) =>
+        scenes.Where(scene => scene.SourceId is not null).GroupBy(scene => scene.SourceId!, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.Count(), StringComparer.Ordinal);
+
+    private static JsonNode? ScenePayload(Scene scene, JsonObject? canonical, JsonObject? legacy,
+        IReadOnlyDictionary<string, int> counts)
+    {
+        if (canonical?.ContainsKey(DocumentKey(scene)) == true) return canonical[DocumentKey(scene)]
+            ?? throw new System.IO.InvalidDataException("Отсутствует канонический документ сцены.");
+        var key = LegacyDocumentKey(scene);
+        if (legacy?[key] is not { } payload) return null;
+        if (scene.SourceId is { } sourceId && counts.TryGetValue(sourceId, out var count) && count > 1)
+            throw new System.IO.InvalidDataException($"Идентификатор {sourceId} относится к нескольким сценам. "
+                + "Однозначно сопоставить текст или версии невозможно; откройте резервную копию проекта.");
+        return payload;
+    }
+
+    private static void ValidateSceneIds(IReadOnlyCollection<Scene> scenes)
+    {
+        if (scenes.Any(scene => scene.Id == Guid.Empty) || scenes.Select(scene => scene.Id).Distinct().Count() != scenes.Count)
+            throw new System.IO.InvalidDataException("Несколько сцен имеют один scriselfId. Откройте резервную копию проекта.");
+    }
+
+    private static string AllocateLegacyId(string prefix, Guid id, HashSet<string> reserved)
+    {
+        var candidate = $"{prefix}_{id:N}";
+        var suffix = 1;
+        while (!reserved.Add(candidate)) candidate = $"{prefix}_{id:N}_{suffix++}";
+        return candidate;
     }
 
     private static List<T>? ReadList<T>(JsonArray? array, JsonTypeInfo<List<T>> typeInfo) =>

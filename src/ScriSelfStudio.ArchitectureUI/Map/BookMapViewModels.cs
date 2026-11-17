@@ -108,6 +108,12 @@ public sealed partial class BookMapColumnViewModel : ObservableObject
     private double _width;
 
     [ObservableProperty]
+    private double _slotWidth;
+
+    [ObservableProperty]
+    private BookMapSceneViewModel? _selectedScene;
+
+    [ObservableProperty]
     private bool _isActive;
 
     public BookMapColumnViewModel(
@@ -176,10 +182,19 @@ public sealed partial class BookMapColumnViewModel : ObservableObject
     public ObservableCollection<BookMapSceneViewModel> Scenes { get; } = [];
 
     /// <summary>Позиция и ширина из раскладки: одна ширина на все столбцы (ТЗ п. 27).</summary>
-    public void ApplyGeometry(BookMapColumnGeometry geometry)
+    public void ApplyGeometry(BookMapColumnGeometry geometry, double gap = 0)
     {
         X = geometry.X;
         Width = geometry.Width;
+        SlotWidth = geometry.Width + gap;
+    }
+
+    partial void OnSelectedSceneChanged(BookMapSceneViewModel? value)
+    {
+        if (value is not null && !value.IsSelected && SelectCommand.CanExecute(value.Node))
+        {
+            SelectCommand.Execute(value.Node);
+        }
     }
 }
 

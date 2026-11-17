@@ -199,10 +199,11 @@ public sealed partial class CharactersViewModel : ViewModelBase, IDisposable
     [RelayCommand]
     private async Task NewCharacterAsync(CancellationToken cancellationToken)
     {
-        await FlushDraftAsync(cancellationToken);
+        if (!(await FlushDraftAsync(cancellationToken)).IsSuccess) return;
         ClearMessages();
         Selected = null;
         Draft = CharacterDraft.New();
+        _savedSignature = Signature(Draft.ToDto());
         NotifyCommands();
     }
 
@@ -251,24 +252,25 @@ public sealed partial class CharactersViewModel : ViewModelBase, IDisposable
         PersistDraftAsync(selectSaved: true, showErrors: false, announce: false, cancellationToken);
 
     /// <summary>Есть ли правки, которые ещё не записаны в проект.</summary>
-    public bool HasUnsavedDraft => !string.IsNullOrWhiteSpace(Draft.Name)
-        && (Draft.IsNew || Signature(Draft.ToDto()) != _savedSignature);
+    public bool HasUnsavedDraft => HasProject && Signature(Draft.ToDto()) != _savedSignature;
 
     /// <summary>
     /// Фоновая фиксация черновика без перечитывания выбранной карточки:
     /// применяется перед переключением на другого персонажа и при выходе.
     /// </summary>
-    public async Task FlushDraftAsync(CancellationToken cancellationToken = default)
+    public async Task<Result> FlushDraftAsync(CancellationToken cancellationToken = default)
     {
+        if (!HasUnsavedDraft) return Result.Success;
         if (string.IsNullOrWhiteSpace(Draft.Name))
         {
-            return;
+            return Result.FromError(ErrorCode.ValidationFailed, "Укажите имя персонажа, чтобы сохранить черновик карточки.");
         }
 
+        var draft = Draft;
         var dto = Draft.ToDto();
         if (!Draft.IsNew && Signature(dto) == _savedSignature)
         {
-            return;
+            return Result.Success;
         }
 
         var result = await _architecture.SaveCharacterAsync(dto, cancellationToken);
@@ -277,21 +279,29 @@ public sealed partial class CharactersViewModel : ViewModelBase, IDisposable
             ErrorMessage = result.Error!.SuggestedAction is null
                 ? Loc.T(result.Error.UserMessage)
                 : $"{Loc.T(result.Error.UserMessage)} {Loc.T(result.Error.SuggestedAction)}";
-            return;
+            return Result.Failure(result.Error!);
         }
 
         var saved = result.Require().Characters.FirstOrDefault(character =>
             dto.Id == Guid.Empty ? character.Name == dto.Name : character.Id == dto.Id);
         if (saved is null)
         {
-            return;
+            return Result.FromError(ErrorCode.EntityNotFound, "Сохранённая карточка персонажа не найдена. Черновик оставлен открытым.");
         }
 
         UpdateListItem(saved);
-        if (dto.Id != Guid.Empty && Draft.Id == saved.Id)
+        if (ReferenceEquals(Draft, draft))
         {
-            _savedSignature = Signature(saved);
+            if (dto.Id == Guid.Empty)
+            {
+                Draft = CharacterDraft.From(Signature(Draft.ToDto()) == Signature(dto)
+                    ? saved : Draft.ToDto() with { Id = saved.Id }, CharacterChoices);
+            }
+            // Сравниваем в той же форме, которую умеет представлять черновик.
+            _savedSignature = Signature(CharacterDraft.From(saved, CharacterChoices).ToDto());
         }
+        ErrorMessage = null;
+        return Result.Success;
     }
 
     private async Task<bool> PersistDraftAsync(

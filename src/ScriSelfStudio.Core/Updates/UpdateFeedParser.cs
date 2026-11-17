@@ -48,7 +48,11 @@ public static class UpdateFeedParser
         var parts = new List<int>();
         foreach (var part in match.Groups[1].Value.Split('.'))
         {
-            parts.Add(int.Parse(part, CultureInfo.InvariantCulture));
+            if (!int.TryParse(part, NumberStyles.None, CultureInfo.InvariantCulture, out var number))
+            {
+                return [];
+            }
+            parts.Add(number);
         }
 
         return parts;
@@ -116,7 +120,11 @@ public static class UpdateFeedParser
             fileName,
             JoinUrl(baseUrl, fileName),
             ReadString(root, "notes") ?? string.Empty,
-            "manifest");
+            "manifest")
+        {
+            Sha256 = ReadString(root, "sha256"),
+            Signature = ReadString(root, "signature"),
+        };
     }
 
     /// <summary>
@@ -151,11 +159,18 @@ public static class UpdateFeedParser
                 continue;
             }
 
+            var downloadUrl = JoinUrl(baseUrl, name);
+            if (href.Contains("://", StringComparison.Ordinal)
+                && (!Uri.TryCreate(href, UriKind.Absolute, out var linkedUrl)
+                    || !Uri.TryCreate(downloadUrl, UriKind.Absolute, out var channelUrl) || linkedUrl != channelUrl))
+            {
+                continue;
+            }
             results.Add(new UpdateInfo(
                 version,
                 string.Join('.', version),
                 name,
-                href.Contains("://", StringComparison.Ordinal) ? href : JoinUrl(baseUrl, name),
+                downloadUrl,
                 string.Empty,
                 "listing"));
         }

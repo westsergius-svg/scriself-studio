@@ -5,80 +5,139 @@
              xmlns:views="using:ScriSelfStudio.App.Views"
              x:Class="ScriSelfStudio.App.Views.ExportView"
              x:DataType="export:ExportViewModel">
-  <Grid RowDefinitions="Auto,*" Margin="{DynamicResource WorkspaceOuterMargin}">
+  <UserControl.Resources>
+    <views:VisibleColumnConverter x:Key="PreviewColumn" Width="1.4*" MinWidth="140" />
+    <views:VisibleColumnConverter x:Key="PreviewSplitterColumn" Width="6" />
+    <DataTemplate x:Key="ExportPreviewTemplate" DataType="export:ExportViewModel">
+      <Border Background="White" CornerRadius="8" Padding="16" BoxShadow="0 4 12 #15000000">
+        <Grid RowDefinitions="*,Auto">
+          <ListBox x:Name="ExportPreviewBlocks" ItemsSource="{Binding PreviewBlocks}"
+                   Background="Transparent" BorderThickness="0" Padding="0" Focusable="False"
+                   ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Auto">
+            <ListBox.Styles>
+              <Style Selector="ListBoxItem">
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="Margin" Value="0,0,0,12" />
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                <Setter Property="Focusable" Value="False" />
+                <Setter Property="Theme" Value="{x:Null}" />
+                <Setter Property="Template">
+                  <ControlTemplate><ContentPresenter Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" /></ControlTemplate>
+                </Setter>
+              </Style>
+            </ListBox.Styles>
+            <ListBox.ItemTemplate>
+              <DataTemplate DataType="export:ExportPreviewBlock">
+                <views:ExportPreviewText Block="{Binding}" TextWrapping="Wrap" Foreground="#1F2937" />
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+          <TextBlock Grid.Row="1" Text="{Binding PreviewPageCounter}" FontSize="11" Foreground="#6B7280"
+                     TextWrapping="Wrap" TextAlignment="Center" Margin="0,12,0,0" />
+        </Grid>
+      </Border>
+    </DataTemplate>
+  </UserControl.Resources>
+  <Grid RowDefinitions="Auto,Auto,*" Margin="{DynamicResource WorkspaceOuterMargin}"
+        Container.Name="export" Container.Sizing="Width">
+    <Grid.Styles>
+      <Style Selector="Expander#ExportCompactPreview">
+        <Setter Property="IsVisible" Value="False" />
+      </Style>
+      <ContainerQuery Name="export" Query="max-width:1000">
+        <Style Selector="Border#ExportPreviewPane">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="Expander#ExportCompactPreview">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="Button#ExportPreviewButton">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+      </ContainerQuery>
+    </Grid.Styles>
     <!-- Шапка -->
-    <StackPanel Grid.Row="0" Margin="0,0,0,20">
+    <StackPanel Grid.Row="0" Margin="0,0,0,12">
       <TextBlock Text="{loc:Tr 'Экспорт'}" FontSize="24" FontWeight="Bold" Foreground="{DynamicResource HeadingBrush}" />
-      <TextBlock Text="{loc:Tr 'Выберите формат и настройки для экспорта вашей книги'}" FontSize="14" Foreground="{DynamicResource SidebarSubTextBrush}" Margin="0,4,0,0" />
+      <TextBlock Text="{loc:Tr 'Выберите формат и настройки для экспорта вашей книги'}" FontSize="14" Foreground="{DynamicResource SidebarSubTextBrush}" Margin="0,4,0,0" TextWrapping="Wrap" />
     </StackPanel>
 
     <!-- Сообщения -->
-    <StackPanel Grid.Row="0" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="0,0,0,0" Spacing="8">
+    <StackPanel Grid.Row="1" Spacing="8">
       <Border IsVisible="{Binding HasStatus}" Background="#ECFDF5" BorderBrush="#10B981" BorderThickness="1" CornerRadius="6" Padding="12,6">
-        <TextBlock Text="{Binding StatusMessage}" Foreground="#065F46" />
+        <TextBlock Text="{Binding StatusMessage}" Foreground="#065F46" TextWrapping="Wrap" />
       </Border>
       <Border IsVisible="{Binding HasError}" Background="#FEE2E2" BorderBrush="#EF4444" BorderThickness="1" CornerRadius="6" Padding="12,6">
-        <TextBlock Text="{Binding ErrorMessage}" Foreground="{DynamicResource DangerTextBrush}" />
+        <TextBlock Text="{Binding ErrorMessage}" Foreground="{DynamicResource DangerTextBrush}" TextWrapping="Wrap" />
       </Border>
     </StackPanel>
 
     <!-- Контент экспорта -->
-    <Grid Grid.Row="1" Margin="0" x:Name="ExportWorkspace">
+    <Grid Grid.Row="2" Margin="0" x:Name="ExportWorkspace">
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="1.1*" MinWidth="120" />
+        <ColumnDefinition Width="1.1*" MinWidth="180" />
         <ColumnDefinition Width="6" />
         <ColumnDefinition Width="2.6*" MinWidth="200" />
-        <ColumnDefinition Width="6" />
-        <ColumnDefinition Width="1.4*" MinWidth="140" />
+        <ColumnDefinition Width="{Binding #ExportPreviewPane.IsVisible, Converter={StaticResource PreviewSplitterColumn}}" />
+        <ColumnDefinition Width="{Binding #ExportPreviewPane.IsVisible, Converter={StaticResource PreviewColumn}}"
+                          MinWidth="{Binding #ExportPreviewPane.IsVisible, Converter={StaticResource PreviewColumn}}" />
       </Grid.ColumnDefinitions>
       <GridSplitter x:Name="ExportLeftSplitter" Grid.Column="1"
                     Classes="workspaceSplitter" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" KeyboardIncrement="10"
                     AutomationProperties.Name="{loc:Tr 'Изменить ширину левой панели'}" ToolTip.Tip="{loc:Tr 'Изменить ширину левой панели'}" />
       <GridSplitter x:Name="ExportRightSplitter" Grid.Column="3"
+                    IsVisible="{Binding #ExportPreviewPane.IsVisible}"
                     Classes="workspaceSplitter" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" KeyboardIncrement="10"
                     AutomationProperties.Name="{loc:Tr 'Изменить ширину правой панели'}" ToolTip.Tip="{loc:Tr 'Изменить ширину правой панели'}" />
       <!-- 1. Формат (Левая колонка) -->
       <Border Grid.Column="0" Background="{DynamicResource SurfaceCardBrush}"
               BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="1"
-              CornerRadius="{DynamicResource WorkspacePanelRadius}" Padding="16" Margin="0,0,16,0">
-        <StackPanel Spacing="12">
-          <TextBlock Text="{loc:Tr 'Формат'}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource SidebarTextBrush}" Margin="0,0,0,4" />
-          <ListBox ItemsSource="{Binding Formats}" SelectedItem="{Binding SelectedFormat}"
-                   Background="Transparent" BorderThickness="0">
+              CornerRadius="{DynamicResource WorkspacePanelRadius}" Padding="10">
+        <Grid RowDefinitions="Auto,*">
+          <TextBlock Text="{loc:Tr 'Формат'}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource SidebarTextBrush}" Margin="0,0,0,12" />
+          <ListBox x:Name="ExportFormats" Grid.Row="1" ItemsSource="{Binding Formats}" SelectedItem="{Binding SelectedFormat}"
+                   Background="Transparent" BorderThickness="0"
+                   ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Auto">
+            <ListBox.Styles>
+              <Style Selector="ListBoxItem">
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+              </Style>
+            </ListBox.Styles>
             <ListBox.ItemTemplate>
               <DataTemplate DataType="export:ExportFormatOption">
-                <Border CornerRadius="10" Padding="12,10" Margin="0,2">
+                <Border CornerRadius="10" Padding="6,8" Margin="0,2">
                   <Grid ColumnDefinitions="Auto,*">
-                    <Border Grid.Column="0" Width="36" Height="36" CornerRadius="8" Background="#5B7BB2" Margin="0,0,12,0" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Border Grid.Column="0" Width="28" Height="28" CornerRadius="8" Background="#5B7BB2" Margin="0,0,8,0" HorizontalAlignment="Center" VerticalAlignment="Center">
                       <TextBlock Text="{Binding IconGlyph}" Foreground="White" FontWeight="Bold" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                      <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource HeadingBrush}" />
-                      <TextBlock Text="{Binding Description}" FontSize="12" Foreground="{DynamicResource SidebarSubTextBrush}" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource HeadingBrush}" TextWrapping="Wrap" />
+                      <TextBlock Text="{Binding Description}" FontSize="12" Foreground="{DynamicResource SidebarSubTextBrush}" TextWrapping="Wrap" />
                     </StackPanel>
                   </Grid>
                 </Border>
               </DataTemplate>
             </ListBox.ItemTemplate>
           </ListBox>
-        </StackPanel>
+        </Grid>
       </Border>
 
       <!-- 2. Настройки экспорта (Средняя колонка) -->
-      <ScrollViewer Grid.Column="2" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+      <ScrollViewer x:Name="ExportSettingsScroll" Grid.Column="2" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
         <Border Background="{DynamicResource SurfaceCardBrush}"
                 BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="1"
-                CornerRadius="{DynamicResource WorkspacePanelRadius}" Padding="24" Margin="0,0,16,0">
+                CornerRadius="{DynamicResource WorkspacePanelRadius}" Padding="16">
           <StackPanel Spacing="20">
             <TextBlock Text="{Binding SettingsHeader}"
-                       FontSize="16" FontWeight="Bold" Foreground="{DynamicResource HeadingBrush}" />
+                       FontSize="16" FontWeight="Bold" Foreground="{DynamicResource HeadingBrush}" TextWrapping="Wrap" />
 
             <!-- Оформление -->
             <StackPanel Spacing="12">
               <TextBlock Text="{loc:Tr 'Оформление'}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource SidebarTextBrush}" />
               <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,*">
                 <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,8,8">
-                  <TextBlock Text="{loc:Tr 'Стиль документа'}" FontSize="12" Foreground="{DynamicResource SidebarSubTextBrush}" Margin="0,0,0,4" />
+                  <TextBlock Text="{loc:Tr 'Стиль документа'}" FontSize="12" Foreground="{DynamicResource SidebarSubTextBrush}" Margin="0,0,0,4" TextWrapping="Wrap" />
                   <ComboBox ItemsSource="{Binding DocumentStyles}" SelectedItem="{Binding SelectedDocumentStyle}" HorizontalAlignment="Stretch" />
                 </StackPanel>
                 <StackPanel Grid.Row="0" Grid.Column="1" Margin="8,0,0,8">
@@ -90,7 +149,7 @@
                   <ComboBox ItemsSource="{Binding Fonts}" SelectedItem="{Binding SelectedFont}" HorizontalAlignment="Stretch" />
                 </StackPanel>
                 <StackPanel Grid.Row="1" Grid.Column="1" Margin="8,8,0,0">
-                  <TextBlock Text="{loc:Tr 'Межстрочный интервал'}" FontSize="12" Foreground="{DynamicResource SidebarSubTextBrush}" Margin="0,0,0,4" />
+                  <TextBlock Text="{loc:Tr 'Межстрочный интервал'}" FontSize="12" Foreground="{DynamicResource SidebarSubTextBrush}" Margin="0,0,0,4" TextWrapping="Wrap" />
                   <ComboBox ItemsSource="{Binding LineSpacings}" SelectedItem="{Binding SelectedLineSpacing}" HorizontalAlignment="Stretch" />
                 </StackPanel>
               </Grid>
@@ -100,58 +159,39 @@
 
             <!-- Опции -->
             <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="*,*">
-              <CheckBox x:Name="IncludeTitlePageChoice" Grid.Row="0" Grid.Column="0" Content="{loc:Tr 'Включить титульный лист'}" IsChecked="{Binding IncludeTitlePage}" Margin="0,4" />
-              <CheckBox Grid.Row="0" Grid.Column="1" Content="{loc:Tr 'Нумерация страниц'}" IsChecked="{Binding PageNumbering}" Margin="0,4" />
-              <CheckBox Grid.Row="1" Grid.Column="0" Content="{loc:Tr 'Содержание'}" IsChecked="{Binding TableOfContents}" Margin="0,4" />
-              <CheckBox Grid.Row="2" Grid.Column="0" Content="{loc:Tr 'Сохранить форматирование'}" IsChecked="{Binding PreserveFormatting}" Margin="0,4" />
-              <CheckBox x:Name="IncludeSceneHeadingsChoice" Grid.Row="3" Grid.Column="0" Content="{loc:Tr 'Показывать заголовки сцен'}" IsChecked="{Binding IncludeSceneHeadings}" Margin="0,4" />
-              <CheckBox Grid.Row="3" Grid.Column="1" Content="{loc:Tr 'Добавить карточки персонажей'}" IsChecked="{Binding IncludeCharacterCards}" Margin="0,4" />
+              <CheckBox x:Name="IncludeTitlePageChoice" Grid.Row="0" Grid.Column="0" IsChecked="{Binding IncludeTitlePage}" Margin="0,4"><TextBlock Text="{loc:Tr 'Включить титульный лист'}" TextWrapping="Wrap" /></CheckBox>
+              <CheckBox Grid.Row="0" Grid.Column="1" IsChecked="{Binding PageNumbering}" Margin="0,4"><TextBlock Text="{loc:Tr 'Нумерация страниц'}" TextWrapping="Wrap" /></CheckBox>
+              <CheckBox Grid.Row="1" Grid.Column="0" IsChecked="{Binding TableOfContents}" Margin="0,4"><TextBlock Text="{loc:Tr 'Содержание'}" TextWrapping="Wrap" /></CheckBox>
+              <CheckBox Grid.Row="2" Grid.Column="0" IsChecked="{Binding PreserveFormatting}" Margin="0,4"><TextBlock Text="{loc:Tr 'Сохранить форматирование'}" TextWrapping="Wrap" /></CheckBox>
+              <CheckBox x:Name="IncludeSceneHeadingsChoice" Grid.Row="3" Grid.Column="0" IsChecked="{Binding IncludeSceneHeadings}" Margin="0,4"><TextBlock Text="{loc:Tr 'Показывать заголовки сцен'}" TextWrapping="Wrap" /></CheckBox>
+              <CheckBox Grid.Row="3" Grid.Column="1" IsChecked="{Binding IncludeCharacterCards}" Margin="0,4"><TextBlock Text="{loc:Tr 'Добавить карточки персонажей'}" TextWrapping="Wrap" /></CheckBox>
             </Grid>
 
             <Rectangle Height="1" Fill="{DynamicResource SurfaceBorderBrush}" Margin="0,4" />
 
+            <Expander x:Name="ExportCompactPreview" Header="{loc:Tr 'Предварительный просмотр'}"
+                      HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+              <ContentControl Height="300" Content="{Binding}" ContentTemplate="{StaticResource ExportPreviewTemplate}"
+                              HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
+            </Expander>
+
             <!-- Кнопки действий -->
-            <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,8,0,0">
-              <Button Grid.Column="1" Content="{loc:Tr '👁 Предпросмотр'}" Command="{Binding PreviewCommand}" Padding="12,8" Margin="0,0,8,0" />
-              <Button Grid.Column="2" Content="{loc:Tr '📥 Экспортировать'}" Command="{Binding ExportCommand}" Padding="16,8" Background="{DynamicResource AccentBrush}" Foreground="White" FontWeight="Bold" />
-            </Grid>
+            <WrapPanel HorizontalAlignment="Right" Margin="0,8,0,0">
+              <Button x:Name="ExportPreviewButton" Content="{loc:Tr '👁 Предпросмотр'}" Command="{Binding PreviewCommand}" Padding="12,8" Margin="0,0,8,8" />
+              <Button x:Name="ExportWriteButton" Content="{loc:Tr '📥 Экспортировать'}" Command="{Binding ExportCommand}" Padding="16,8" Margin="0,0,0,8" Background="{DynamicResource AccentBrush}" Foreground="White" FontWeight="Bold" />
+            </WrapPanel>
           </StackPanel>
         </Border>
       </ScrollViewer>
 
       <!-- 3. Предварительный просмотр (Правая колонка) -->
-      <Border Grid.Column="4" Background="{DynamicResource SurfaceCanvasBrush}"
+      <Border x:Name="ExportPreviewPane" Grid.Column="4" Background="{DynamicResource SurfaceCanvasBrush}"
               BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="1"
               CornerRadius="{DynamicResource WorkspacePanelRadius}" Padding="20">
         <Grid RowDefinitions="Auto,*">
           <TextBlock Grid.Row="0" Text="{loc:Tr 'Предварительный просмотр'}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource SidebarTextBrush}" Margin="0,0,0,16" />
-          <Border Grid.Row="1" Background="White" CornerRadius="8" Padding="24" BoxShadow="0 4 12 #15000000">
-            <Grid RowDefinitions="*,Auto" HorizontalAlignment="Stretch">
-              <ListBox x:Name="ExportPreviewBlocks" ItemsSource="{Binding PreviewBlocks}"
-                       Background="Transparent" BorderThickness="0" Padding="0" Focusable="False"
-                       ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Auto">
-                <ListBox.Styles>
-                  <Style Selector="ListBoxItem">
-                    <Setter Property="Padding" Value="0" />
-                    <Setter Property="Margin" Value="0,0,0,12" />
-                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                    <Setter Property="Focusable" Value="False" />
-                    <Setter Property="Theme" Value="{x:Null}" />
-                    <Setter Property="Template">
-                      <ControlTemplate><ContentPresenter Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" /></ControlTemplate>
-                    </Setter>
-                  </Style>
-                </ListBox.Styles>
-                <ListBox.ItemTemplate>
-                  <DataTemplate DataType="export:ExportPreviewBlock">
-                    <views:ExportPreviewText Block="{Binding}" TextWrapping="Wrap" Foreground="#1F2937" />
-                  </DataTemplate>
-                </ListBox.ItemTemplate>
-              </ListBox>
-              <TextBlock Grid.Row="1" Text="{Binding PreviewPageCounter}" FontSize="11" Foreground="#6B7280"
-                         TextWrapping="Wrap" TextAlignment="Center" Margin="0,16,0,0" />
-            </Grid>
-          </Border>
+          <ContentControl Grid.Row="1" Content="{Binding}" ContentTemplate="{StaticResource ExportPreviewTemplate}"
+                          HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
         </Grid>
       </Border>
     </Grid>

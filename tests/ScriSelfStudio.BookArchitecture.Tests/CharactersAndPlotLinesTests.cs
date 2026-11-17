@@ -14,7 +14,7 @@ using ScriSelfStudio.TestSupport;
 /// </summary>
 public sealed class CharactersAndPlotLinesTests
 {
-    private const string ProjectPath = @"C:\Проекты\Рукопись.scri";
+    private readonly string _projectPath = Path.Combine(Path.GetTempPath(), "ScriSelfStudioTests", Guid.NewGuid().ToString("N"), "Рукопись.scri");
 
     [Fact]
     public async Task New_arc_stage_descriptions_survive_first_save_and_project_reopen()
@@ -34,7 +34,7 @@ public sealed class CharactersAndPlotLinesTests
         Assert.True(updated.IsSuccess, updated.Error?.TechnicalDetails);
         Assert.True((await context.Projects.SaveAsync()).IsSuccess);
         Assert.True((await context.Projects.CloseAsync(discardChanges: true)).IsSuccess);
-        Assert.True((await context.Projects.OpenAsync(ProjectPath)).IsSuccess);
+        Assert.True((await context.Projects.OpenAsync(_projectPath)).IsSuccess);
 
         var saved = context.Architecture.GetCharacters().Single();
         Assert.Equal(new[] { "Учится доверять новому союзнику.", "Выбирает помощь друзьям." }, saved.ArcStages.Select(stage => stage.Description));
@@ -205,14 +205,14 @@ public sealed class CharactersAndPlotLinesTests
         Assert.Empty(context.Architecture.GetPlotLines()[0].Steps[0].Participants);
     }
 
-    private static async Task<TestContext> CreateContextAsync()
+    private async Task<TestContext> CreateContextAsync()
     {
         var clock = new FakeClock();
         var projects = new ProjectService(new InMemoryProjectStore(), new InMemoryRecoveryStore(clock), new EventBus(), clock);
         var architecture = new BookArchitectureService(projects, clock);
         var created = await projects.CreateAsync(new CreateProjectRequest
         {
-            FilePath = ProjectPath,
+            FilePath = _projectPath,
             Name = "Рукопись",
         });
 

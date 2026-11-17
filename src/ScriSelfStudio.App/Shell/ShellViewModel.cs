@@ -10,6 +10,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ScriSelfStudio.ArchitectureUI;
 using ScriSelfStudio.Contracts.Events;
+using ScriSelfStudio.Contracts.Errors;
 using ScriSelfStudio.Contracts.Navigation;
 using ScriSelfStudio.Contracts.Projects;
 using ScriSelfStudio.Contracts.Settings;
@@ -55,6 +56,8 @@ public sealed partial class ShellViewModel : ViewModelBase, IDisposable
     private readonly IThemeService _theme;
     private readonly ISystemClock _clock;
     private readonly IHelpService _help;
+    private readonly IWorkspaceSaveService _workspace;
+    private readonly IFileDialogService _dialogs;
     private readonly List<IDisposable> _subscriptions = [];
     private readonly DispatcherTimer _autosaveTimer;
 
@@ -104,7 +107,9 @@ public sealed partial class ShellViewModel : ViewModelBase, IDisposable
         SceneContextViewModel sceneContext,
         ArchitectureHostViewModel architectureHost,
         ISystemClock clock,
-        IHelpService help)
+        IHelpService help,
+        IWorkspaceSaveService workspace,
+        IFileDialogService dialogs)
     {
         _projects = projects;
         _launcher = launcher;
@@ -118,6 +123,8 @@ public sealed partial class ShellViewModel : ViewModelBase, IDisposable
         LocalizationManager.Instance.PropertyChanged += OnLanguageChanged;
         _clock = clock;
         _help = help;
+        _workspace = workspace;
+        _dialogs = dialogs;
         BookTree = bookTree;
         SceneContext = sceneContext;
         _architectureHost = architectureHost;
@@ -165,7 +172,9 @@ public sealed partial class ShellViewModel : ViewModelBase, IDisposable
         _subscriptions.Add(events.Subscribe<SaveCompleted>(_ =>
         {
             LastSavedAt = _clock.UtcNow;
-            StatusMessage = Loc.T("Проект сохранён.");
+            StatusMessage = _projects.IsDirty
+                ? Loc.T("Записана предыдущая ревизия. Новые правки ещё не сохранены.")
+                : Loc.T("Проект сохранён.");
             SaveCommand.NotifyCanExecuteChanged();
         }));
         _subscriptions.Add(events.Subscribe<SaveFailed>(eventArgs =>
@@ -536,57 +545,30 @@ public sealed partial class ShellViewModel : ViewModelBase, IDisposable
     }
 
     /// <summary>Есть ли правки, которые не дошли до проекта и могут потеряться при выходе.</summary>
-    public bool HasPendingEdits =>
-        _editor.IsDirty || SceneContext.HasPendingChanges || _architectureHost.HasPendingChanges;
+    public bool HasPendingEdits => _workspace.HasPendingEdits;
 
     /// <summary>
     /// Фиксирует текст сцены, контекст сцены и черновики вкладок архитектора,
     /// затем сохраняет проект. Вызывается при закрытии приложения.
     /// </summary>
-    public async Task FlushPendingEditsAsync(CancellationToken cancellationToken = default)
+    public async Task<Result> FlushPendingEditsAsync(CancellationToken cancellationToken = default)
     {
-        await _editor.FlushAsync(cancellationToken);
-        await SceneContext.FlushAsync(cancellationToken);
-        await _architectureHost.CommitPendingAsync(cancellationToken);
-
-        // Контекст сцены и карточки правят снимок проекта уже после сохранения
-        // редактора, поэтому финальную запись на диск делаем последней.
-        if (_projects.IsDirty)
-        {
-            var saved = await _projects.SaveAsync(cancellationToken);
-            if (!saved.IsSuccess)
-            {
-                return;
-            }
-        }
-
+        var saved = await _workspace.SaveAsync(cancellationToken);
+        if (!saved.IsSuccess) return saved;
         await _launcher.RefreshRecentProjectSummaryAsync(cancellationToken);
+        return Result.Success;
     }
 
     /// <summary>Сохранение из верхней строки или по Ctrl+S: сцена сохраняется вместе с проектом.</summary>
     [RelayCommand(CanExecute = nameof(IsProjectOpen))]
     private async Task SaveAsync(CancellationToken cancellationToken)
     {
-        if (_editor.IsSceneOpen)
+        var saved = await FlushPendingEditsAsync(cancellationToken);
+        StatusMessage = saved.IsSuccess ? Loc.T("Проект сохранён.") : saved.Error!.UserMessage;
+        RaiseShellState();
+        if (!saved.IsSuccess)
         {
-            // Команда сохранения редактора сама доносит отмену изменения в проект.
-            await _editor.SaveCommand.ExecuteAsync(null);
-        }
-        else
-        {
-            var result = await _projects.SaveAsync(cancellationToken);
-            // Ошибка отражается событием SaveFailed, строку состояния обновляет оболочка.
-            StatusMessage = result.IsSuccess ? Loc.T("Проект сохранён.") : result.Error?.UserMessage;
-            RaiseShellState();
-            if (!result.IsSuccess)
-            {
-                return;
-            }
-        }
-
-        if (!_projects.IsDirty)
-        {
-            await _launcher.RefreshRecentProjectSummaryAsync(cancellationToken);
+            await _dialogs.ShowErrorAsync(Loc.T("Ошибка сохранения"), saved.Error!.UserMessage, cancellationToken);
         }
     }
 

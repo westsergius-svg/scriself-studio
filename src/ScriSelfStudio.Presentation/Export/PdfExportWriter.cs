@@ -1,6 +1,8 @@
 namespace ScriSelfStudio.Presentation.Export;
 
 using System.Globalization;
+using System.Text;
+using System.Text.RegularExpressions;
 using PdfSharp.Drawing;
 using PdfSharp.Fonts;
 using PdfSharp.Pdf;
@@ -25,7 +27,7 @@ public static class PdfExportWriter
         document.Info.Creator = "ScriSelf Studio";
 
         var family = ResolveFont(options.FontFamily);
-        var layout = new PdfLayout(document, family, options);
+        using var layout = new PdfLayout(document, family, options);
 
         if (options.IncludeTitlePage)
         {
@@ -45,6 +47,7 @@ public static class PdfExportWriter
             layout.WriteHeading($"Глава {chapterNumber++}. {chapter.Title}", options.FontSize + 8);
             foreach (var scene in chapter.Scenes)
             {
+                layout.ResetListNumbering();
                 if (options.IncludeSceneHeadings)
                 {
                     layout.WriteHeading($"Сцена: {scene.Title}", options.FontSize + 2);
@@ -79,6 +82,7 @@ public static class PdfExportWriter
             layout.DrawPageNumbers(options.IncludeTitlePage);
         }
 
+        layout.Finish();
         document.Save(path);
     }
 
@@ -116,7 +120,7 @@ public static class PdfExportWriter
         _ => "Georgia",
     };
 
-    private sealed class PdfLayout
+    private sealed class PdfLayout : IDisposable
     {
         private readonly PdfDocument _document;
         private readonly string _family;
@@ -125,6 +129,8 @@ public static class PdfExportWriter
         private readonly double _contentWidth;
         private XGraphics? _graphics;
         private double _y;
+        private int _numberedItem;
+        private readonly Dictionary<(double Size, bool Bold, bool Italic), XFont> _fonts = [];
 
         public PdfLayout(PdfDocument document, string family, ExportOptions options)
         {
@@ -168,6 +174,7 @@ public static class PdfExportWriter
 
         public void WriteHeading(string text, double size)
         {
+            ResetListNumbering();
             EnsureSpace(size * 2.2);
             _y += size * 0.6;
             DrawLine(text, CreateFont(size, bold: true), TextAlignment.Center, PageMargin, size * 1.35);
@@ -178,12 +185,12 @@ public static class PdfExportWriter
         {
             var isHeading = paragraph.Kind == ExportBlockKind.Heading;
             var size = _options.FontSize + (isHeading ? 4 : 0);
-            var font = CreateFont(size, isHeading || IsMostlyBold(paragraph));
             var lineHeight = size * 1.2 * _options.LineSpacing;
+            _numberedItem = paragraph.Kind == ExportBlockKind.Numbered ? _numberedItem + 1 : 0;
             var prefix = paragraph.Kind switch
             {
                 ExportBlockKind.Bullet => "• ",
-                ExportBlockKind.Numbered => "1. ",
+                ExportBlockKind.Numbered => _numberedItem.ToString(CultureInfo.InvariantCulture) + ". ",
                 _ => string.Empty,
             };
             var textIndent = paragraph.Kind == ExportBlockKind.Quote ? 24 : indent;
@@ -191,15 +198,34 @@ public static class PdfExportWriter
                 ? TextAlignment.Center
                 : paragraph.Alignment;
 
-            var text = prefix + paragraph.PlainText;
-            foreach (var line in Wrap(text, font, _contentWidth - textIndent))
+            var marker = new StyledPiece(prefix, CreateFont(size), false, false);
+            var markerWidth = _measure.MeasureString(prefix, marker.Font).Width;
+            var contentWidth = _contentWidth - textIndent - markerWidth;
+            var firstLine = true;
+            foreach (var line in WrapRuns(paragraph.Runs, size, isHeading, contentWidth))
             {
                 EnsureSpace(lineHeight);
-                DrawLine(line, font, alignment, PageMargin + textIndent, lineHeight);
+                var x = PageMargin + textIndent + markerWidth;
+                if (firstLine && prefix.Length > 0 && alignment is TextAlignment.Center or TextAlignment.Right)
+                {
+                    DrawRichLine([marker, .. line.Pieces], alignment, PageMargin + textIndent,
+                        contentWidth + markerWidth, lineHeight, line.SoftBreak);
+                }
+                else
+                {
+                    if (firstLine && prefix.Length > 0)
+                    {
+                        DrawRichLine([marker], TextAlignment.Left, PageMargin + textIndent, markerWidth, lineHeight, false, advance: false);
+                    }
+                    DrawRichLine(line.Pieces, alignment, x, contentWidth, lineHeight, line.SoftBreak);
+                }
+                firstLine = false;
             }
 
             _y += lineHeight * 0.35;
         }
+
+        public void ResetListNumbering() => _numberedItem = 0;
 
         public void StartNewPage()
         {
@@ -282,55 +308,172 @@ public static class PdfExportWriter
             _y += lineHeight;
         }
 
-        private IEnumerable<string> Wrap(string text, XFont font, double width)
+        private sealed record StyledPiece(string Text, XFont Font, bool Underline, bool Strikethrough);
+        private sealed record RichToken(IReadOnlyList<StyledPiece> Pieces, bool Space, bool NewLine = false);
+        private sealed record RichLine(IReadOnlyList<StyledPiece> Pieces, bool SoftBreak);
+
+        private double Measure(IEnumerable<StyledPiece> pieces) =>
+            pieces.Sum(piece => _measure.MeasureString(piece.Text, piece.Font).Width);
+
+        private static void Append(List<StyledPiece> destination, StyledPiece piece)
         {
-            foreach (var hardLine in text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n'))
+            if (piece.Text.Length == 0) { return; }
+            if (destination.Count > 0 && destination[^1] is var last
+                && ReferenceEquals(last.Font, piece.Font) && last.Underline == piece.Underline
+                && last.Strikethrough == piece.Strikethrough)
             {
-                if (hardLine.Length == 0)
+                destination[^1] = last with { Text = last.Text + piece.Text };
+            }
+            else { destination.Add(piece); }
+        }
+
+        private static void Append(List<StyledPiece> destination, IEnumerable<StyledPiece> pieces)
+        {
+            foreach (var piece in pieces) { Append(destination, piece); }
+        }
+
+        // Слово может пересекать границу начертаний; эта граница не является переносом.
+        private IEnumerable<RichToken> Tokens(IReadOnlyList<ExportRun> runs, double size, bool heading)
+        {
+            var pieces = new List<StyledPiece>();
+            bool? space = null;
+            foreach (var run in runs)
+            {
+                var font = CreateFont(size, heading || run.Bold, run.Italic);
+                var segment = new StringBuilder();
+                var elements = StringInfo.GetTextElementEnumerator(run.Text
+                    .Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n'));
+                while (elements.MoveNext())
                 {
-                    yield return string.Empty;
+                    var element = elements.GetTextElement();
+                    var isSpace = element is not "\u00A0" and not "\u202F" && char.IsWhiteSpace(element[0]);
+                    if (element == "\n" || (space.HasValue && space.Value != isSpace))
+                    {
+                        Append(pieces, new StyledPiece(segment.ToString(), font, run.Underline, run.Strikethrough));
+                        segment.Clear();
+                        if (pieces.Count > 0) { yield return new RichToken(pieces.ToArray(), space ?? false); }
+                        pieces.Clear();
+                        space = null;
+                    }
+                    if (element == "\n") { yield return new RichToken([], false, true); continue; }
+                    space = isSpace;
+                    segment.Append(element == "\t" ? "    " : element);
+                }
+                Append(pieces, new StyledPiece(segment.ToString(), font, run.Underline, run.Strikethrough));
+            }
+            if (pieces.Count > 0) { yield return new RichToken(pieces.ToArray(), space ?? false); }
+        }
+
+        private IEnumerable<RichLine> WrapRuns(IReadOnlyList<ExportRun> runs, double size, bool heading, double width)
+        {
+            var line = new List<StyledPiece>();
+            var spaces = new List<StyledPiece>();
+            var lineWidth = 0d;
+            foreach (var token in Tokens(runs, size, heading))
+            {
+                if (token.NewLine)
+                {
+                    Append(line, spaces);
+                    yield return new RichLine(line.ToArray(), false);
+                    line.Clear(); spaces.Clear(); lineWidth = 0;
+                    continue;
+                }
+                if (token.Space) { Append(spaces, token.Pieces); continue; }
+                var tokenWidth = Measure(token.Pieces);
+                if (line.Count > 0 && lineWidth + Measure(spaces) + tokenWidth > width)
+                {
+                    yield return new RichLine(line.ToArray(), true);
+                    line.Clear(); spaces.Clear(); lineWidth = 0;
+                }
+                Append(line, spaces); spaces.Clear();
+                lineWidth = Measure(line);
+                if (tokenWidth <= width)
+                {
+                    Append(line, token.Pieces);
+                    lineWidth = Measure(line);
                     continue;
                 }
 
-                var line = new System.Text.StringBuilder();
-                foreach (var word in hardLine.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+                // Длинные слова и китайский текст разбиваются по целым графемам.
+                foreach (var piece in token.Pieces)
                 {
-                    var candidate = line.Length == 0 ? word : line + " " + word;
-                    if (_measure.MeasureString(candidate, font).Width <= width || line.Length == 0)
+                    var elements = StringInfo.GetTextElementEnumerator(piece.Text);
+                    while (elements.MoveNext())
                     {
-                        line.Clear();
-                        line.Append(candidate);
-                        continue;
+                        var element = piece with { Text = elements.GetTextElement() };
+                        var elementWidth = Measure([element]);
+                        if (line.Count > 0 && lineWidth + elementWidth > width)
+                        {
+                            yield return new RichLine(line.ToArray(), true);
+                            line.Clear(); lineWidth = 0;
+                        }
+                        Append(line, element);
+                        lineWidth += elementWidth;
                     }
-
-                    yield return line.ToString();
-                    line.Clear();
-                    line.Append(word);
-                }
-
-                if (line.Length > 0)
-                {
-                    yield return line.ToString();
                 }
             }
+            Append(line, spaces);
+            yield return new RichLine(line.ToArray(), false);
         }
 
-        private XFont CreateFont(double size, bool bold = false)
+        private void DrawRichLine(IReadOnlyList<StyledPiece> pieces, TextAlignment alignment,
+            double x, double width, double lineHeight, bool softBreak, bool advance = true)
         {
-            var style = bold ? XFontStyleEx.Bold : XFontStyleEx.Regular;
+            StartPageIfNeeded();
+            var textWidth = Measure(pieces);
+            x += alignment switch
+            {
+                TextAlignment.Center => (width - textWidth) / 2,
+                TextAlignment.Right => width - textWidth,
+                _ => 0,
+            };
+            var ascent = pieces.Count == 0 ? _options.FontSize : pieces.Max(piece =>
+                piece.Font.GetHeight() * piece.Font.CellAscent / piece.Font.CellSpace);
+            var baseline = _y + ascent;
+            var justify = alignment == TextAlignment.Justify && softBreak;
+            var spaceCount = justify ? pieces.Sum(piece => piece.Text.Count(character => character == ' ')) : 0;
+            var extraSpace = spaceCount > 0 ? Math.Max(0, width - textWidth) / spaceCount : 0;
+            var drawingPieces = justify ? pieces.SelectMany(piece =>
+                Regex.Matches(piece.Text, " +|[^ ]+").Select(match => piece with { Text = match.Value })) : pieces;
+            foreach (var piece in drawingPieces)
+            {
+                var pieceWidth = _measure.MeasureString(piece.Text, piece.Font).Width
+                    + extraSpace * piece.Text.Count(character => character == ' ');
+                _graphics!.DrawString(piece.Text, piece.Font, XBrushes.Black, new XPoint(x, baseline), XStringFormats.BaseLineLeft);
+                var pen = new XPen(XColors.Black, Math.Max(0.5, piece.Font.Size / 16));
+                if (piece.Underline) { _graphics.DrawLine(pen, x, baseline + piece.Font.Size * 0.1, x + pieceWidth, baseline + piece.Font.Size * 0.1); }
+                if (piece.Strikethrough) { _graphics.DrawLine(pen, x, baseline - piece.Font.Size * 0.3, x + pieceWidth, baseline - piece.Font.Size * 0.3); }
+                x += pieceWidth;
+            }
+            if (advance) { _y += lineHeight; }
+        }
+
+        private XFont CreateFont(double size, bool bold = false, bool italic = false)
+        {
+            var key = (size, bold, italic);
+            if (_fonts.TryGetValue(key, out var cached)) { return cached; }
+            var style = (bold, italic) switch
+            {
+                (true, true) => XFontStyleEx.BoldItalic,
+                (true, false) => XFontStyleEx.Bold,
+                (false, true) => XFontStyleEx.Italic,
+                _ => XFontStyleEx.Regular,
+            };
+            XFont font;
             try
             {
                 // Unicode-кодировка добавляет ToUnicode-карту: текст в готовом PDF
                 // можно выделять и искать, а не только читать глазами.
-                return new XFont(_family, size, style, XPdfFontOptions.UnicodeDefault);
+                font = new XFont(_family, size, style, XPdfFontOptions.UnicodeDefault);
             }
             catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
             {
-                return new XFont("Arial", size, style, XPdfFontOptions.UnicodeDefault);
+                font = new XFont("Arial", size, style, XPdfFontOptions.UnicodeDefault);
             }
+            _fonts[key] = font;
+            return font;
         }
 
-        private static bool IsMostlyBold(ExportParagraph paragraph) =>
-            paragraph.Runs.Count > 0 && paragraph.Runs.All(run => run.Bold);
+        public void Dispose() { Finish(); _measure.Dispose(); }
     }
 }

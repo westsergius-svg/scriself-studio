@@ -435,7 +435,7 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
 
         for (var index = 0; index < MapColumns.Count; index++)
         {
-            MapColumns[index].ApplyGeometry(layout.Columns[index]);
+            MapColumns[index].ApplyGeometry(layout.Columns[index], index < MapColumns.Count - 1 ? options.Gap : 0);
         }
 
         MapColumnWidth = options.ColumnWidth;
@@ -443,9 +443,7 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
             ? 0d
             : layout.Columns[^1].X + layout.Columns[^1].Width + options.Gap;
         MapContentWidth = layout.ContentWidth;
-        MapBoardContentWidth = CanCreateChapterInBook
-            ? MapAddChapterX + MapColumnWidth
-            : layout.ContentWidth;
+        MapBoardContentWidth = layout.ContentWidth;
         MapFits = MapBoardContentWidth <= MapViewportWidth || MapBoardContentWidth == 0d;
         OnPropertyChanged(nameof(MapContentWidth));
         OnPropertyChanged(nameof(MapBoardContentWidth));
@@ -467,6 +465,7 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
             {
                 scene.IsSelected = Selected is { } selected && scene.Id == selected.Id;
             }
+            column.SelectedScene = column.Scenes.FirstOrDefault(scene => scene.IsSelected);
         }
 
         foreach (var overview in ChapterOverview)
@@ -598,6 +597,10 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
                 SaveSceneDescriptionAsync(scene.Id, description, cancellationToken),
             (notes, cancellationToken) =>
                 SaveSceneNotesAsync(scene.Id, notes, cancellationToken));
+        // Фиксация текста редактора и других панелей публикует ProjectChanged.
+        // При том же выборе это обновление не должно стирать черновик правой панели.
+        if (previous is { CanSaveDescription: true }) SceneDetails.Description = previous.Description;
+        if (previous is { CanSaveNotes: true }) SceneDetails.Notes = previous.Notes;
     }
 
     /// <summary>Персонажи сцены: участники этапов линий, привязанных к этой сцене.</summary>
@@ -1088,15 +1091,16 @@ public sealed partial class ArchitectureViewModel : ViewModelBase, IDisposable
     public bool HasSelection => Selected is not null;
 
     /// <summary>Остались ли правки правой панели, которые ещё не записаны.</summary>
-    public bool HasPendingChanges => SceneDetails is { CanSaveDescription: true };
+    public bool HasPendingChanges => SceneDetails is { } details && (details.CanSaveDescription || details.CanSaveNotes);
 
     /// <summary>Фиксирует описание сцены перед переключением экрана или выходом.</summary>
-    public async Task CommitPendingAsync(CancellationToken cancellationToken = default)
+    public async Task<Result> CommitPendingAsync(CancellationToken cancellationToken = default)
     {
-        if (SceneDetails is { CanSaveDescription: true } details)
+        if (SceneDetails is { } details)
         {
-            await details.SaveDescriptionCommand.ExecuteAsync(null);
+            return await details.CommitPendingAsync(cancellationToken);
         }
+        return Result.Success;
     }
 
     /// <summary>Книга создаётся в выбранной серии, иначе — в первой серии проекта.</summary>

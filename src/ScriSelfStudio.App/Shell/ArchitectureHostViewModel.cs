@@ -3,6 +3,7 @@ namespace ScriSelfStudio.App.Shell;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ScriSelfStudio.ArchitectureUI;
+using ScriSelfStudio.Contracts.Errors;
 using ScriSelfStudio.Contracts.Navigation;
 using ScriSelfStudio.Presentation;
 using ScriSelfStudio.StoryUI;
@@ -61,11 +62,13 @@ public sealed partial class ArchitectureHostViewModel : ViewModelBase
         _map.HasPendingChanges || _characters.HasUnsavedDraft || _lines.HasUnsavedDraft;
 
     /// <summary>Фиксирует правки всех вкладок архитектора перед выходом из приложения.</summary>
-    public async Task CommitPendingAsync(CancellationToken cancellationToken = default)
+    public async Task<Result> CommitPendingAsync(CancellationToken cancellationToken = default)
     {
-        await _map.CommitPendingAsync(cancellationToken);
-        await _characters.FlushDraftAsync(cancellationToken);
-        await _lines.FlushDraftAsync(cancellationToken);
+        var result = await _map.CommitPendingAsync(cancellationToken);
+        if (!result.IsSuccess) return result;
+        result = await _characters.FlushDraftAsync(cancellationToken);
+        if (!result.IsSuccess) return result;
+        return await _lines.FlushDraftAsync(cancellationToken);
     }
 
     /// <summary>Показывает вкладку без навигации: вызывается оболочкой при переходе.</summary>

@@ -22,6 +22,7 @@ public enum ErrorCode
     StorageWriteFailed = 32,
     BackupFailed = 33,
     RecoveryReadFailed = 34,
+    ProjectFileConflict = 35,
 
     EditorOperationFailed = 40,
     EditorOperationConflict = 41,

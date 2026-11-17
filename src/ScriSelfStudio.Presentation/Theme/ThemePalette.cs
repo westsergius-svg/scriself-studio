@@ -52,7 +52,7 @@ public sealed class ThemePalette
         "#252525", "#303030", "#191919",
         "#F5F5F5", "#202020", "#181818", "#D9D9D9",
         "#242424", "#6B6B6B", "#B7B7B7",
-        "#3785DB", "#FFFFFF",
+        "#2D73C2", "#FFFFFF",
         "#303030", "#252525", "#191919",
         "#EEEEEE", "#EEEEEE",
         "#384B60", "#E0E0E0", "#B7B7B7",
@@ -89,19 +89,19 @@ public sealed class ThemePalette
     [
         "#EAF2F8", "#F5F8FC", "#D9E5F0",
         "#F8FBFF", "#F3F7FB", "#D9E5F0", "#DDEAF7",
-        "#1F2B39", "#5E6F82", "#8493A5",
-        "#3B8AE5", "#FFFFFF",
+        "#1F2B39", "#5E6F82", "#5B6E83",
+        "#286FBD", "#FFFFFF",
         "#EAF3FF", "#F2F7FC", "#E0EBF8",
         "#24364A", "#24364A",
-        "#D9E7F6", "#586E82", "#7A8EA3",
+        "#D9E7F6", "#586E82", "#586D82",
         "#E2EEF9", "#1E2E3D",
         "#D65C52", "#3C9B7A", "#D2A14C",
-        "#3B8AE5", "#3BAA82", "#EAF2F8", "#2A6DC3",
+        "#286FBD", "#3BAA82", "#EAF2F8", "#2A6DC3",
         "#F4F8FD", "#F9FBFF", "#FFFFFF", "#EDF4FE",
         "#D7E3F0", "#EAF2FF", "#DCEAFB", "#B9CEE3",
         "#3B8AE5", "#3C7DCC", "#E4F0FF",
         "#D86052", "#DFB157", "#F2F7FF",
-        "#1F2B39", "#7A8EA3", "#4A607A", "#2F78D7", "#E8F1FB",
+        "#1F2B39", "#586D82", "#4A607A", "#286FBD", "#E8F1FB",
     ];
 
     private static readonly string[] GreenStartValues =

@@ -15,7 +15,7 @@ public sealed partial class EditorViewModel
         StopAutosave();
         try
         {
-            if (!await CommitRibbonDocumentsAsync(CancellationToken.None)) return;
+            if (!(await CommitRibbonDocumentsAsync(CancellationToken.None)).IsSuccess) return;
             var saved = await _projects.SaveAsync();
             if (!saved.IsSuccess) { ReportInPlace(saved.Error!); return; }
             var previous = _projects.GetSceneDocument(sceneId).Require().Revision;

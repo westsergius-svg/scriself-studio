@@ -54,7 +54,7 @@ public sealed class FirstUseRegressionTests
             Flush();
             var button = window.GetVisualDescendants().OfType<Button>().Single(b => b.Classes.Contains("addChapterColumn"));
             Assert.True(button.IsEffectivelyVisible && button.IsEffectivelyEnabled);
-            var point = button.TranslatePoint(new Point(button.Bounds.Width / 2, 80), window)!.Value;
+            var point = button.TranslatePoint(new Point(button.Bounds.Width / 2, button.Bounds.Height / 2), window)!.Value;
             var hit = window.InputHitTest(point) as Visual;
             Assert.True(ReferenceEquals(hit, button) || hit!.GetVisualAncestors().Contains(button));
             window.MouseDown(point, MouseButton.Left);

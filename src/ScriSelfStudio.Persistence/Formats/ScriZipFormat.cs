@@ -118,7 +118,8 @@ public static class ScriZipFormat
         }
     }
 
-    public static Result Write(string filePath, JsonObject manifest, JsonObject content, bool createBackup)
+    public static Result Write(string filePath, JsonObject manifest, JsonObject content, bool createBackup,
+        ScriSelfStudio.Contracts.Storage.ProjectFileVersion? expectedFileVersion = null)
     {
         var tempPath = filePath + AtomicFileWriter.TempSuffix;
         try
@@ -130,6 +131,12 @@ public static class ScriZipFormat
             }
 
             // Старый файл не перезаписывается без резервной копии (ТЗ п. 13).
+            var unchanged = ProjectFileAccess.CheckVersion(filePath, expectedFileVersion);
+            if (!unchanged.IsSuccess)
+            {
+                AtomicFileWriter.TryDelete(tempPath);
+                return unchanged;
+            }
             AtomicFileWriter.Replace(tempPath, filePath, createBackup);
             return Result.Success;
         }

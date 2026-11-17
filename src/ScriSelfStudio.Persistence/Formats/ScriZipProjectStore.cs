@@ -92,8 +92,15 @@ public sealed class ScriZipProjectStore : IProjectStore
                 "Откройте файл заново."));
         }
 
-        ScriZipMapper.ApplyToContent(request.Project, document.Manifest, document.Content, DateTimeOffset.UtcNow);
-        return Task.FromResult(ScriZipFormat.Write(request.FilePath, document.Manifest, document.Content, request.CreateBackup));
+        try { ScriZipMapper.ApplyToContent(request.Project, document.Manifest, document.Content, DateTimeOffset.UtcNow); }
+        catch (Exception error) when (error is System.Text.Json.JsonException or System.IO.InvalidDataException)
+        {
+            return Task.FromResult(Result.FromError(ErrorCode.ProjectFormatInvalid,
+                "Данные сцен неоднозначны или повреждены. Сохранение отменено; исходный файл не изменён.",
+                technicalDetails: error.Message, exception: error));
+        }
+        return Task.FromResult(ScriZipFormat.Write(request.FilePath, document.Manifest, document.Content,
+            request.CreateBackup, request.ExpectedFileVersion));
     }
 
     private static Result<ScriSelfStudio.Core.Model.Project> MapProject(ScriZipContent content)

@@ -1,8 +1,10 @@
 namespace ScriSelfStudio.Core.Updates;
 
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 
 /// <summary>
 /// Обновление с официального канала Scriborium. Адрес и формат взяты у старого
@@ -16,22 +18,27 @@ public sealed class ScriboriumUpdateService : IUpdateService
 
     /// <summary>Имя файла-манифеста в каталоге обновлений.</summary>
     public const string ManifestName = "latest.json";
+    /// <summary>Страница ручного скачивания для прежних неподписанных выпусков.</summary>
+    public const string DownloadPageUrl = "https://scriself.com/download";
 
     private const string UpdateFolderName = "ScriSelfStudioUpdate";
     private const string UpdaterUserAgent = "ScriSelfStudioUpdater/1.0";
 
-    private static readonly HttpClient SharedClient = new();
-
-    private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(25);
+    private static readonly HttpClient SharedClient = new(new HttpClientHandler { AllowAutoRedirect = false })
+        { Timeout = Timeout.InfiniteTimeSpan };
 
     private readonly Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> _send;
     private readonly string _currentVersion;
     private readonly Action _shutdown;
+    private readonly Func<ProcessStartInfo, Process?> _startProcess;
     private readonly string _runtimeIdentifier;
+    private readonly string _manifestPublicKey;
+    private readonly UpdateTransferOptions _transferOptions;
+    private readonly ConcurrentDictionary<string, string> _verifiedDownloads = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Канал обновлений приложения.</summary>
     public ScriboriumUpdateService()
-        : this(SharedClient.SendAsync, DefaultChannelUrl, ReadAssemblyVersion())
+        : this((request, token) => SharedClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token), DefaultChannelUrl, ReadAssemblyVersion())
     {
     }
 
@@ -41,13 +48,20 @@ public sealed class ScriboriumUpdateService : IUpdateService
         string channelUrl,
         string currentVersion,
         Action? shutdown = null,
-        string? runtimeIdentifier = null)
+        string? runtimeIdentifier = null,
+        string? manifestPublicKey = null,
+        UpdateTransferOptions? transferOptions = null,
+        Func<ProcessStartInfo, Process?>? startProcess = null)
     {
         _send = send;
         ChannelUrl = channelUrl;
         _currentVersion = currentVersion;
         _shutdown = shutdown ?? (() => Environment.Exit(0));
+        _startProcess = startProcess ?? Process.Start;
         _runtimeIdentifier = runtimeIdentifier ?? CurrentRuntimeIdentifier();
+        _manifestPublicKey = manifestPublicKey ?? SignedUpdateManifest.PublicKey;
+        _transferOptions = transferOptions ?? new UpdateTransferOptions();
+        _transferOptions.Validate();
     }
 
     /// <inheritdoc />
@@ -78,6 +92,11 @@ public sealed class ScriboriumUpdateService : IUpdateService
         catch (OperationCanceledException)
         {
             throw;
+        }
+        catch (InvalidDataException exception)
+        {
+            // Ошибка проверки не даёт перейти на неподписанный резервный источник.
+            return UpdateCheckResult.Failed(exception.Message);
         }
         catch (Exception exception)
         {
@@ -117,42 +136,109 @@ public sealed class ScriboriumUpdateService : IUpdateService
             throw new InvalidOperationException("Сборка обновления не подходит для этой платформы.");
         }
 
-        var directory = Path.Combine(Path.GetTempPath(), UpdateFolderName);
+        if (latest.FileName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0
+            || Path.GetFileName(latest.FileName) != latest.FileName
+            || !Uri.TryCreate(latest.Url, UriKind.Absolute, out var url) || url.Scheme != Uri.UriSchemeHttps
+            || url.UserInfo.Length != 0
+            || !Uri.TryCreate(UpdateFeedParser.JoinUrl(ChannelUrl, latest.FileName), UriKind.Absolute, out var expectedUrl)
+            || url != expectedUrl)
+        {
+            throw new InvalidDataException("Некорректный адрес или имя файла обновления.");
+        }
+        SignedUpdateManifest.Verify(latest, _manifestPublicKey);
+
+        var directory = Path.Combine(Path.GetTempPath(), UpdateFolderName, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
 
         var destination = Path.Combine(directory, latest.FileName);
         var partial = destination + ".part";
+        var completed = false;
 
-        using var timeout = CreateTimeoutToken(cancellationToken);
-        using var response = await _send(CreateRequest(latest.Url), timeout.Token).ConfigureAwait(false);
-        response.EnsureSuccessStatusCode();
-
-        var total = response.Content.Headers.ContentLength ?? -1;
-        var buffer = new byte[81920];
-        long received = 0;
-
-        await using (var source = await response.Content.ReadAsStreamAsync(timeout.Token).ConfigureAwait(false))
-        await using (var file = File.Create(partial))
+        try
         {
-            int read;
-            while ((read = await source.ReadAsync(buffer, timeout.Token).ConfigureAwait(false)) > 0)
+            using var request = CreateRequest(latest.Url);
+            HttpResponseMessage response;
+            using (var headersTimeout = CreateTimeoutToken(cancellationToken, _transferOptions.RequestTimeout))
             {
-                await file.WriteAsync(buffer.AsMemory(0, read), timeout.Token).ConfigureAwait(false);
-                received += read;
-                if (total > 0)
+                response = await _send(request, headersTimeout.Token).ConfigureAwait(false);
+            }
+            using var responseLifetime = response;
+            response.EnsureSuccessStatusCode();
+            using var transfer = CreateTimeoutToken(cancellationToken, _transferOptions.DownloadTimeout);
+            using var idle = CancellationTokenSource.CreateLinkedTokenSource(transfer.Token);
+            var total = response.Content.Headers.ContentLength ?? -1;
+            if (total > _transferOptions.MaxDownloadBytes)
+            {
+                throw new InvalidDataException("Файл обновления превышает допустимый размер.");
+            }
+            var buffer = new byte[81920];
+            long received = 0;
+            using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+            idle.CancelAfter(_transferOptions.IdleTimeout);
+            await using (var source = await response.Content.ReadAsStreamAsync(idle.Token).ConfigureAwait(false))
+            await using (var file = File.Create(partial))
+            {
+                while (true)
                 {
-                    progress?.Report(Math.Min(1d, (double)received / total));
+                    idle.CancelAfter(_transferOptions.IdleTimeout);
+                    var read = await source.ReadAsync(buffer.AsMemory(), idle.Token).ConfigureAwait(false);
+                    idle.CancelAfter(Timeout.InfiniteTimeSpan);
+                    if (read == 0) { break; }
+                    if (received > _transferOptions.MaxDownloadBytes - read)
+                    {
+                        throw new InvalidDataException("Файл обновления превышает допустимый размер.");
+                    }
+                    await file.WriteAsync(buffer.AsMemory(0, read), transfer.Token).ConfigureAwait(false);
+                    hash.AppendData(buffer, 0, read);
+                    received += read;
+                    if (total > 0) { progress?.Report(Math.Min(0.99, (double)received / total)); }
                 }
+                await file.FlushAsync(transfer.Token).ConfigureAwait(false);
+            }
+            var actual = Convert.ToHexString(hash.GetHashAndReset());
+            if (received == 0 || (total >= 0 && received != total)
+                || !string.Equals(actual, latest.Sha256, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidDataException("Файл обновления повреждён. Повторите скачивание.");
+            }
+            File.Move(partial, destination, overwrite: false);
+            _verifiedDownloads[Path.GetFullPath(destination)] = actual;
+            completed = true;
+            progress?.Report(1);
+            return destination;
+        }
+        catch (OperationCanceledException exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new TimeoutException("Скачивание обновления прервано: сервер долго не отвечает. Повторите попытку.", exception);
+        }
+        finally
+        {
+            if (!completed)
+            {
+                TryDelete(partial);
+                TryDelete(destination);
+                try { Directory.Delete(directory); }
+                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) { }
             }
         }
-
-        File.Move(partial, destination, overwrite: true);
-        return destination;
     }
 
     /// <inheritdoc />
     public void LaunchInstaller(string installerPath)
     {
+        var fullPath = Path.GetFullPath(installerPath);
+        if (!_verifiedDownloads.TryGetValue(fullPath, out var expected))
+        {
+            throw new InvalidDataException("Установщик не прошёл проверку обновления.");
+        }
+        // Windows не разрешает запись/замену файла до завершения запуска процесса.
+        using var launchLock = new FileStream(fullPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+        if (!string.Equals(Convert.ToHexString(SHA256.HashData(launchLock)), expected, StringComparison.Ordinal))
+        {
+            _verifiedDownloads.TryRemove(fullPath, out _);
+            throw new InvalidDataException("Установщик изменён после скачивания. Повторите скачивание.");
+        }
+        installerPath = fullPath;
         // Установщик заменяет файлы приложения: сначала запускаем его, затем выходим.
         ProcessStartInfo startInfo;
         if (OperatingSystem.IsMacOS())
@@ -165,7 +251,11 @@ public sealed class ScriboriumUpdateService : IUpdateService
             startInfo = new ProcessStartInfo(installerPath) { UseShellExecute = true };
         }
 
-        using var process = Process.Start(startInfo);
+        using var process = _startProcess(startInfo);
+        if (process is null)
+        {
+            throw new InvalidOperationException("Не удалось открыть установщик. Приложение остаётся открытым.");
+        }
         _shutdown();
     }
 
@@ -175,7 +265,12 @@ public sealed class ScriboriumUpdateService : IUpdateService
             ? "latest-" + _runtimeIdentifier + ".json" : ManifestName;
         var url = UpdateFeedParser.JoinUrl(ChannelUrl, manifestName);
         var body = await ReadTextAsync(url, cancellationToken).ConfigureAwait(false);
-        return UpdateFeedParser.ParseManifest(body, ChannelUrl, _runtimeIdentifier);
+        var manifest = UpdateFeedParser.ParseManifest(body, ChannelUrl, _runtimeIdentifier);
+        if (manifest?.Signature is not null)
+        {
+            SignedUpdateManifest.Verify(manifest, _manifestPublicKey);
+        }
+        return manifest;
     }
 
     private async Task<IReadOnlyList<UpdateInfo>> FetchListingAsync(CancellationToken cancellationToken)
@@ -186,10 +281,32 @@ public sealed class ScriboriumUpdateService : IUpdateService
 
     private async Task<string> ReadTextAsync(string url, CancellationToken cancellationToken)
     {
-        using var timeout = CreateTimeoutToken(cancellationToken);
-        using var response = await _send(CreateRequest(url), timeout.Token).ConfigureAwait(false);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadAsStringAsync(timeout.Token).ConfigureAwait(false);
+        using var timeout = CreateTimeoutToken(cancellationToken, _transferOptions.RequestTimeout);
+        using var request = CreateRequest(url);
+        try
+        {
+            using var response = await _send(request, timeout.Token).ConfigureAwait(false);
+            response.EnsureSuccessStatusCode();
+            await using var source = await response.Content.ReadAsStreamAsync(timeout.Token).ConfigureAwait(false);
+            using var body = new MemoryStream();
+            var buffer = new byte[8192];
+            int read;
+            while ((read = await source.ReadAsync(buffer.AsMemory(), timeout.Token).ConfigureAwait(false)) > 0)
+            {
+                if (body.Length > _transferOptions.MaxManifestBytes - read)
+                {
+                    throw new InvalidDataException("Ответ сервера обновлений слишком большой.");
+                }
+                body.Write(buffer, 0, read);
+            }
+            body.Position = 0;
+            using var reader = new StreamReader(body, detectEncodingFromByteOrderMarks: true);
+            return await reader.ReadToEndAsync(timeout.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new TimeoutException("Сервер обновлений не ответил вовремя.", exception);
+        }
     }
 
     private static HttpRequestMessage CreateRequest(string url)
@@ -200,11 +317,17 @@ public sealed class ScriboriumUpdateService : IUpdateService
         return request;
     }
 
-    private static CancellationTokenSource CreateTimeoutToken(CancellationToken cancellationToken)
+    private static CancellationTokenSource CreateTimeoutToken(CancellationToken cancellationToken, TimeSpan duration)
     {
         var source = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        source.CancelAfter(RequestTimeout);
+        source.CancelAfter(duration);
         return source;
+    }
+
+    private static void TryDelete(string path)
+    {
+        try { File.Delete(path); }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) { }
     }
 
     /// <summary>Версия приложения из сборки: <c>Version</c> в Directory.Build.props.</summary>

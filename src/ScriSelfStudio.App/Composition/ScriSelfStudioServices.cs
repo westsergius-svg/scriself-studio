@@ -102,6 +102,7 @@ public static class ScriSelfStudioServices
         services.AddSingleton<BookTreeViewModel>();
         services.AddSingleton<SceneContextViewModel>();
         services.AddSingleton<ArchitectureHostViewModel>();
+        services.AddSingleton<IWorkspaceSaveService, WorkspaceSaveService>();
         services.AddSingleton<ShellViewModel>();
         services.AddSingleton<MainWindow>();
         return services;

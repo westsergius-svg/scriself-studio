@@ -1,6 +1,7 @@
 namespace ScriSelfStudio.Persistence.Projects;
 
 using System.IO;
+using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using ScriSelfStudio.Contracts.Dtos;
 using ScriSelfStudio.Contracts.Errors;
@@ -9,15 +10,17 @@ using ScriSelfStudio.Contracts.Projects;
 using ScriSelfStudio.Contracts.Storage;
 using ScriSelfStudio.Core;
 using ScriSelfStudio.Core.Events;
+using ScriSelfStudio.Core.Json;
 using ScriSelfStudio.Core.Model;
 using ScriSelfStudio.Core.Text;
+using ScriSelfStudio.Persistence.FileSystem;
 using ScriSelfStudio.Persistence.Sqlite;
 
 /// <summary>
 /// Владелец открытого проекта (ТЗ п. 7, 22, 23): создание, открытие, сохранение,
 /// восстановление и выдача снимков для UI.
 /// </summary>
-public sealed partial class ProjectService : IProjectService
+public sealed partial class ProjectService : IProjectService, IDisposable
 {
     public const string DefaultSeriesTitle = "Основная";
 
@@ -30,6 +33,9 @@ public sealed partial class ProjectService : IProjectService
     private Project? _project;
     private string? _filePath;
     private bool _isDirty;
+    private long _revision;
+    private ProjectFileVersion? _fileVersion;
+    private readonly SemaphoreSlim _operationGate = new(1, 1);
 
     public ProjectService(
         IProjectStore store,
@@ -55,7 +61,10 @@ public sealed partial class ProjectService : IProjectService
 
     public bool IsDirty => _isDirty;
 
-    public async Task<Result<ProjectDto>> CreateAsync(CreateProjectRequest request, CancellationToken cancellationToken = default)
+    public Task<Result<ProjectDto>> CreateAsync(CreateProjectRequest request, CancellationToken cancellationToken = default) =>
+        RunSerializedAsync(() => CreateCoreAsync(request, cancellationToken), cancellationToken);
+
+    private async Task<Result<ProjectDto>> CreateCoreAsync(CreateProjectRequest request, CancellationToken cancellationToken)
     {
         if (_project is not null)
         {
@@ -94,7 +103,10 @@ public sealed partial class ProjectService : IProjectService
         return Result<ProjectDto>.Success(Current!);
     }
 
-    public async Task<Result<ProjectDto>> OpenAsync(string filePath, CancellationToken cancellationToken = default)
+    public Task<Result<ProjectDto>> OpenAsync(string filePath, CancellationToken cancellationToken = default) =>
+        RunSerializedAsync(() => OpenCoreAsync(filePath, cancellationToken), cancellationToken);
+
+    private async Task<Result<ProjectDto>> OpenCoreAsync(string filePath, CancellationToken cancellationToken)
     {
         if (_project is not null)
         {
@@ -111,6 +123,9 @@ public sealed partial class ProjectService : IProjectService
         }
 
         var path = pathResult.Require();
+        var acquired = ProjectFileAccess.AcquireLease(path);
+        if (!acquired.IsSuccess) return Result<ProjectDto>.Failure(acquired.Error!);
+        using var lease = acquired.Require();
         var loaded = await _store.LoadAsync(path, cancellationToken);
         if (!loaded.IsSuccess)
         {
@@ -120,6 +135,12 @@ public sealed partial class ProjectService : IProjectService
         var loadResult = loaded.Require();
         var project = loadResult.Project;
         RefreshSceneWords(project);
+        try { _fileVersion = ProjectFileAccess.ReadVersion(path); }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+            return Result<ProjectDto>.FromError(ErrorCode.StorageReadFailed,
+                "Не удалось проверить файл проекта. Повторите открытие.", technicalDetails: error.Message, exception: error);
+        }
         SetOpenProject(project, path, isDirty: false);
         _events.Publish(new ProjectOpened(project.Id, path, project.Name));
 
@@ -133,7 +154,10 @@ public sealed partial class ProjectService : IProjectService
         return Result<ProjectDto>.Success(Current!);
     }
 
-    public async Task<Result> SaveAsync(CancellationToken cancellationToken = default)
+    public Task<Result> SaveAsync(CancellationToken cancellationToken = default) =>
+        RunSerializedAsync(() => SaveCurrentCoreAsync(cancellationToken), cancellationToken);
+
+    private async Task<Result> SaveCurrentCoreAsync(CancellationToken cancellationToken)
     {
         if (_project is null || _filePath is null)
         {
@@ -145,7 +169,10 @@ public sealed partial class ProjectService : IProjectService
         return await SaveCoreAsync(_project, _filePath, createBackup, cancellationToken);
     }
 
-    public async Task<Result> SaveAsAsync(string filePath, CancellationToken cancellationToken = default)
+    public Task<Result> SaveAsAsync(string filePath, CancellationToken cancellationToken = default) =>
+        RunSerializedAsync(() => SaveAsCoreAsync(filePath, cancellationToken), cancellationToken);
+
+    private async Task<Result> SaveAsCoreAsync(string filePath, CancellationToken cancellationToken)
     {
         if (_project is null)
         {
@@ -171,7 +198,10 @@ public sealed partial class ProjectService : IProjectService
         return Result.Success;
     }
 
-    public Task<Result> CloseAsync(bool discardChanges, CancellationToken cancellationToken = default)
+    public Task<Result> CloseAsync(bool discardChanges, CancellationToken cancellationToken = default) =>
+        RunSerializedAsync(() => CloseCoreAsync(discardChanges), cancellationToken);
+
+    private Task<Result> CloseCoreAsync(bool discardChanges)
     {
         if (_project is null)
         {
@@ -190,6 +220,8 @@ public sealed partial class ProjectService : IProjectService
         _project = null;
         _filePath = null;
         _isDirty = false;
+        _fileVersion = null;
+        _revision = 0;
         _events.Publish(new ProjectClosed(projectId));
         return Task.FromResult(Result.Success);
     }
@@ -473,7 +505,10 @@ public sealed partial class ProjectService : IProjectService
         return await _recovery.FindAsync(pathResult.Require(), cancellationToken);
     }
 
-    public async Task<Result<ProjectDto>> RecoverAsync(RecoveryInfo recovery, CancellationToken cancellationToken = default)
+    public Task<Result<ProjectDto>> RecoverAsync(RecoveryInfo recovery, CancellationToken cancellationToken = default) =>
+        RunSerializedAsync(() => RecoverCoreAsync(recovery, cancellationToken), cancellationToken);
+
+    private async Task<Result<ProjectDto>> RecoverCoreAsync(RecoveryInfo recovery, CancellationToken cancellationToken)
     {
         if (_project is not null)
         {
@@ -491,6 +526,12 @@ public sealed partial class ProjectService : IProjectService
 
         var recovered = read.Require();
         RefreshSceneWords(recovered);
+        try { _fileVersion = ProjectFileAccess.ReadVersion(recovery.ProjectFilePath); }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+            return Result<ProjectDto>.FromError(ErrorCode.StorageReadFailed,
+                "Не удалось проверить исходный файл проекта. Повторите восстановление.", technicalDetails: error.Message, exception: error);
+        }
         SetOpenProject(recovered, recovery.ProjectFilePath, isDirty: true);
         _events.Publish(new ProjectOpened(recovery.ProjectId, recovery.ProjectFilePath, recovery.ProjectName));
         _events.Publish(new RecoveryDetected(recovery.RecoveryFilePath, recovery.WrittenAt));
@@ -502,12 +543,48 @@ public sealed partial class ProjectService : IProjectService
 
     private async Task<Result> SaveCoreAsync(Project project, string filePath, bool createBackup, CancellationToken cancellationToken)
     {
-        project.Audit.UpdatedAt = _clock.UtcNow;
         _events.Publish(new SaveStarted(project.Id, filePath));
+
+        var acquired = ProjectFileAccess.AcquireLease(filePath);
+        if (!acquired.IsSuccess)
+        {
+            _events.Publish(new SaveFailed(project.Id, filePath, acquired.Error!));
+            return Result.Failure(acquired.Error!);
+        }
+        using var lease = acquired.Require();
+
+        ProjectFileVersion expected;
+        Project snapshot;
+        var savedRevision = _revision;
+        try
+        {
+            expected = ReferenceEquals(project, _project)
+                ? string.Equals(filePath, _filePath, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal)
+                    ? _fileVersion ?? ProjectFileAccess.ReadVersion(filePath)
+                    : ProjectFileAccess.ReadVersion(filePath)
+                : new ProjectFileVersion(false, null);
+            snapshot = CloneProject(project);
+            snapshot.Audit.UpdatedAt = _clock.UtcNow;
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException)
+        {
+            var failure = Result.FromError(ErrorCode.StorageWriteFailed,
+                "Не удалось подготовить сохранение проекта. Правки остались открыты.", technicalDetails: error.Message, exception: error);
+            _events.Publish(new SaveFailed(project.Id, filePath, failure.Error!));
+            return failure;
+        }
+
+        // Устаревший владелец не должен заменять ни книгу, ни recovery актуального владельца.
+        var unchangedFile = ProjectFileAccess.CheckVersion(filePath, expected);
+        if (!unchangedFile.IsSuccess)
+        {
+            _events.Publish(new SaveFailed(project.Id, filePath, unchangedFile.Error!));
+            return unchangedFile;
+        }
 
         // Снимок восстановления создаётся до записи: если приложение упадёт во время
         // сохранения, состояние не потеряется (ТЗ п. 13, 28).
-        var recovery = await _recovery.WriteAsync(project, filePath, cancellationToken);
+        var recovery = await _recovery.WriteAsync(snapshot, filePath, cancellationToken);
         if (!recovery.IsSuccess)
         {
             _logger?.LogWarning("Не удалось создать снимок восстановления: {Code}.", recovery.Error!.Code);
@@ -515,9 +592,10 @@ public sealed partial class ProjectService : IProjectService
 
         var request = new ProjectSaveRequest
         {
-            Project = project,
+            Project = snapshot,
             FilePath = filePath,
             CreateBackup = createBackup,
+            ExpectedFileVersion = expected,
         };
 
         var saved = await _store.SaveAsync(request, cancellationToken);
@@ -527,17 +605,83 @@ public sealed partial class ProjectService : IProjectService
             return saved;
         }
 
-        await _recovery.DeleteAsync(filePath, cancellationToken);
-        SetDirty(false);
+        try { _fileVersion = ProjectFileAccess.ReadVersion(filePath); }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+            var failure = Result.FromError(ErrorCode.StorageReadFailed,
+                "Книга записана, но проверить файл не удалось. Правки остались открыты; повторите сохранение или сохраните копию.",
+                technicalDetails: error.Message, exception: error);
+            _events.Publish(new SaveFailed(project.Id, filePath, failure.Error!));
+            return failure;
+        }
+
+        // После записи отмена уже не должна прерывать защиту более новых правок.
+        if (!ReferenceEquals(project, _project))
+        {
+            await _recovery.DeleteAsync(filePath, CancellationToken.None);
+        }
+        else
+        {
+            if (_revision == savedRevision)
+            {
+                await _recovery.DeleteAsync(filePath, CancellationToken.None);
+            }
+
+            if (_revision == savedRevision)
+            {
+                SetDirty(false);
+            }
+            else
+            {
+                await RefreshRecoveryAsync(project, filePath);
+            }
+        }
         _events.Publish(new SaveCompleted(project.Id, filePath, _clock.UtcNow));
         return Result.Success;
     }
+
+    private async Task RefreshRecoveryAsync(Project project, string filePath)
+    {
+        long revision;
+        do
+        {
+            revision = _revision;
+            var result = await _recovery.WriteAsync(CloneProject(project), filePath, CancellationToken.None);
+            if (!result.IsSuccess)
+            {
+                _logger?.LogWarning("Не удалось обновить снимок восстановления: {Code}.", result.Error!.Code);
+                return;
+            }
+        }
+        while (_revision != revision);
+    }
+
+    private static Project CloneProject(Project project) =>
+        JsonSerializer.SerializeToElement(project, CoreJsonContext.Default.Project)
+            .Deserialize(CoreJsonContext.Default.Project)!;
+
+    private async Task<Result> RunSerializedAsync(Func<Task<Result>> operation, CancellationToken cancellationToken)
+    {
+        await _operationGate.WaitAsync(cancellationToken);
+        try { return await operation(); }
+        finally { _operationGate.Release(); }
+    }
+
+    private async Task<Result<T>> RunSerializedAsync<T>(Func<Task<Result<T>>> operation, CancellationToken cancellationToken)
+    {
+        await _operationGate.WaitAsync(cancellationToken);
+        try { return await operation(); }
+        finally { _operationGate.Release(); }
+    }
+
+    public void Dispose() => _operationGate.Dispose();
 
     private void SetOpenProject(Project project, string filePath, bool isDirty)
     {
         _project = project;
         _filePath = filePath;
         _isDirty = isDirty;
+        _revision = 0;
     }
 
     /// <summary>
@@ -557,6 +701,7 @@ public sealed partial class ProjectService : IProjectService
 
     private void SetDirty(bool isDirty)
     {
+        if (isDirty) _revision++;
         if (_isDirty == isDirty || _project is null)
         {
             _isDirty = isDirty;
